@@ -36,6 +36,9 @@ var/
 pip-log.txt
 pip-delete-this-directory.txt
 
+# Training logs
+**/train_log/
+
 # Unit test / coverage reports
 htmlcov/
 .tox/

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # File: DQN.py
 # Author: Amir Alansary <amiralansary@gmail.com>
+# Modified: Athanasios Vlontzos <athanasiosvlontzos@gmail.com>
 
 def warn(*args, **kwargs):
     pass
@@ -60,94 +61,139 @@ EVAL_EPISODE = 50
 ###############################################################################
 
 def get_player(directory=None, files_list= None, viz=False,
-               task='play', saveGif=False, saveVideo=False):
+               task='play', saveGif=False, saveVideo=False, agents=2, reward_strategy=1):
     # in atari paper, max_num_frames = 30000
     env = MedicalPlayer(directory=directory, screen_dims=IMAGE_SIZE,
                         viz=viz, saveGif=saveGif, saveVideo=saveVideo,
-                        task=task, files_list=files_list, max_num_frames=1500)
+                        task=task, files_list=files_list, agents=agents,
+                        max_num_frames=1500, reward_strategy=reward_strategy)
     if (task != 'train'):
         # in training, env will be decorated by ExpReplay, and history
         # is taken care of in expreplay buffer
         # otherwise, FrameStack modifies self.step to save observations into a queue
-        env = FrameStack(env, FRAME_HISTORY)
+        env = FrameStack(env, FRAME_HISTORY, agents=agents)
     return env
 
 ###############################################################################
 
 class Model(DQNModel):
-    def __init__(self):
-        super(Model, self).__init__(IMAGE_SIZE, FRAME_HISTORY, METHOD, NUM_ACTIONS, GAMMA)
+    def __init__(self, agents=2):
+        super(Model, self).__init__(IMAGE_SIZE, FRAME_HISTORY, METHOD, NUM_ACTIONS, GAMMA, agents)
 
-    def _get_DQN_prediction(self, image):
+    def _get_DQN_prediction(self, images):
         """ image: [0,255]
 
         :returns predicted Q values"""
         # normalize image values to [0, 1]
-        image = image / 255.0
+
+        agents = len(images)
+
+        Q_list = []
 
         with argscope(Conv3D, nl=PReLU.symbolic_function, use_bias=True):
-            # core layers of the network
-            conv = (LinearWrap(image)
-                 .Conv3D('conv0', out_channel=32,
-                         kernel_shape=[5,5,5], stride=[1,1,1])
-                 .MaxPooling3D('pool0',2)
-                 .Conv3D('conv1', out_channel=32,
-                         kernel_shape=[5,5,5], stride=[1,1,1])
-                 .MaxPooling3D('pool1',2)
-                 .Conv3D('conv2', out_channel=64,
-                         kernel_shape=[4,4,4], stride=[1,1,1])
-                 .MaxPooling3D('pool2',2)
-                 .Conv3D('conv3', out_channel=64,
-                         kernel_shape=[3,3,3], stride=[1,1,1])
-                 # .MaxPooling3D('pool3',2)
-                 )
 
-        if 'Dueling' not in self.method:
-            lq = (conv
-                 .FullyConnected('fc0', 512).tf.nn.leaky_relu(alpha=0.01)
-                 .FullyConnected('fc1', 256).tf.nn.leaky_relu(alpha=0.01)
-                 .FullyConnected('fc2', 128).tf.nn.leaky_relu(alpha=0.01)())
-            Q = FullyConnected('fct', lq, self.num_actions, nl=tf.identity)
-        else:
-            # Dueling DQN or Double Dueling
-            # state value function
-            lv = (conv
-                 .FullyConnected('fc0V', 512).tf.nn.leaky_relu(alpha=0.01)
-                 .FullyConnected('fc1V', 256).tf.nn.leaky_relu(alpha=0.01)
-                 .FullyConnected('fc2V', 128).tf.nn.leaky_relu(alpha=0.01)())
-            V = FullyConnected('fctV', lv, 1, nl=tf.identity)
-            # advantage value function
-            la = (conv
-                 .FullyConnected('fc0A', 512).tf.nn.leaky_relu(alpha=0.01)
-                 .FullyConnected('fc1A', 256).tf.nn.leaky_relu(alpha=0.01)
-                 .FullyConnected('fc2A', 128).tf.nn.leaky_relu(alpha=0.01)())
-            As = FullyConnected('fctA', la, self.num_actions, nl=tf.identity)
+            for i in range(0, agents):
+                images[i] = images[i] / 255.0
 
-            Q = tf.add(As, V - tf.reduce_mean(As, 1, keepdims=True))
+                # TODO: check whether this nested with argscope is correct
+                with argscope(Conv3D, nl=PReLU.symbolic_function, use_bias=True):
 
-        return tf.identity(Q, name='Qvalue')
+                    if i == 0:
+                        conv_0 = tf.layers.conv3d(images[i], name='conv0',
+                                                  filters=32, kernel_size=[5, 5, 5], strides=[1, 1, 1], padding='same',
+                                                  kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
+                                                      2.0),
+                                                  bias_initializer=tf.zeros_initializer())
+                        max_pool_0 = tf.layers.max_pooling3d(conv_0, 2, 2, name='max_pool0')
+                        conv_1 = tf.layers.conv3d(max_pool_0, name='conv1',
+                                                  filters=32, kernel_size=[5, 5, 5], strides=[1, 1, 1], padding='same',
+                                                  kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
+                                                      2.0),
+                                                  bias_initializer=tf.zeros_initializer())
+                        max_pool1 = tf.layers.max_pooling3d(conv_1, 2, 2, name='max_pool1')
+                        conv_2 = tf.layers.conv3d(max_pool1, name='conv2',
+                                                  filters=64, kernel_size=[4, 4, 4], strides=[1, 1, 1], padding='same',
+                                                  kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
+                                                      2.0),
+                                                  bias_initializer=tf.zeros_initializer())
+                        max_pool2 = tf.layers.max_pooling3d(conv_2, 2, 2, name='max_pool2')
+                        conv3 = tf.layers.conv3d(max_pool2, name='conv3',
+                                                 filters=64, kernel_size=[3, 3, 3], strides=[1, 1, 1], padding='same',
+                                                 kernel_initializer=tf.contrib.layers.variance_scaling_initializer(2.0),
+                                                 bias_initializer=tf.zeros_initializer())
+                    else:
+                        conv_0 = tf.layers.conv3d(images[i], name='conv0', reuse=True,
+                                                  filters=32, kernel_size=[5, 5, 5], strides=[1, 1, 1], padding='same',
+                                                  kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
+                                                      2.0),
+                                                  bias_initializer=tf.zeros_initializer())
+                        max_pool_0 = tf.layers.max_pooling3d(conv_0, 2, 2, name='max_pool0')
+                        conv_1 = tf.layers.conv3d(max_pool_0, name='conv1', reuse=True,
+                                                  filters=32, kernel_size=[5, 5, 5], strides=[1, 1, 1], padding='same',
+                                                  kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
+                                                      2.0),
+                                                  bias_initializer=tf.zeros_initializer())
+                        max_pool1 = tf.layers.max_pooling3d(conv_1, 2, 2, name='max_pool1')
+                        conv_2 = tf.layers.conv3d(max_pool1, name='conv2', reuse=True,
+                                                  filters=64, kernel_size=[4, 4, 4], strides=[1, 1, 1], padding='same',
+                                                  kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
+                                                      2.0),
+                                                  bias_initializer=tf.zeros_initializer())
+                        max_pool2 = tf.layers.max_pooling3d(conv_2, 2, 2, name='max_pool2')
+                        conv3 = tf.layers.conv3d(max_pool2, name='conv3', reuse=True,
+                                                 filters=64, kernel_size=[3, 3, 3], strides=[1, 1, 1], padding='same',
+                                                 kernel_initializer=tf.contrib.layers.variance_scaling_initializer(2.0),
+                                                 bias_initializer=tf.zeros_initializer())
+
+                ### now for the dense layers##
+                if 'Dueling' not in self.method:
+                    fc0 = FullyConnected('fc0_{}'.format(i), conv3, 512, activation=tf.nn.relu)
+                    fc1 = FullyConnected('fc1_{}'.format(i), fc0, 256, activation=tf.nn.relu)
+                    fc2 = FullyConnected('fc2_{}'.format(i), fc1, 128, activation=tf.nn.relu)
+                    Q = FullyConnected('fct_{}'.format(i), fc2, self.num_actions, nl=tf.identity)
+                    Q_list.append(tf.identity(Q, name='Qvalue_{}'.format(i)))
+
+
+
+                else:
+                    fc0 = FullyConnected('fc0V_{}'.format(i), conv3, 512, activation=tf.nn.relu)
+                    fc1 = FullyConnected('fc1V_{}'.format(i), fc0, 256, activation=tf.nn.relu)
+                    fc2 = FullyConnected('fc2V_{}'.format(i), fc1, 128, activation=tf.nn.relu)
+                    V = FullyConnected('fctV_{}'.format(i), fc2, 1, nl=tf.identity)
+
+                    fcA0 = FullyConnected('fc0V_{}'.format(i), conv3, 512, activation=tf.nn.relu)
+                    fcA1 = FullyConnected('fc1V_{}'.format(i), fcA0, 256, activation=tf.nn.relu)
+                    fcA2 = FullyConnected('fc2V_{}'.format(i), fcA1, 128, activation=tf.nn.relu)
+                    A = FullyConnected('fctV_{}'.format(i), fcA2, self.num_actions, nl=tf.identity)
+
+                    Q = tf.add(A, V - tf.reduce_mean(A, 1, keepdims=True))
+                    Q_list.append(tf.identity(Q, name='Qvalue_{}'.format(i)))
+
+        return Q_list
 
 
 ###############################################################################
 
-def get_config(files_list):
+def get_config(files_list, input_names=['state_1','state_2'],
+             output_names=['Qvalue_1','Qvalue_2'],agents=2,reward_strategy=1):
     """This is only used during training."""
     expreplay = ExpReplay(
-        predictor_io_names=(['state'], ['Qvalue']),
-        player=get_player(task='train', files_list=files_list),
+        predictor_io_names=(input_names, output_names),
+        player=get_player(task='train', files_list=files_list,agents=agents,reward_strategy=reward_strategy),
         state_shape=IMAGE_SIZE,
         batch_size=BATCH_SIZE,
         memory_size=MEMORY_SIZE,
         init_memory_size=INIT_MEMORY_SIZE,
         init_exploration=1.0,
         update_frequency=UPDATE_FREQ,
-        history_len=FRAME_HISTORY
+        history_len=FRAME_HISTORY,
+        agents=agents
     )
 
     return TrainConfig(
         # dataflow=expreplay,
         data=QueueInput(expreplay),
-        model=Model(),
+        model=Model(agents=agents),
         callbacks=[
             ModelSaver(),
             PeriodicTrigger(
@@ -163,9 +209,9 @@ def get_config(files_list):
                 [(0, 1), (10, 0.1), (320, 0.01)],
                 interp='linear'),
             PeriodicTrigger(
-                Evaluator(nr_eval=EVAL_EPISODE, input_names=['state'],
-                          output_names=['Qvalue'], files_list=files_list,
-                          get_player_fn=get_player),
+                Evaluator(nr_eval=EVAL_EPISODE, input_names=input_names,
+                          output_names=output_names, files_list=files_list,
+                          get_player_fn=get_player,agents=agents,reward_strategy=reward_strategy),
                 every_k_epochs=EPOCHS_PER_EVAL),
             HumanHyperParamSetter('learning_rate'),
         ],
@@ -202,6 +248,8 @@ if __name__ == '__main__':
                         default='train_log')
     parser.add_argument('--name', help='name of current experiment for logs',
                         default='experiment_1')
+    parser.add_argument('--agents', help='Number of agents to train together', default=2)
+    parser.add_argument('--reward_strategy', help='Reward strategies: 1 is simple, 2 is line based, 3 is agent based', default=1)
 
 
     args = parser.parse_args()
@@ -212,45 +260,61 @@ if __name__ == '__main__':
     # check input files
     if args.task == 'play':
         error_message = """Wrong input files {} for {} task - should be 1 \'images.txt\' """.format(len(args.files), args.task)
-        assert len(args.files) == 1
+        assert len(args.files) == 1, (error_message)
     else:
         error_message = """Wrong input files {} for {} task - should be 2 [\'images.txt\', \'landmarks.txt\'] """.format(len(args.files), args.task)
         assert len(args.files) == 2, (error_message)
 
+    args.agents=int(args.agents)
 
     METHOD = args.algo
     # load files into env to set num_actions, num_validation_files
     init_player = MedicalPlayer(files_list=args.files,
                                 screen_dims=IMAGE_SIZE,
-                                task='play')
+                                task='train',
+                                agents=args.agents,
+                                reward_strategy=args.reward_strategy)
     NUM_ACTIONS = init_player.action_space.n
     num_files = init_player.files.num_files
+
+    ##########################################################
+    # Initialize states and Qvalues for the various agents
+    state_names=[]
+    qvalue_names=[]
+    for i in range (0,args.agents):
+        state_names.append('state_{}'.format(i))
+        qvalue_names.append('Qvalue_{}'.format(i))
+    ############################################################
 
     if args.task != 'train':
         assert args.load is not None
         pred = OfflinePredictor(PredictConfig(
-            model=Model(),
+            model=Model(agents=args.agents),
             session_init=get_model_loader(args.load),
-            input_names=['state'],
-            output_names=['Qvalue']))
+            input_names=state_names,
+            output_names=qvalue_names))
         # demo pretrained model one episode at a time
         if args.task == 'play':
             play_n_episodes(get_player(files_list=args.files, viz=0.01,
                                        saveGif=args.saveGif,
                                        saveVideo=args.saveVideo,
-                                       task='play'),
+                                       task='play', agents=args.agents,
+                                       reward_strategy=args.reward_strategy),
                             pred, num_files)
         # run episodes in parallel and evaluate pretrained model
         elif args.task == 'eval':
             play_n_episodes(get_player(files_list=args.files, viz=0.01,
                                        saveGif=args.saveGif,
                                        saveVideo=args.saveVideo,
-                                       task='eval'),
+                                       task='eval', agents=args.agents,
+                                       reward_strategy=args.reward_strategy),
                             pred, num_files)
     else:  # train model
         logger_dir = os.path.join(args.logDir, args.name)
         logger.set_logger_dir(logger_dir)
-        config = get_config(args.files)
+        config = get_config(args.files, input_names=state_names,
+             output_names=qvalue_names, agents=args.agents,
+             reward_strategy=args.reward_strategy)
         if args.load:  # resume training from a saved checkpoint
             config.session_init = get_model_loader(args.load)
         launch_train_with_config(config, SimpleTrainer())
