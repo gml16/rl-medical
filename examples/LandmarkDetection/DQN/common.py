@@ -26,32 +26,56 @@ import traceback
 
 ###############################################################################
 
-def play_one_episode(env, func, render=False):
-    def predict(s):
+def play_one_episode(env, func, render=False, agents=1):
+
+    def predict(s, agents):
         """
         Run a full episode, mapping observation to action, WITHOUT 0.001 greedy.
-    :returns sum of rewards
+        :returns sum of rewards
         """
         # pick action with best predicted Q-value
-        q_values = func(s[None, :, :, :])[0][0]
-        act = q_values.argmax()
+        q_values = []
+        acts = np.zeros((agents,))
+        for i in range(agents):
+            #logger.info("func " + str(func(s[i][None, :, :, :])))
+            q_values.append(func(s[i][None, :, :, :])[0][0])
+            #logger.info("q_values " + str(q_values))
+            #input()
+            acts[i] = q_values[i].argmax()
 
-        # eps greedy disabled
-        # if random.random() < 0.001:
-        #     spc = env.action_space
-        #     act = spc.sample()
-        return act, q_values
+        #for i in range(agents):
+        #    s[i]=s[i][None,:,:,:]
+        # When model is for n agent
+        # q_values = func(*s)
+        # When model is for 1 agent
+        #for i in range(agents):
+        #    q_values[i] = func(*s[i])
+        #for i in range(agents):
+        #    q_values[i] = q_values[i].flatten()
+        #    acts[i] = np.argmax(q_values[i])
+        return acts, q_values
 
-    ob = env.reset()
-    sum_r = 0
+    obs = env.reset()
+    obs = list(obs)
+    sum_r = np.zeros((agents,))
+    filenames_list = []
+    distError_list = []
+    isOver = [False] * agents
     while True:
-        act, q_values = predict(ob)
-        ob, r, isOver, info = env.step(act, q_values)
+        acts, q_values = predict(obs, agents)
+        obs, r, isOver, info = env.step(acts, q_values, isOver)
+        obs = list(obs)
         if render:
             env.render()
-        sum_r += r
-        if isOver:
-            return sum_r, info['filename'], info['distError'], q_values
+
+        for i in range(agents):
+            if not isOver[i]:
+                sum_r[i] += r[i]
+            if np.all(isOver):
+                filenames_list.append(info['filename_{}'.format(i)])
+                distError_list.append(info['distError_{}'.format(i)])
+        if np.all(isOver):
+            return sum_r, filenames_list, distError_list, q_values
 
 
 ###############################################################################
@@ -65,7 +89,8 @@ def play_n_episodes(player, predfunc, nr, render=False):
         #     player.restart_episode()
         score, filename, ditance_error, q_values = play_one_episode(player,
                                                                     predfunc,
-                                                                    render=render)
+                                                                    render=render,
+                                                                    agents=player.agents)
         logger.info(
             "{}/{} - {} - score {} - distError {} - q_values {}".format(k + 1, nr, filename, score, ditance_error,
                                                                         q_values))

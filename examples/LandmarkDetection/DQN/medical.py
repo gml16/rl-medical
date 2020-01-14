@@ -24,6 +24,7 @@ import threading
 import numpy as np
 from tensorpack import logger
 from collections import (Counter, defaultdict, deque, namedtuple)
+import copy
 
 import cv2
 import math
@@ -63,7 +64,7 @@ class MedicalPlayer(gym.Env):
 
     def __init__(self, directory=None, viz=False, task=False, files_list=None,
                  screen_dims=(27,27,27), history_length=20, multiscale=True,
-                 max_num_frames=0, saveGif=False, saveVideo=False, agents=2, reward_strategy=1):
+                 max_num_frames=0, saveGif=False, saveVideo=False, agents=1, reward_strategy=1):
         """
         :param train_directory: environment or game name
         :param viz: visualization
@@ -100,10 +101,10 @@ class MedicalPlayer(gym.Env):
 
         super(MedicalPlayer, self).__init__()
         self.agents = agents
+
         # inits stat counters
         self.reset_stat()
 
-        self.reward_strategy = reward_strategy
         # counter to limit number of steps per episodes
         self.cnt = 0
         # maximum number of frames (steps) per episodes
@@ -140,28 +141,24 @@ class MedicalPlayer(gym.Env):
                 self.viewer = None
                 self.gif_buffer = []
         # stat counter to store current score or accumlated reward
-        self.current_episode_score = StatCounter()
+        self.current_episode_score = [StatCounter()] * self.agents
         # get action space and minimal action set
         self.action_space = spaces.Discrete(6)  # change number actions here
         self.actions = self.action_space.n
         self.observation_space = spaces.Box(low=0, high=255,
                                             shape=self.screen_dims,
                                             dtype=np.uint8)
+        self.reward_strategy = reward_strategy
+
         # history buffer for storing last locations to check oscilations
         self._history_length = history_length
-        self._loc_history=[]
-        self._qvalues_history=[]
-        # stat counter to store current score or accumlated reward
-        self.current_episode_score=[]
-        self.rectangle=[]
-        for i in range(0,self.agents):
-            self.current_episode_score.append(StatCounter())
-            self._loc_history.append([(0,) * self.dims] * self._history_length)
-            self._qvalues_history.append([(0,) * self.actions] * self._history_length)
-            self.rectangle.append(Rectangle(0, 0, 0, 0, 0, 0)) # initialize rectangle limits from input image coordinates
+        self._loc_history = [[(0,) * self.dims] * self._history_length] * int(self.agents)
+        self._qvalues_history = [[(0,) * self.actions] * self._history_length] * int(self.agents)
+        # initialize rectangle limits from input image coordinates
+        self.rectangle = [Rectangle(0, 0, 0, 0, 0, 0)] * int(self.agents)
 
-        # Add your data loader here
-        # Should we use filesListCardioMRLandmark or filesListBrainMRLandmark?
+
+        # add your data loader here
         if self.task == 'play':
             self.files = filesListBrainMRLandmark(files_list,
                                                   returnLandmarks=False,
@@ -170,7 +167,6 @@ class MedicalPlayer(gym.Env):
             self.files = filesListBrainMRLandmark(files_list,
                                                   returnLandmarks=True,
                                                   agents=self.agents)
-
 
         # prepare file sampler
         self.filepath = None
@@ -185,21 +181,18 @@ class MedicalPlayer(gym.Env):
 
     def _restart_episode(self):
         """
-        restart current episoide
+        restart current episode
         """
+        logger.info("Medical Player restarting episode")
         self.terminal = [False] * self.agents
         self.reward = np.zeros((self.agents,))
         self.cnt = 0 # counter to limit number of steps per episodes
         self.num_games.feed(1)
-        self._loc_history=[]
-        self._qvalues_history=[]
-        for i in range(0,self.agents):
+        self._loc_history = [[(0,) * self.dims] * self._history_length] * self.agents
+        # list of q-value lists
+        self._qvalues_history = [[(0,) * self.actions] * self._history_length] * self.agents
+        for i in range(0, self.agents):
             self.current_episode_score[i].reset()
-
-            self._loc_history.append([(0,) * self.dims] * self._history_length)
-            # list of q-value lists
-            self._qvalues_history.append([(0,) * self.actions] * self._history_length)
-
         self.new_random_game()
 
     def new_random_game(self):
@@ -240,22 +233,7 @@ class MedicalPlayer(gym.Env):
 
         # # sample a new image
         self._image, self._target_loc, self.filepath, self.spacing = next(self.sampled_files)
-
-        ###################### calculate distance of all the landmarks ################################
-        combi = itertools.combinations(range(self.agents), 2)
-        combi = list(combi)
-        self.all_distances = np.zeros((self.agents,self.agents))
-        for a, b in combi:
-            self.all_distances[a, b] = self.calcDistance(self._target_loc[a], self._target_loc[b], self.spacing)
-            self.all_distances[b, a] = self.all_distances[a, b]
-        #######################################################################
-
-
-        self.filename=[]
-        # # sample a new image
-        # self._image, self._target_loc, self.filepath, self.spacing = next(self.sampled_files)
-        for i in range(0,self.agents):
-            self.filename.append(os.path.basename(self.filepath[i]))
+        self.filename = [os.path.basename(self.filepath[i]) for i in range(self.agents)]
 
         # multiscale (e.g. start with 3 -> 2 -> 1)
         # scale can be thought of as sampling stride
@@ -281,7 +259,7 @@ class MedicalPlayer(gym.Env):
         #######################################################################
         ## select random starting point
         # add padding to avoid start right on the border of the image
-        if (self.task == 'train'):
+        if self.task == 'train':
             skip_thickness = ((int)(self._image_dims[0]/5),
                               (int)(self._image_dims[1]/5),
                               (int)(self._image_dims[2]/5))
@@ -290,44 +268,24 @@ class MedicalPlayer(gym.Env):
                               int(self._image_dims[1] / 4),
                               int(self._image_dims[2] / 4))
 
-        if self.task == 'train':
-            x=[]
-            y=[]
-            z=[]
-            for i in range(0,self.agents):
-                x.append(self.rng.randint(0 + skip_thickness[0],
-                                 self._image_dims[0] - skip_thickness[0]))
-                y.append(self.rng.randint(0 + skip_thickness[1],
-                                 self._image_dims[1] - skip_thickness[1]))
-                z.append(self.rng.randint(0 + skip_thickness[2],
-                                 self._image_dims[2] - skip_thickness[2]))
-        else:
-            x=[]
-            y=[]
-            z=[]
-            for i in range(0,self.agents):
-                x.append(x_temp)
-                y.append(y_temp)
-                z.append(z_temp)
+
+        # TODO: should agents start at the same random points
+        x=[self.rng.randint(0 + skip_thickness[0], self._image_dims[0] - skip_thickness[0])] * self.agents
+        y=[self.rng.randint(0 + skip_thickness[1], self._image_dims[1] - skip_thickness[1])] * self.agents
+        z=[self.rng.randint(0 + skip_thickness[2], self._image_dims[2] - skip_thickness[2])] * self.agents
+
         #######################################################################
 
-        self._location=[]
-        self._start_location=[]
-        for i in range(0,self.agents):
-            self._location.append((x[i], y[i], z[i]))
-            self._start_location.append((x[i], y[i], z[i]))
-
-        self._qvalues = [[0, ] * self.actions]*self.agents
+        self._location=[(x[i], y[i], z[i]) for i in range(self.agents)]
+        self._start_location=[(x[i], y[i], z[i]) for i in range(self.agents)]
+        self._qvalues = [[0, ] * self.actions] * self.agents
         self._screen = self._current_state()
 
         if self.task == 'play':
-            self.cur_dist = [0, ]*self.agents
+            self.cur_dist = [0, ] * self.agents
         else:
-            self.cur_dist=[]
-            for i in range(0,self.agents):
-                self.cur_dist.append( self.calcDistance(self._location[i],
-                                              self._target_loc[i],
-                                              self.spacing))
+            self.cur_dist=[self.calcDistance(self._location[i], self._target_loc[i], self.spacing) for i in range(self.agents)]
+        logger.info("Current distance is " + str(self.cur_dist))
 
     def calcDistance(self, points1, points2, spacing=(1, 1, 1)):
         """ calculate the distance between two points in mm"""
@@ -336,7 +294,7 @@ class MedicalPlayer(gym.Env):
         points2 = spacing * np.array(points2)
         return np.linalg.norm(points1 - points2)
 
-    def step(self, act, qvalues, isOver):
+    def step(self, act, q_values, isOver):
         """The environment's step function returns exactly what we need.
         Args:
           act:
@@ -361,16 +319,17 @@ class MedicalPlayer(gym.Env):
             official evaluations of your agent are not allowed to use this for
             learning.
         """
-        for i in range(0,self.agents):
+        for i in range(self.agents):
             if isOver[i] : act[i]=10
-        self._qvalues = qvalues
+        self._qvalues = q_values
         current_loc = self._location
-        next_location=copy.deepcopy(current_loc)
+        next_location = copy.deepcopy(current_loc)
+
         self.terminal = [False] * self.agents
-        go_out = [False]*self.agents
+        go_out = [False] * self.agents
 
         ######################## agent i movement #############################
-        for i in range(0,self.agents):
+        for i in range(self.agents):
             # UP Z+ -----------------------------------------------------------
             if (act[i] == 0):
                 next_location[i] = (current_loc[i][0],
@@ -463,7 +422,6 @@ class MedicalPlayer(gym.Env):
                     self.terminal[i]=True
                     self.num_success[i].feed(1)
 
-
         # terminate if maximum number of steps is reached
         self.cnt += 1
         if self.cnt >= self.max_num_frames:
@@ -477,11 +435,14 @@ class MedicalPlayer(gym.Env):
                                                          self._target_loc[i],
                                                          self.spacing)
 
+
+
         self._update_history()
 
         # check if agent oscillates
         if self._oscillate:
             self._location = self.getBestLocation()
+            # self._location=[item for sublist in temp for item in sublist]
             self._screen = self._current_state()
 
             if (self.task != 'play'):
@@ -489,6 +450,8 @@ class MedicalPlayer(gym.Env):
                     self.cur_dist[i] = self.calcDistance(self._location[i],
                                                              self._target_loc[i],
                                                              self.spacing)
+
+
             # multi-scale steps
             if self.multiscale:
                 if self.xscale > 1:
@@ -499,16 +462,18 @@ class MedicalPlayer(gym.Env):
                     self._clear_history()
                 # terminate if scale is less than 1
                 else:
+
                     for i in range(0,self.agents):
                         self.terminal[i] = True
                         if self.cur_dist[i] <= 1 :
                             self.num_success[i].feed(1)
+
             else:
+
                 for i in range(0, self.agents):
                     self.terminal[i] = True
                     if self.cur_dist[i] <= 1:
                         self.num_success[i].feed(1)
-
         # render screen if viz is on
         with _ALE_LOCK:
             if self.viz:
@@ -520,12 +485,14 @@ class MedicalPlayer(gym.Env):
         for i in range(0,self.agents):
             self.current_episode_score[i].feed(self.reward[i])
 
+
         info = {}
-        for i in range(0,self.agents):
+        for i in range(self.agents):
             info['score_{}'.format(i)]=self.current_episode_score[i].sum
             info['gameOver_{}'.format(i)]=self.terminal[i]
             info['distError_{}'.format(i)]=distance_error[i]
             info['filename_{}'.format(i)]=self.filename[i]
+
         # #######################################################################
         # ## generate evaluation results from 19 different points
         # if self.terminal:
@@ -542,7 +509,6 @@ class MedicalPlayer(gym.Env):
         #         logger.info('final distance error {} \n'.format(self.cur_dist))
         #         self.count_points = 0
         # #######################################################################
-
         return self._current_state(), self.reward, self.terminal, info
 
     def getBestLocation(self):
@@ -550,34 +516,32 @@ class MedicalPlayer(gym.Env):
         stored in history
         '''
         best_location = []
-        for i in range(0,self.agents):
-            last_qvalues_history=self._qvalues_history[i][-4:]
-            last_loc_history= self._loc_history[i][-4:]
-            best_qvalues=np.max(last_qvalues_history, axis=1)
-            best_idx=best_qvalues.argmin()
+        for i in range(self.agents):
+            last_qvalues_history = self._qvalues_history[i][-4:]
+            last_loc_history = self._loc_history[i][-4:]
+            best_qvalues = np.max(last_qvalues_history, axis=1)
+            best_idx = best_qvalues.argmin()
             best_location.append(last_loc_history[best_idx])
+
         return best_location
 
     def _clear_history(self):
         ''' clear history buffer with current state
         '''
-        self._loc_history=[]
-        self._qvalues_history=[]
-        for i in range(0,self.agents):
-            self._loc_history.append([(0,) * self.dims] * self._history_length)
-            self._qvalues_history.append([(0,) * self.actions] * self._history_length)
+        self._loc_history = [[(0,) * self.dims] * self._history_length] * self.agents
+        self._qvalues_history = [[(0,) * self.actions] * self._history_length] * self.agents
 
     def _update_history(self):
         ''' update history buffer with current state
         '''
-
-        for i in range(0,self.agents):
+        for i in range(self.agents):
             # update location history
-            self._loc_history[i][:-1]=self._loc_history[i][1:]
+            self._loc_history[i][:-1] = self._loc_history[i][1:]
             self._loc_history[i][-1] = self._location[i]
+
             # update q-value history
-            self._qvalues_history[i][:-1]=self._qvalues_history[i][1:]
-            self._qvalues_history[i][-1]=np.ravel(self._qvalues[i])
+            self._qvalues_history[i][:-1] = self._qvalues_history[i][1:]
+            self._qvalues_history[i][-1] = np.ravel(self._qvalues[i])
 
     def _current_state(self):
         """
@@ -587,15 +551,16 @@ class MedicalPlayer(gym.Env):
         :return: new state
         """
         # initialize screen with zeros - all background
-        screen = np.zeros((self.agents,self.screen_dims[0],self.screen_dims[1],self.screen_dims[2])).astype(self._image[0].data.dtype)
+        screen = np.zeros((self.agents, self.screen_dims[0], self.screen_dims[1], self.screen_dims[2])).astype(self._image[0].data.dtype)
 
-        for i in range(0,self.agents):
+        for i in range(self.agents):
             # screen uses coordinate system relative to origin (0, 0, 0)
             screen_xmin, screen_ymin, screen_zmin = 0, 0, 0
             screen_xmax, screen_ymax, screen_zmax = self.screen_dims
 
             # extract boundary locations using coordinate system relative to "global" image
             # width, height, depth in terms of screen coord system
+
             if self.xscale % 2:
                 xmin = self._location[i][0] - int(self.width * self.xscale / 2) - 1
                 xmax = self._location[i][0] + int(self.width * self.xscale / 2)
@@ -610,6 +575,8 @@ class MedicalPlayer(gym.Env):
                 ymax = self._location[i][1] + round(self.height * self.yscale / 2)
                 zmin = self._location[i][2] - round(self.depth * self.zscale / 2)
                 zmax = self._location[i][2] + round(self.depth * self.zscale / 2)
+
+            ###########################################################
 
             # check if they violate image boundary and fix it
             if xmin < 0:
@@ -636,152 +603,35 @@ class MedicalPlayer(gym.Env):
             # scale can be thought of as a stride
             screen[i,screen_xmin:screen_xmax, screen_ymin:screen_ymax, screen_zmin:screen_zmax] = self._image[i].data[xmin:xmax:self.xscale, ymin:ymax:self.yscale, zmin:zmax:self.zscale]
 
+            ###########################################################
             # update rectangle limits from input image coordinates
             # this is what the network sees
             self.rectangle[i] = Rectangle(xmin, xmax,
                                           ymin, ymax,
                                           zmin, zmax)
-
         return screen
 
+    # Should the argument agent not be renamed to image rather?
     def get_plane(self, z=0, agent=0):
         return self._image[agent].data[:, :, z]
 
-    def _calc_reward(self, current_loc, next_loc):
+    def _calc_reward(self, current_loc, next_loc, agent):
         """ Calculate the new reward based on the decrease in euclidean distance to the target location
         """
         curr_dist = self.calcDistance(current_loc, self._target_loc[agent],
                                   self.spacing)
         next_dist = self.calcDistance(next_loc, self._target_loc[agent],
                                   self.spacing)
-        dist = curr_dist - next_dist
-        return dist
+        return curr_dist - next_dist
 
-    def _calc_reward_geometric(self, current_loc, next_loc,agent):
-        """ Calculate the new reward based on the decrease in euclidean distance to the target location
-        """
-        curr_dist_line=np.linalg.norm(np.cross(self._target_loc[0] - current_loc,
-                                                             self._target_loc[0] - self._target_loc[1])) / np.linalg.norm(
-                            self._target_loc[0] - self._target_loc[1])
-        next_dist_line = np.linalg.norm(np.cross(self._target_loc[0] - next_loc,
-                                                 self._target_loc[0] - self._target_loc[1])) / np.linalg.norm(
-            self._target_loc[0] - self._target_loc[1])
-
-        curr_dist = self.calcDistance(current_loc, self._target_loc[agent],
-                                  self.spacing)
-        next_dist = self.calcDistance(next_loc, self._target_loc[agent],
-                                  self.spacing)
-        dist=curr_dist - next_dist
-        dist_line = curr_dist_line - next_dist_line
-
-        tot_dist = dist + dist_line
-        return tot_dist
-
-    def _calc_reward_geometric_generalized(self, current_loc, next_loc,agent):
-        """ Calculate the new reward based on the decrease in euclidean distance to the target location
-        """
-        curr_dist_line=[]
-        next_dist_line=[]
-        for i in range(0,self.agents):
-            if i != agent:
-
-                curr_dist_line.append(np.linalg.norm(np.cross(self._target_loc[agent] - current_loc, self._target_loc[agent] - self._target_loc[i])) / np.linalg.norm(self._target_loc[agent] - self._target_loc[i]))
-                next_dist_line.append(np.linalg.norm(np.cross(self._target_loc[agent] - next_loc, self._target_loc[agent] - self._target_loc[i])) / np.linalg.norm(
-                    self._target_loc[agent] - self._target_loc[i]))
-
-        curr_dist_line = np.mean(curr_dist_line)
-        next_dist_line = np.mean(next_dist_line)
-
-        curr_dist = self.calcDistance(current_loc, self._target_loc[agent],
-                                  self.spacing)
-        next_dist = self.calcDistance(next_loc, self._target_loc[agent],
-                                  self.spacing)
-        dist=curr_dist - next_dist
-        dist_line = curr_dist_line - next_dist_line
-        tot_dist = dist + dist_line
-        return tot_dist
-
-    def _distance_to_other_agents(self, current_locs, next_locs,agent):
-        """ Calculate the new reward based on the decrease in euclidean distance to the target location
-        """
-        rel_improv=[]
-        for i in range(0,self.agents):
-            if agent != i:
-                current_loc_distance = self.calcDistance(current_locs[agent],current_locs[i],self.spacing)
-                next_loc_distance = self.calcDistance(next_locs[agent],next_locs[i],self.spacing)
-                current_distance_target_loc = current_loc_distance - self.all_distances[agent,i]
-                next_distance_target_loc = next_loc_distance - self.all_distances[agent,i]
-                rel_improv.append(np.abs(current_distance_target_loc) - np.abs(next_distance_target_loc))
-
-
-        rel_improv = np.mean(rel_improv)
-
-        curr_dist = self.calcDistance(current_locs[agent], self._target_loc[agent],
-                                  self.spacing)
-        next_dist = self.calcDistance(next_locs[agent], self._target_loc[agent],
-                                  self.spacing)
-        dist=curr_dist - next_dist
-
-        tot_dist = dist  + rel_improv
-        return tot_dist
-
-
-    def _distance_to_other_agents_and_line(self, current_locs, next_locs,agent):
-        """ Calculate the new reward based on the decrease in euclidean distance to the target location
-        """
-        rel_improv=[]
-        for i in range(0,self.agents):
-            if agent != i:
-                current_loc_distance = self.calcDistance(current_locs[agent],current_locs[i],self.spacing)
-                next_loc_distance = self.calcDistance(next_locs[agent],next_locs[i],self.spacing)
-                current_distance_target_loc = current_loc_distance - self.all_distances[agent,i]
-                next_distance_target_loc = next_loc_distance - self.all_distances[agent,i]
-                rel_improv.append(np.abs(current_distance_target_loc) - np.abs(next_distance_target_loc))
-
-
-        rel_improv = np.mean(rel_improv)
-
-        curr_dist_line=np.linalg.norm(np.cross(self._target_loc[0] - current_locs[agent], self._target_loc[0] - self._target_loc[1])) / np.linalg.norm(self._target_loc[0] - self._target_loc[1])
-        next_dist_line = np.linalg.norm(np.cross(self._target_loc[0] - next_locs[agent], self._target_loc[0] - self._target_loc[1])) / np.linalg.norm(
-            self._target_loc[0] - self._target_loc[1])
-        curr_dist = self.calcDistance(current_locs[agent], self._target_loc[agent], self.spacing)
-        next_dist = self.calcDistance(next_locs[agent], self._target_loc[agent], self.spacing)
-        dist=curr_dist - next_dist
-        dist_line = curr_dist_line - next_dist_line
-        tot_dist = dist  + dist_line + rel_improv
-        return tot_dist
-
-    def _distance_to_other_agents_and_line_no_point(self, current_locs, next_locs, agent):
-        """ Calculate the new reward based on the decrease in euclidean distance to the target location
-        """
-        rel_improv = []
-        for i in range(0, self.agents):
-            if agent != i:
-                current_loc_distance = self.calcDistance(current_locs[agent], current_locs[i], self.spacing)
-                next_loc_distance = self.calcDistance(next_locs[agent], next_locs[i], self.spacing)
-                current_distance_target_loc = current_loc_distance - self.all_distances[agent, i]
-                next_distance_target_loc = next_loc_distance - self.all_distances[agent, i]
-                rel_improv.append(np.abs(current_distance_target_loc) - np.abs(next_distance_target_loc))
-
-        rel_improv = np.mean(rel_improv)
-
-        curr_dist_line = np.linalg.norm(np.cross(self._target_loc[0] - current_locs[agent], self._target_loc[0] - self._target_loc[1])) / np.linalg.norm(
-            self._target_loc[0] - self._target_loc[1])
-        next_dist_line = np.linalg.norm(np.cross(self._target_loc[0] - next_locs[agent], self._target_loc[0] - self._target_loc[1])) / np.linalg.norm(
-            self._target_loc[0] - self._target_loc[1])
-
-        dist_line = curr_dist_line - next_dist_line
-        tot_dist = dist_line + rel_improv
-        return tot_dist
-
-
+    #TODO: does this not return the oscillation for the first agent only?
     @property
     def _oscillate(self):
         """ Return True if the agent is stuck and oscillating
         """
         counter=[]
         freq=[]
-        for i in range(0,self.agents):
+        for i in range(self.agents):
             counter.append(Counter(self._loc_history[i]))
             freq.append(counter[i].most_common())
 
@@ -825,20 +675,22 @@ class MedicalPlayer(gym.Env):
         # Initializations
         planes = np.flipud(np.transpose(self.get_plane(self._location[0][2], agent=0)))
         shape = np.shape(planes)
-
         shifts_x = [0]
         shifts_y = [0]
         target_points = []
         current_points = []
 
-        for i in range(0,self.agents):
+        for i in range(self.agents):
             # get landmarks
             current_points.append(self._location[i])
-            target_points.append(self._target_loc[i])
+            if self.task != 'play':
+                target_points.append(self._target_loc[i])
+            else:
+                target_points.append(None)
             # get current plane
             current_plane = np.flipud(np.transpose(self.get_plane(current_points[i][2], agent=i)))
 
-            if i !=0:
+            if i != 0:
                 # get image in z-axis
                 planes = np.hstack((planes, current_plane))
                 # get shifts in x and y - results from appending planes
@@ -886,14 +738,15 @@ class MedicalPlayer(gym.Env):
         self.viewer.draw_image(img)
 
         # plot landmarks
-        for i in range(0,self.agents):
+        for i in range(self.agents):
             # get landmarks - correct location if image is flipped and tranposed
             current_point = (shape[0] - current_points[i][1] + shifts_y[i],
                              current_points[i][0] + shifts_x[i],
                              current_points[i][2])
-            target_point = (shape[0] - target_points[i][1] + shifts_y[i],
-                            target_points[i][0] + shifts_x[i],
-                            target_points[i][2])
+            if self.task != 'play':
+                target_point = (shape[0] - target_points[i][1] + shifts_y[i],
+                                target_points[i][0] + shifts_x[i],
+                                target_points[i][2])
             # draw current point
             self.viewer.draw_circle(radius=scale_x * 1,
                                     pos_y=scale_y * current_point[1],
@@ -918,7 +771,7 @@ class MedicalPlayer(gym.Env):
                                      #self._image_dims[1]-(int)(0.2*self._image_dims[1])-5)
 
             # -----------------------------------------------------------------
-            if (self.task != 'play'):
+            if self.task != 'play':
                 # draw a transparent circle around target point with variable radius
                 # based on the difference z-direction
                 diff_z = scale_x * abs(current_point[2]-target_point[2])
@@ -986,14 +839,11 @@ class MedicalPlayer(gym.Env):
 # =============================================================================
 class FrameStack(gym.Wrapper):
     """used when not training. wrapper for Medical Env"""
-    def __init__(self, env, k,agents=2):
+    def __init__(self, env, k):
         """Buffer observations and stack across channels (last axis)."""
         gym.Wrapper.__init__(self, env)
-        self.agents=agents
         self.k = k  # history length
-        # self.frames=[]
-        # for i in range(0,self.agents):
-        self.frames=deque([], maxlen=k)
+        self.frames = deque([], maxlen=k)
         shp = env.observation_space.shape
         self._base_dim = len(shp)
         new_shape = shp + (k,)
@@ -1003,26 +853,26 @@ class FrameStack(gym.Wrapper):
     def reset(self):
         """Clear buffer and re-fill by duplicating the first observation."""
         ob = self.env.reset()
-        ob=tuple(ob)
-        # for i in range(0, self.agents):
         for _ in range(self.k - 1):
             self.frames.append(np.zeros_like(ob))
         self.frames.append(ob)
         return self._observation()
 
-    def step(self, act, q_values,isOver):
-        for i in range(0,self.agents):
-            if isOver[i]: act[i]=15
-        current_st, reward, terminal, info = self.env.step(act, q_values, isOver)
-        # for i in range(0,self.agents):
-        current_st=tuple(current_st)
+    def step(self, acts, q_values, isOver):
+        for i in range(self.agents):
+            if isOver[i]: acts[i] = 15
+        current_st, reward, terminal, info = self.env.step(acts, q_values, isOver)
+        current_st = tuple(current_st)
         self.frames.append(current_st)
-        return self._observation(),reward, terminal, info
+        return self._observation(), reward, terminal, info
 
     def _observation(self):
         assert len(self.frames) == self.k
         return np.stack(self.frames, axis=-1)
-
+        # if self._base_dim == 2:
+        #     return np.stack(self.frames, axis=-1)
+        # else:
+        #     return np.concatenate(self.frames, axis=2)
 
 
 # =============================================================================
