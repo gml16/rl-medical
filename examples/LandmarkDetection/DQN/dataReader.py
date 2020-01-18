@@ -36,13 +36,14 @@ class filesListBrainMRLandmark(object):
         files_list: Two or on textfiles that contain a list of all images and (landmarks)
         returnLandmarks: Return landmarks if task is train or eval (default: True)
     """
-    def __init__(self, files_list=None, returnLandmarks=True):
+    def __init__(self, files_list=None, returnLandmarks=True, agents=1):
         # check if files_list exists
         assert files_list, 'There is no directory containing files list'
         # read image filenames
         self.image_files = [line.split('\n')[0] for line in open(files_list[0].name)]
         # read landmark filenames if task is train or eval
         self.returnLandmarks = returnLandmarks
+        self.agents = agents
         if self.returnLandmarks:
             self.landmark_files = [line.split('\n')[0] for line in open(files_list[1].name)]
             assert len(self.image_files)== len(self.landmark_files), 'number of image files is not equal to number of landmark files'
@@ -67,15 +68,16 @@ class filesListBrainMRLandmark(object):
                     ## transform landmarks to image space if they are in physical space
                     landmark_file = self.landmark_files[idx]
                     all_landmarks = getLandmarksFromTXTFile(landmark_file)
-                    landmark = all_landmarks[14] # landmark index is 13 for ac-point and 14 pc-point
+                    # landmark = all_landmarks[14] # landmark index is 13 for ac-point and 14 pc-point
                     # transform landmark from physical to image space if required
                     # landmark = sitk_image.TransformPhysicalPointToContinuousIndex(landmark)
-                    landmark = np.round(landmark).astype('int')
+                    landmark = [np.round(all_landmarks[(i+14)%15]) for i in range(self.agents)]
                 else:
                     landmark = None
-                # extract filename from path
-                image_filename = self.image_files[idx][:-7]
-                yield image, landmark, image_filename, sitk_image.GetSpacing()
+                # extract filename from path, remove .nii.gz extension
+                image_filename = [self.image_files[idx][:-7]] * self.agents
+                images = [image] * self.agents
+                yield images, landmark, image_filename, sitk_image.GetSpacing()
 
 ###############################################################################
 

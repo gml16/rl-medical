@@ -60,12 +60,12 @@ EVAL_EPISODE = 50
 ###############################################################################
 
 def get_player(directory=None, files_list= None, viz=False,
-               task='play', saveGif=False, saveVideo=False):
+               task='play', saveGif=False, saveVideo=False, agents=1, reward_strategy=1):
     # in atari paper, max_num_frames = 30000
     env = MedicalPlayer(directory=directory, screen_dims=IMAGE_SIZE,
                         viz=viz, saveGif=saveGif, saveVideo=saveVideo,
-                        task=task, files_list=files_list, max_num_frames=1500)
-    if (task != 'train'):
+                        task=task, files_list=files_list, max_num_frames=1500, agents=agents, reward_strategy=reward_strategy)
+    if task != 'train':
         # in training, env will be decorated by ExpReplay, and history
         # is taken care of in expreplay buffer
         # otherwise, FrameStack modifies self.step to save observations into a queue
@@ -202,6 +202,9 @@ if __name__ == '__main__':
                         default='train_log')
     parser.add_argument('--name', help='name of current experiment for logs',
                         default='experiment_1')
+    parser.add_argument('--agents', help='Number of agents', type=int, default=1)
+    parser.add_argument('--reward_strategy', help='Reward strategies: 1 is simple, 2 is line based, 3 is agent based',default=1)
+
 
 
     args = parser.parse_args()
@@ -209,10 +212,13 @@ if __name__ == '__main__':
     if args.gpu:
         os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
+    # check valid number of agents:
+    assert args.agents > 0
+
     # check input files
     if args.task == 'play':
         error_message = """Wrong input files {} for {} task - should be 1 \'images.txt\' """.format(len(args.files), args.task)
-        assert len(args.files) == 1
+        assert len(args.files) == 1, (error_message)
     else:
         error_message = """Wrong input files {} for {} task - should be 2 [\'images.txt\', \'landmarks.txt\'] """.format(len(args.files), args.task)
         assert len(args.files) == 2, (error_message)
@@ -222,7 +228,10 @@ if __name__ == '__main__':
     # load files into env to set num_actions, num_validation_files
     init_player = MedicalPlayer(files_list=args.files,
                                 screen_dims=IMAGE_SIZE,
-                                task='play')
+                                # TODO: why is this always play?
+                                task='play',
+                                agents=args.agents,
+                                reward_strategy=args.reward_strategy)
     NUM_ACTIONS = init_player.action_space.n
     num_files = init_player.files.num_files
 
@@ -234,18 +243,13 @@ if __name__ == '__main__':
             input_names=['state'],
             output_names=['Qvalue']))
         # demo pretrained model one episode at a time
-        if args.task == 'play':
+        if args.task == 'play' or args.task == 'eval':
             play_n_episodes(get_player(files_list=args.files, viz=0.01,
                                        saveGif=args.saveGif,
                                        saveVideo=args.saveVideo,
-                                       task='play'),
-                            pred, num_files)
-        # run episodes in parallel and evaluate pretrained model
-        elif args.task == 'eval':
-            play_n_episodes(get_player(files_list=args.files, viz=0.01,
-                                       saveGif=args.saveGif,
-                                       saveVideo=args.saveVideo,
-                                       task='eval'),
+                                       task=args.task,
+                                       agents=args.agents,
+                                       reward_strategy=args.reward_strategy),
                             pred, num_files)
     else:  # train model
         logger_dir = os.path.join(args.logDir, args.name)
