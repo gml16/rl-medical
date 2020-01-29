@@ -152,7 +152,7 @@ class MedicalPlayer(gym.Env):
 
         # history buffer for storing last locations to check oscilations
         self._history_length = history_length
-        self._loc_history = [[[0 for _ in range(self.dims)] for _ in range(self._history_length)] for _ in range(self.agents)]
+        self._loc_history = [[(0,) * self.dims for _ in range(self._history_length)] for _ in range(self.agents)]
 
         self._qvalues_history = [[[0 for _ in range(self.actions)] for _ in range(self._history_length)] for _ in range(self.agents)]
         # initialize rectangle limits from input image coordinates
@@ -528,7 +528,7 @@ class MedicalPlayer(gym.Env):
     def _clear_history(self):
         ''' clear history buffer with current state
         '''
-        self._loc_history = [[[0 for _ in range(self.dims)] for _ in range(self._history_length)] for _ in range(self.agents)]
+        self._loc_history = [[(0,) * self.dims for _ in range(self._history_length)] for _ in range(self.agents)]
         self._qvalues_history = [[[0 for _ in range(self.actions)] for _ in range(self._history_length)] for _ in range(self.agents)]
 
     def _update_history(self):
@@ -640,23 +640,6 @@ class MedicalPlayer(gym.Env):
             elif freq[0][1] < 2:
                 return False
         return True
-
-        """
-        counter=[]
-        freq=[]
-        for i in range(0,self.agents):
-            counter.append(Counter(self._loc_history[i]))
-            freq.append(counter[i].most_common())
-
-            if freq[i][0][0] == (0, 0, 0):
-                if (freq[i][1][1] > 3):
-                    return True
-                else:
-                    return False
-            elif (freq[i][0][1] > 3):
-                return True
-        """
-
 
     def get_action_meanings(self):
         """ return array of integers for actions"""
