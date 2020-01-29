@@ -39,8 +39,8 @@ class SimpleImageViewer(object):
         ## set location
         screen_width = self.window.display.get_default_screen().width
         screen_height = self.window.display.get_default_screen().height
-        self.location_x = screen_width / 2 - 2* width
-        self.location_y = screen_height / 2 - 2* height
+        self.location_x = 0 #screen_width / 2 #- 2* width
+        self.location_y = 50 #screen_height / 2 #- 2* height
         self.window.set_location((int)(self.location_x), (int)(self.location_y))
 
         ## scale window size

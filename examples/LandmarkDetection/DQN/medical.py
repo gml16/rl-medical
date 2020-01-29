@@ -63,7 +63,7 @@ class MedicalPlayer(gym.Env):
     an observation and a reward."""
 
     def __init__(self, directory=None, viz=False, task=False, files_list=None,
-                 screen_dims=(27,27,27), history_length=20, multiscale=True,
+                 screen_dims=(27,27,27), history_length=28, multiscale=True,
                  max_num_frames=0, saveGif=False, saveVideo=False, agents=1, reward_strategy=1):
         """
         :param train_directory: environment or game name
@@ -101,7 +101,6 @@ class MedicalPlayer(gym.Env):
 
         super(MedicalPlayer, self).__init__()
         self.agents = agents
-
         # inits stat counters
         self.reset_stat()
 
@@ -152,8 +151,8 @@ class MedicalPlayer(gym.Env):
 
         # history buffer for storing last locations to check oscilations
         self._history_length = history_length
-        self._loc_history = [[(0,) * self.dims] * self._history_length] * int(self.agents)
-        self._qvalues_history = [[(0,) * self.actions] * self._history_length] * int(self.agents)
+        self._loc_history = [[(0,) * self.dims for _ in range(self._history_length)] for _ in range(self.agents)]
+        self._qvalues_history = [[(0,) * self.actions for _ in range(self._history_length)] for _ in range(self.agents)]
         # initialize rectangle limits from input image coordinates
         self.rectangle = [Rectangle(0, 0, 0, 0, 0, 0)] * int(self.agents)
 
@@ -188,9 +187,9 @@ class MedicalPlayer(gym.Env):
         self.reward = np.zeros((self.agents,))
         self.cnt = 0 # counter to limit number of steps per episodes
         self.num_games.feed(1)
-        self._loc_history = [[(0,) * self.dims] * self._history_length] * self.agents
+        self._loc_history = [[(0,) * self.dims for _ in range(self._history_length)] for _ in range(self.agents)]
         # list of q-value lists
-        self._qvalues_history = [[(0,) * self.actions] * self._history_length] * self.agents
+        self._qvalues_history = [[(0,) * self.actions for _ in range(self._history_length)] for _ in range(self.agents)]
         for i in range(0, self.agents):
             self.current_episode_score[i].reset()
         self.new_random_game()
@@ -269,10 +268,14 @@ class MedicalPlayer(gym.Env):
                               int(self._image_dims[2] / 4))
 
 
-        # TODO: should agents start at the same random points
-        x=[self.rng.randint(0 + skip_thickness[0], self._image_dims[0] - skip_thickness[0])] * self.agents
-        y=[self.rng.randint(0 + skip_thickness[1], self._image_dims[1] - skip_thickness[1])] * self.agents
-        z=[self.rng.randint(0 + skip_thickness[2], self._image_dims[2] - skip_thickness[2])] * self.agents
+        # TODO: should agents start at the same random points, agents get stuck
+        #x=[self.rng.randint(0 + skip_thickness[0], self._image_dims[0] - skip_thickness[0])] * self.agents
+        #y=[self.rng.randint(0 + skip_thickness[1], self._image_dims[1] - skip_thickness[1])] * self.agents
+        #z=[self.rng.randint(0 + skip_thickness[2], self._image_dims[2] - skip_thickness[2])] * self.agents
+
+        x=[self.rng.randint(0 + skip_thickness[0], self._image_dims[0] - skip_thickness[0]) for _ in range(self.agents)]
+        y=[self.rng.randint(0 + skip_thickness[1], self._image_dims[1] - skip_thickness[1]) for _ in range(self.agents)]
+        z=[self.rng.randint(0 + skip_thickness[2], self._image_dims[2] - skip_thickness[2]) for _ in range(self.agents)]
 
         #######################################################################
 
@@ -390,7 +393,7 @@ class MedicalPlayer(gym.Env):
         #######################################################################
 
         # punish -1 reward if the agent tries to go out
-        if (self.task!='play'):
+        if self.task != 'play':
             for i in range(0,self.agents):
                 if go_out[i]:
                     self.reward[i]= -1
@@ -416,8 +419,8 @@ class MedicalPlayer(gym.Env):
         self._screen = self._current_state()
 
         # terminate if the distance is less than 1 during trainig
-        if (self.task == 'train'):
-            for i in range(0,self.agents):
+        if self.task == 'train':
+            for i in range(self.agents):
                 if self.cur_dist[i]<=1:
                     self.terminal[i]=True
                     self.num_success[i].feed(1)
@@ -425,32 +428,29 @@ class MedicalPlayer(gym.Env):
         # terminate if maximum number of steps is reached
         self.cnt += 1
         if self.cnt >= self.max_num_frames:
-            for i in range(0,self.agents):
+            for i in range(self.agents):
                 self.terminal[i] = True
 
         # update history buffer with new location and qvalues
-        if (self.task != 'play'):
-            for i in range(0,self.agents):
+        if self.task != 'play':
+            for i in range(self.agents):
                 self.cur_dist[i] = self.calcDistance(self._location[i],
                                                          self._target_loc[i],
                                                          self.spacing)
 
 
-
         self._update_history()
-
         # check if agent oscillates
         if self._oscillate:
             self._location = self.getBestLocation()
             # self._location=[item for sublist in temp for item in sublist]
             self._screen = self._current_state()
 
-            if (self.task != 'play'):
-                for i in range(0, self.agents):
+            if self.task != 'play':
+                for i in range(self.agents):
                     self.cur_dist[i] = self.calcDistance(self._location[i],
                                                              self._target_loc[i],
                                                              self.spacing)
-
 
             # multi-scale steps
             if self.multiscale:
@@ -462,15 +462,12 @@ class MedicalPlayer(gym.Env):
                     self._clear_history()
                 # terminate if scale is less than 1
                 else:
-
-                    for i in range(0,self.agents):
+                    for i in range(self.agents):
                         self.terminal[i] = True
                         if self.cur_dist[i] <= 1 :
                             self.num_success[i].feed(1)
-
             else:
-
-                for i in range(0, self.agents):
+                for i in range(self.agents):
                     self.terminal[i] = True
                     if self.cur_dist[i] <= 1:
                         self.num_success[i].feed(1)
@@ -482,7 +479,7 @@ class MedicalPlayer(gym.Env):
 
 
         distance_error = self.cur_dist
-        for i in range(0,self.agents):
+        for i in range(self.agents):
             self.current_episode_score[i].feed(self.reward[i])
 
 
@@ -526,22 +523,26 @@ class MedicalPlayer(gym.Env):
         return best_location
 
     def _clear_history(self):
-        ''' clear history buffer with current state
+        ''' clear history buffer with current states
         '''
-        self._loc_history = [[(0,) * self.dims] * self._history_length] * self.agents
-        self._qvalues_history = [[(0,) * self.actions] * self._history_length] * self.agents
+        self._loc_history = [[(0,) * self.dims for _ in range(self._history_length)] for _ in range(self.agents)]
+        self._qvalues_history = [[(0,) * self.actions for _ in range(self._history_length)] for _ in range(self.agents)]
 
     def _update_history(self):
-        ''' update history buffer with current state
+        ''' update history buffer with current states
         '''
         for i in range(self.agents):
             # update location history
-            self._loc_history[i][:-1] = self._loc_history[i][1:]
-            self._loc_history[i][-1] = self._location[i]
+            self._loc_history[i].pop(0)
+            self._loc_history[i].insert(len(self._loc_history[i]),self._location[i])
+
 
             # update q-value history
-            self._qvalues_history[i][:-1] = self._qvalues_history[i][1:]
-            self._qvalues_history[i][-1] = np.ravel(self._qvalues[i])
+            # self._qvalues_history[i][:-1] = self._qvalues_history[i][1:]
+            # self._qvalues_history[i][-1] = np.ravel(self._qvalues[i])
+            self._qvalues_history[i].pop(0)
+            self._qvalues_history[i].insert(len(self._qvalues_history[i]),self._qvalues[i])
+
 
     def _current_state(self):
         """
@@ -627,21 +628,20 @@ class MedicalPlayer(gym.Env):
     #TODO: does this not return the oscillation for the first agent only?
     @property
     def _oscillate(self):
-        """ Return True if the agent is stuck and oscillating
+        """ Return True if all agents are stuck and oscillating
         """
-        counter=[]
-        freq=[]
         for i in range(self.agents):
-            counter.append(Counter(self._loc_history[i]))
-            freq.append(counter[i].most_common())
-
-            if freq[i][0][0] == (0, 0, 0):
-                if (freq[i][1][1] > 3):
-                    return True
-                else:
+            counter = Counter(self._loc_history[i])
+            freq = counter.most_common()
+            # At beginning of episodes, history is prefilled with (0, 0, 0), thus do not count their frequency
+            if freq[0][0] == (0, 0, 0):
+                if len(freq) < 2:
                     return False
-            elif (freq[i][0][1] > 3):
-                return True
+                if freq[1][1] < 2:
+                    return False
+            elif freq[0][1] < 2:
+                return False
+        return True
 
     def get_action_meanings(self):
         """ return array of integers for actions"""
@@ -675,8 +675,7 @@ class MedicalPlayer(gym.Env):
         # Initializations
         planes = np.flipud(np.transpose(self.get_plane(self._location[0][2], agent=0)))
         shape = np.shape(planes)
-        shifts_x = [0]
-        shifts_y = [0]
+
         target_points = []
         current_points = []
 
@@ -690,15 +689,12 @@ class MedicalPlayer(gym.Env):
             # get current plane
             current_plane = np.flipud(np.transpose(self.get_plane(current_points[i][2], agent=i)))
 
-            if i != 0:
+            if i > 0:
                 # get image in z-axis
                 planes = np.hstack((planes, current_plane))
-                # get shifts in x and y - results from appending planes
-                # shift only in the direction of concat axis
-                # shifts_x.append(0)
-                shifts_x.append(np.shape(current_plane)[1])
-                shifts_y.append(0)
-                # shifts_y.append(np.shape(current_plane)[1])
+
+        shifts_x = [np.shape(current_plane)[1]*i for i in range(self.agents)]
+        shifts_y = [0] * self.agents
 
         # get image and convert it to pyglet + convert to rgb
         # # horizontal concat
