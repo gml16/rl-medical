@@ -57,7 +57,7 @@ def play_one_episode(env, func, render=False, agents=1):
 
     obs = env.reset()
     obs = list(obs)
-    sum_r = np.zeros((agents,))
+    sum_r = np.zeros((agents))
     filenames_list = []
     distError_list = []
     isOver = [False] * agents
@@ -98,7 +98,7 @@ def play_n_episodes(player, predfunc, nr, render=False):
 
 ###############################################################################
 
-def eval_with_funcs(predictors, nr_eval, get_player_fn, files_list=None):
+def eval_with_funcs(predictors, nr_eval, get_player_fn, files_list=None, agents=1,reward_strategy=1):
     """
     Args:
         predictors ([PredictorBase])
@@ -107,8 +107,9 @@ def eval_with_funcs(predictors, nr_eval, get_player_fn, files_list=None):
     """
 
     class Worker(StoppableThread, ShareSessionThread):
-        def __init__(self, func, queue, distErrorQueue):
+        def __init__(self, func, queue, distErrorQueue, agents):
             super(Worker, self).__init__()
+            self.agents=agents
             self._func = func
             self.q = queue
             self.q_dist = distErrorQueue
@@ -121,20 +122,23 @@ def eval_with_funcs(predictors, nr_eval, get_player_fn, files_list=None):
         def run(self):
             with self.default_sess():
                 player = get_player_fn(task=False,
-                                       files_list=files_list)
+                                       files_list=files_list,
+                                       agents=self.agents,
+                                       reward_strategy=reward_strategy)
                 while not self.stopped():
                     try:
-                        score, filename, ditance_error, q_values = play_one_episode(player, self.func)
+                        score, filename, ditance_error, q_values = play_one_episode(player, self.func, agents=self.agents)
                         # print("Score, ", score)
                     except RuntimeError:
                         return
-                    self.queue_put_stoppable(self.q, score)
-                    self.queue_put_stoppable(self.q_dist, ditance_error)
+                    for i in range (self.agents):
+                        self.queue_put_stoppable(self.q, sum_r[i])
+                        self.queue_put_stoppable(self.q_dist, dist[i])
 
     q = queue.Queue()
     q_dist = queue.Queue()
 
-    threads = [Worker(f, q, q_dist) for f in predictors]
+    threads = [Worker(f, q, q_dist,agents=agents) for f in predictors]
 
     # start all workers
     for k in threads:
@@ -188,12 +192,14 @@ def eval_model_multithread(pred, nr_eval, get_player_fn, files_list):
 class Evaluator(Callback):
 
     def __init__(self, nr_eval, input_names, output_names,
-                 get_player_fn, files_list=None):
+                 get_player_fn, files_list=None, agents=1,reward_strategy=1):
         self.files_list = files_list
         self.eval_episode = nr_eval
         self.input_names = input_names
         self.output_names = output_names
         self.get_player_fn = get_player_fn
+        self.agents=agents
+        self.reward_strategy=reward_strategy
 
     def _setup_graph(self):
         NR_PROC = min(multiprocessing.cpu_count() // 2, 20)
@@ -204,7 +210,8 @@ class Evaluator(Callback):
         """triggered by Trainer"""
         t = time.time()
         mean_score, max_score, mean_dist, max_dist = eval_with_funcs(
-            self.pred_funcs, self.eval_episode, self.get_player_fn, self.files_list)
+            self.pred_funcs, self.eval_episode, self.get_player_fn, self.files_list, agents=self.agents,
+            reward_strategy=self.reward_strategy)
         t = time.time() - t
         if t > 10 * 60:  # eval takes too long
             self.eval_episode = int(self.eval_episode * 0.94)

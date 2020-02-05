@@ -3,6 +3,7 @@
 # File: expreplay.py
 # Author: Yuxin Wu <ppwwyyxxc@gmail.com>
 # Modified: Amir Alansary <amiralansary@gmail.com>
+# Modified: Athanasios Vlontzos <athanasiosvlontzos@gmail.com>
 
 import six
 import copy
@@ -20,23 +21,29 @@ from tensorpack.utils.concurrency import LoopThread, ShareSessionThread
 
 __all__ = ['ExpReplay']
 
-Experience = namedtuple('Experience',
-                        ['state', 'action', 'reward', 'isOver'])
+
+# def initialize_experience(agents):
+    # exp_list=[]
+    # for i in agents:
+    #     exp_list.append('state_{}'.format(i),'action_{}'.format(i),'reward_{}'.format(i),'isOver_{}'.format(i))
+Experience = namedtuple('Experience',['state', 'action', 'reward', 'isOver'])
 
 
 class ReplayMemory(object):
-    def __init__(self, max_size, state_shape, history_len):
+    def __init__(self, max_size, state_shape, history_len, agents):
+        logger.info("Replay memory init")
         self.max_size = int(max_size)
         self.state_shape = state_shape
         self.history_len = int(history_len)
+        self.agents=agents
 
-        self.state = np.zeros((self.max_size,) + state_shape, dtype='uint8')
-        self.action = np.zeros((self.max_size,), dtype='int32')
-        self.reward = np.zeros((self.max_size,), dtype='float32')
-        self.isOver = np.zeros((self.max_size,), dtype='bool')
+        self.state=np.zeros((self.agents,self.max_size)+state_shape,dtype='uint8')
+        self.action=np.zeros((self.agents,self.max_size),dtype='int32')
+        self.reward=np.zeros((self.agents,self.max_size),dtype='float32')
+        self.isOver=np.zeros((self.agents,self.max_size),dtype='bool')
 
+        self._curr_pos=0
         self._curr_size = 0
-        self._curr_pos = 0
         self._hist = deque(maxlen=history_len - 1)
 
     def append(self, exp):
@@ -52,7 +59,7 @@ class ReplayMemory(object):
         else:
             self._assign(self._curr_pos, exp)
             self._curr_pos = (self._curr_pos + 1) % self.max_size
-        if exp.isOver:
+        if np.all(exp.isOver):
             self._hist.clear()
         else:
             self._hist.append(exp)
@@ -60,8 +67,12 @@ class ReplayMemory(object):
     def recent_state(self):
         """ return a list of (hist_len-1,) + STATE_SIZE """
         lst = list(self._hist)
-        states = [np.zeros(self.state_shape, dtype='uint8')] * (self._hist.maxlen - len(lst))
-        states.extend([k.state for k in lst])
+        states=[]
+        for i in range(0,self.agents):
+            states_temp=[np.zeros(self.state_shape, dtype='uint8')] * (self._hist.maxlen - len(lst))
+            states_temp.extend([k.state[i] for k in lst])
+            states.append(states_temp)
+
         return states
 
     def sample(self, idx):
@@ -71,33 +82,50 @@ class ReplayMemory(object):
         """
         idx = (self._curr_pos + idx) % self._curr_size
         k = self.history_len + 1
-        if idx + k <= self._curr_size:
-            state = self.state[idx: idx + k]
-            reward = self.reward[idx: idx + k]
-            action = self.action[idx: idx + k]
-            isOver = self.isOver[idx: idx + k]
-        else:
-            end = idx + k - self._curr_size
-            state = self._slice(self.state, idx, end)
-            reward = self._slice(self.reward, idx, end)
-            action = self._slice(self.action, idx, end)
-            isOver = self._slice(self.isOver, idx, end)
-        ret = self._pad_sample(state, reward, action, isOver)
+
+        states=[]
+        rewards=[]
+        actions=[]
+        isOver=[]
+        for i in range(0,self.agents):
+            if idx + k <= self._curr_size:
+                states.append(self.state[i,idx: idx + k])
+                rewards.append(self.reward[i,idx: idx + k])
+                actions.append(self.action[i,idx: idx + k])
+                isOver.append(self.isOver[i,idx: idx + k])
+            else:
+                end = idx + k - self._curr_size
+                states.append(self._slice(self.state[i],idx,end))
+                rewards.append(self._slice(self.reward[i],idx,end))
+                actions.append(self._slice(self.action[i],idx,end))
+                isOver.append(self._slice(self.isOver[i],idx,end))
+
+        ret = self._pad_sample(states,rewards,actions,isOver)
         return ret
 
     # the next_state is a different episode if current_state.isOver==True
-    def _pad_sample(self, state, reward, action, isOver):
+    def _pad_sample(self, states,rewards,actions,isOver):
         for k in range(self.history_len - 2, -1, -1):
-            if isOver[k]:
-                state = copy.deepcopy(state)
-                state[:k + 1].fill(0)
-                break
+            for i in range(0,self.agents):
+                if isOver[i][k]:
+                    states[i]=copy.deepcopy(states[i])
+                    states[i][:k + 1].fill(0)
+            break
+
         # transpose state
-        if state.ndim == 4:  # 3d state
-            state = state.transpose(1, 2, 3, 0)
-        else:  # 2d states
-            state = state.transpose(1, 2, 0)
-        return state, reward[-2], action[-2], isOver[-2]
+        rewards_out=[]
+        actions_out=[]
+        isOver_out=[]
+        for i in range(0,self.agents):
+            if states[i].ndim==4: # xxx States
+                states[i]=states[i].transpose(1,2,3,0)
+            else: # 2D States
+                states[i]=states[i].transpose(1,2,0)
+            rewards_out.append(rewards[i][-2])
+            actions_out.append(actions[i][-2])
+            isOver_out.append(isOver[i][-2])
+
+        return states, rewards_out, actions_out,isOver_out
 
     def _slice(self, arr, start, end):
         s1 = arr[start:]
@@ -108,10 +136,11 @@ class ReplayMemory(object):
         return self._curr_size
 
     def _assign(self, pos, exp):
-        self.state[pos] = exp.state
-        self.reward[pos] = exp.reward
-        self.action[pos] = exp.action
-        self.isOver[pos] = exp.isOver
+        for i in range (0,self.agents):
+            self.state[i,pos]=exp.state[i]
+            self.action[i,pos]=exp.action[i]
+            self.reward[i,pos]=exp.reward[i]
+            self.isOver[i,pos]=exp.isOver[i]
 
 
 ###############################################################################
@@ -136,7 +165,7 @@ class ExpReplay(DataFlow, Callback):
                  batch_size,
                  memory_size, init_memory_size,
                  init_exploration,
-                 update_frequency, history_len):
+                 update_frequency, history_len, agents):
         """
         Args:
             predictor_io_names (tuple of list of str): input/output names to
@@ -147,11 +176,14 @@ class ExpReplay(DataFlow, Callback):
             history_len (int): length of history frames to concat. Zero-filled
                 initial frames.
         """
-        init_memory_size = int(init_memory_size)
-
-        for k, v in locals().items():
+        logger.info("Exp replay init")
+        self.init_memory_size = int(init_memory_size)
+        # for k, v in locals().items():
+        for k, v in list(locals().items()):
             if k != 'self':
                 setattr(self, k, v)
+        self.agents = agents
+
         self.exploration = init_exploration
         self.num_actions = player.action_space.n
         logger.info("Number of Legal actions: {}".format(self.num_actions))
@@ -162,10 +194,16 @@ class ExpReplay(DataFlow, Callback):
         # a queue to receive notifications to populate memory
         self._populate_job_queue = queue.Queue(maxsize=5)
 
-        self.mem = ReplayMemory(memory_size, state_shape, history_len)
+        self.mem = ReplayMemory(memory_size, state_shape, history_len,agents=self.agents)
+
         self._current_ob = self.player.reset()
-        self._player_scores = StatCounter()
-        self._player_distError = StatCounter()
+
+        self._player_scores=[]
+        self._player_distError=[]
+        for i in range(0,self.agents):
+            self._player_scores.append(StatCounter())
+            self._player_distError.append(StatCounter())
+        logger.info("Exp replay finished init")
 
     def get_simulator_thread(self):
         # spawn a separate thread to run policy
@@ -201,38 +239,44 @@ class ExpReplay(DataFlow, Callback):
 
     def _populate_exp(self):
         """ populate a transition by epsilon-greedy"""
-        old_s = self._current_ob
-
-        # initialize q_values to zeros
-        q_values = [0, ] * self.num_actions
-
+        act=np.zeros(self.agents,)
+        history=[]
+        old_s=self._current_ob
+        q_values = [(0,)*self.num_actions] * self.agents
         if self.rng.rand() <= self.exploration or (len(self.mem) <= self.history_len):
-            act = self.rng.choice(range(self.num_actions))
+        # initialize q_values to zeros
+            for i in range(0, self.agents):
+                act[i] = self.rng.choice(range(self.num_actions))
+
         else:
             # build a history state
-            history = self.mem.recent_state()
-            history.append(old_s)
-            if np.ndim(history) == 4:  # 3d states
-                history = np.stack(history, axis=3)
-                # assume batched network - this is the bottleneck
-                q_values = self.predictor(history[None, :, :, :, :])[0][0]
-            else:
-                history = np.stack(history, axis=2)
-                # assume batched network - this is the bottleneck
-                q_values = self.predictor(history[None, :, :, :])[0][0]
 
-            act = np.argmax(q_values)
+            for i in range(0, self.agents):
+                history.append(self.mem.recent_state()[i])
+                history[i].append(old_s[i])
+                if np.ndim(history[i]) == 4:  # 3d states
+                   history[i] = np.stack(history[i], axis=3)
+                else:
+                  history[i] = np.stack(history[i], axis=2)
+                history[i]=history[i][None,:,:,:,:]
 
-        self._current_ob, reward, isOver, info = self.player.step(act, q_values)
+        # assume batched network - this is the bottleneck
+            q_values = self.predictor(*history)
+        #     q_values=get_DQN_prediction(history)
+            for i in range(0,self.agents):
+                act[i] = np.argmax(q_values[i])
+        isOver=np.zeros((self.agents,), dtype='bool')
 
-        if isOver:
-            # if info['gameOver']:  # only record score when a whole game is over (not when an episode is over)
-            #     self._player_scores.feed(info['score'])
-            self._player_scores.feed(info['score'])
-            self._player_distError.feed(info['distError'])
-            self.player.reset()
+        current_state, reward, isOver, info = self.player.step(act, q_values,isOver)
+        self._current_ob=current_state
+        for i in range(0,self.agents):
+            if isOver[i]:
+                self._player_scores[i].feed(info['score_{}'.format(i)])
+                self._player_distError[i].feed(info['distError_{}'.format(i)])
+            if np.all(isOver):
+                self.player.reset()
 
-        self.mem.append(Experience(old_s, act, reward, isOver))
+        self.mem.append(Experience(old_s, act, reward,isOver))
 
     def _debug_sample(self, sample):
         import cv2
@@ -246,7 +290,7 @@ class ExpReplay(DataFlow, Callback):
             cv2.imshow("state", r)
             cv2.waitKey()
 
-        print("Act: ", sample[2], " reward:", sample[1], " isOver: ", sample[3])
+        # print("Act: ", sample[2], " reward:", sample[1], " isOver: ", sample[3])
         if sample[1] or sample[3]:
             view_state(sample[0])
 
@@ -265,17 +309,18 @@ class ExpReplay(DataFlow, Callback):
             self._populate_job_queue.put(1)
 
     def _process_batch(self, batch_exp):
-        state = np.asarray([e[0] for e in batch_exp], dtype='uint8')
-        reward = np.asarray([e[1] for e in batch_exp], dtype='float32')
-        action = np.asarray([e[2] for e in batch_exp], dtype='int8')
+        states = np.asarray([e[0] for e in batch_exp], dtype='uint8')
+        rewards = np.asarray([e[1] for e in batch_exp], dtype='float32')
+        actions = np.asarray([e[2] for e in batch_exp], dtype='int8')
         isOver = np.asarray([e[3] for e in batch_exp], dtype='bool')
-        return [state, action, reward, isOver]
+        return [states, actions, rewards,isOver]
+
 
     def _setup_graph(self):
         self.predictor = self.trainer.get_predictor(*self.predictor_io_names)
 
     def _before_train(self):
-        self._init_memory()
+        self._fake_init_memory() # TODO change back to no fake
         self._simulator_th = self.get_simulator_thread()
         self._simulator_th.start()
 
@@ -283,17 +328,19 @@ class ExpReplay(DataFlow, Callback):
         # log player statistics in training
         v = self._player_scores
         dist = self._player_distError
-        try:
-            mean, max = v.average, v.max
-            self.trainer.monitors.put_scalar('expreplay/mean_score', mean)
-            self.trainer.monitors.put_scalar('expreplay/max_score', max)
-            mean, max = dist.average, dist.max
-            self.trainer.monitors.put_scalar('expreplay/mean_dist', mean)
-            self.trainer.monitors.put_scalar('expreplay/max_dist', max)
-        except Exception:
-            logger.exception("Cannot log training scores.")
-        v.reset()
-        dist.reset()
+        for i in range(0,self.agents):
+            try:
+                mean, max = v[i].average, v[i].max
+                self.trainer.monitors.put_scalar('expreplay/mean_score_{}'.format(i), mean)
+                self.trainer.monitors.put_scalar('expreplay/max_score_{}'.format(i), max)
+                mean, max = dist[i].average, dist[i].max
+                self.trainer.monitors.put_scalar('expreplay/mean_dist_{}'.format(i), mean)
+                self.trainer.monitors.put_scalar('expreplay/max_dist_{}'.format(i), max)
+            except Exception:
+                logger.exception("Cannot log training scores.")
+            v[i].reset()
+            dist[i].reset()
+
 
         # monitor number of played games and successes of reaching the target
         if self.player.num_games.count:
@@ -302,14 +349,17 @@ class ExpReplay(DataFlow, Callback):
         else:
             self.trainer.monitors.put_scalar('n_games', 0)
 
-        if self.player.num_success.count:
-            self.trainer.monitors.put_scalar('n_success',
-                                             np.asscalar(self.player.num_success.sum))
-            self.trainer.monitors.put_scalar('n_success_ratio',
-                                             self.player.num_success.sum / self.player.num_games.sum)
-        else:
-            self.trainer.monitors.put_scalar('n_success', 0)
-            self.trainer.monitors.put_scalar('n_success_ratio', 0)
+        for i in range(0,self.agents):
+
+            if self.player.num_success[i].count :
+                self.trainer.monitors.put_scalar('n_success_{}'.format(i),
+                                                 np.asscalar(self.player.num_success[i].sum))
+                self.trainer.monitors.put_scalar('n_success_ratio_{}'.format(i),
+                                             self.player.num_success[i].sum / self.player.num_games.sum)
+            else:
+                self.trainer.monitors.put_scalar('n_success_{}'.format(i), 0)
+                self.trainer.monitors.put_scalar('n_success_ratio_{}'.format(i), 0)
+
+
         # reset stats
         self.player.reset_stat()
-

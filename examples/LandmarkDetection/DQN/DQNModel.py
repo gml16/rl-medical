@@ -109,7 +109,7 @@ class Model2D(ModelDesc):
 
 
 class Model3D(ModelDesc):
-    def __init__(self, image_shape, channel, method, num_actions, gamma):
+    def __init__(self, image_shape, channel, method, num_actions, gamma, agents=1):
         """
         :param image_shape: the shape of input 3d image
         :param channel: history length and goes to channel dimension in kernel
@@ -119,21 +119,24 @@ class Model3D(ModelDesc):
 
         See http://tensorpack.readthedocs.io/tutorial/training-interface.html for Mode lDesc documentation.
         """
+        self.agents=agents
         self.gamma = gamma
         self.method = method
         self.channel = channel
         self.image_shape = image_shape
         self.num_actions = num_actions
 
-    def inputs(self):
+
+    def _get_inputs(self):
         # Use a combined state for efficiency.
         # The first h channels are the current state, and the last h channels are the next state.
         return [InputDesc(tf.uint8,
-                          (None,) + self.image_shape + (self.channel + 1,),
+                          (None,) + (self.agents,)+self.image_shape + (self.channel + 1,),
                           'comb_state'),
-                InputDesc(tf.int64, (None,), 'action'),
-                InputDesc(tf.float32, (None,), 'reward'),
-                InputDesc(tf.bool, (None,), 'isOver')]
+                InputDesc(tf.int64, (None,self.agents), 'action'),
+                InputDesc(tf.float32, (None,self.agents), 'reward'),
+                InputDesc(tf.bool, (None,self.agents), 'isOver'),
+                ]
 
     @abc.abstractmethod
     def _get_DQN_prediction(self, image):
@@ -142,48 +145,83 @@ class Model3D(ModelDesc):
 
     # decorate the function
     @auto_reuse_variable_scope
-    def get_DQN_prediction(self, image):
-        return self._get_DQN_prediction(image)
+    def get_DQN_prediction(self, images):
+        return self._get_DQN_prediction(images)
 
-    def build_graph(self, *inputs):
-        comb_state, action, reward, isOver = inputs
-        comb_state = tf.cast(comb_state, tf.float32)
-        state = tf.slice(comb_state, [0, 0, 0, 0, 0], [-1, -1, -1, -1, self.channel], name='state')
-        self.predict_value = self.get_DQN_prediction(state)
+    def _build_graph(self, inputs):
+        comb_state, action ,reward, isOver= inputs
+        comb_state = tf.cast(comb_state, tf.float32)  # agent 1
+        states=[]
+        for i in range(0,self.agents):
+            states.append( tf.slice(comb_state[:,i,:,:,:,:], [0, 0, 0, 0, 0], [-1, -1, -1, -1, self.channel], name='state_{}'.format(i)))  # agent 1
+
+        self.predict_values = self.get_DQN_prediction(states)
         if not get_current_tower_context().is_training:
             return
 
-        reward = tf.clip_by_value(reward, -1, 1)
-        next_state = tf.slice(comb_state, [0, 0, 0, 0, 1], [-1, -1, -1, -1, self.channel], name='next_state')
-        action_onehot = tf.one_hot(action, self.num_actions, 1.0, 0.0)
+        rewards=[]
+        next_states=[]
+        action_onehot=[]
+        pred_action_value=[]
+        max_pred_rewards=[]
+        for i in range(0,self.agents):
+            rewards.append(tf.clip_by_value(reward[:,i], -1, 1))
+            next_states.append(tf.slice(comb_state[:,i,:,:,:,:], [0, 0, 0, 0, 1], [-1, -1, -1, -1, self.channel], name='next_state_{}'.format(i)))
+            action_onehot.append(tf.one_hot(action[:,i], self.num_actions, 1.0, 0.0))
+            pred_action_value.append(tf.reduce_sum(self.predict_values[i] * action_onehot[i], 1)) #N
+            max_pred_rewards.append(tf.reduce_mean(tf.reduce_max(self.predict_values[i], 1), name='predict_reward_{}'.format(i)))
+            summary.add_moving_summary(max_pred_rewards[i])
 
-        pred_action_value = tf.reduce_sum(self.predict_value * action_onehot, 1)  # N,
-        max_pred_reward = tf.reduce_mean(tf.reduce_max(
-            self.predict_value, 1), name='predict_reward')
-        summary.add_moving_summary(max_pred_reward)
 
-        with tf.variable_scope('target'):
-            targetQ_predict_value = self.get_DQN_prediction(next_state)  # NxA
-
+        with tf.variable_scope('targets'):
+            targetQ_predict_values = self.get_DQN_prediction(next_states)  # NxA   agent 1, agent 2
+        ############### to calculate trainable parameters ########################
+        # total_parameters = 0
+        # for variable in tf.trainable_variables():
+        #     # shape is an array of tf.Dimension
+        #     shape = variable.get_shape()
+        #     print(shape)
+        #     print(len(shape))
+        #     variable_parameters = 1
+        #     for dim in shape:
+        #         print(dim)
+        #         variable_parameters *= dim.value
+        #     print(variable_parameters)
+        #     total_parameters += variable_parameters
+        # print(total_parameters)
+        ########################################################################
+        best_v = []
         if 'Double' not in self.method:
             # DQN or Dueling
-            best_v = tf.reduce_max(targetQ_predict_value, 1)  # N,
+
+            for i in range(0,self.agents):
+                best_v.append(tf.reduce_max(targetQ_predict_values[i], 1))  # N, agent 1
+
         else:
             # Double-DQN or DuelingDouble
-            next_predict_value = self.get_DQN_prediction(next_state)
-            self.greedy_choice = tf.argmax(next_predict_value, 1)  # N,
-            predict_onehot = tf.one_hot(self.greedy_choice, self.num_actions, 1.0, 0.0)
-            best_v = tf.reduce_sum(targetQ_predict_value * predict_onehot, 1)
+            # raise (' not implemented for multi agent ')
+            self.greedy_choice=[]
+            next_predict_values = self.get_DQN_prediction(next_states)
+            predict_onehot=[]
+            for i in range(0,self.agents):
 
-        target = reward + (1.0 - tf.cast(isOver, tf.float32)) * self.gamma * tf.stop_gradient(best_v)
-        cost = tf.losses.huber_loss(target, pred_action_value,
-                                    reduction=tf.losses.Reduction.MEAN)
-        summary.add_param_summary(('conv.*/W', ['histogram', 'rms']),
-                                  ('fc.*/W', ['histogram', 'rms']))  # monitor all W
-        summary.add_moving_summary(cost)
-        return cost
+                self.greedy_choice.append(tf.argmax(next_predict_values[i], 1) ) # N,
+                predict_onehot.append(tf.one_hot(self.greedy_choice[i], self.num_actions, 1.0, 0.0))
+                best_v.append(tf.reduce_sum(targetQ_predict_values[i] * predict_onehot[i], 1))
+        targets=[]
+        self.costs=[]
+        self.cost=0.0
+        for i in range(0,self.agents):
+            targets.append(rewards[i] + (1.0 - tf.cast(isOver[:,i], tf.float32)) * self.gamma * tf.stop_gradient(best_v[i]))  # agent 1
+            self.costs.append(tf.losses.huber_loss(targets[i], pred_action_value[i],
+                                         reduction=tf.losses.Reduction.MEAN))  # agent 1
 
-    def optimizer(self):
+            self.costs[i] = tf.identity(self.costs[i] , name='cost_{}'.format(i))
+
+            self.cost = tf.add(self.cost,self.costs[i],'combined_cost')
+            summary.add_moving_summary(self.costs[i])
+
+    def _get_optimizer(self):
         lr = tf.get_variable('learning_rate', initializer=1e-3, trainable=False)
         opt = tf.train.AdamOptimizer(lr, epsilon=1e-3)
         return optimizer.apply_grad_processors(

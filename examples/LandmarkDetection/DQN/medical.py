@@ -182,7 +182,6 @@ class MedicalPlayer(gym.Env):
         """
         restart current episode
         """
-        logger.info("Medical Player restarting episode")
         self.terminal = [False] * self.agents
         self.reward = np.zeros((self.agents,))
         self.cnt = 0 # counter to limit number of steps per episodes
@@ -267,12 +266,6 @@ class MedicalPlayer(gym.Env):
                               int(self._image_dims[1] / 4),
                               int(self._image_dims[2] / 4))
 
-
-        # TODO: should agents start at the same random points, agents get stuck
-        #x=[self.rng.randint(0 + skip_thickness[0], self._image_dims[0] - skip_thickness[0])] * self.agents
-        #y=[self.rng.randint(0 + skip_thickness[1], self._image_dims[1] - skip_thickness[1])] * self.agents
-        #z=[self.rng.randint(0 + skip_thickness[2], self._image_dims[2] - skip_thickness[2])] * self.agents
-
         x=[self.rng.randint(0 + skip_thickness[0], self._image_dims[0] - skip_thickness[0]) for _ in range(self.agents)]
         y=[self.rng.randint(0 + skip_thickness[1], self._image_dims[1] - skip_thickness[1]) for _ in range(self.agents)]
         z=[self.rng.randint(0 + skip_thickness[2], self._image_dims[2] - skip_thickness[2]) for _ in range(self.agents)]
@@ -288,7 +281,6 @@ class MedicalPlayer(gym.Env):
             self.cur_dist = [0, ] * self.agents
         else:
             self.cur_dist=[self.calcDistance(self._location[i], self._target_loc[i], self.spacing) for i in range(self.agents)]
-        logger.info("Current distance is " + str(self.cur_dist))
 
     def calcDistance(self, points1, points2, spacing=(1, 1, 1)):
         """ calculate the distance between two points in mm"""
@@ -835,9 +827,10 @@ class MedicalPlayer(gym.Env):
 # =============================================================================
 class FrameStack(gym.Wrapper):
     """used when not training. wrapper for Medical Env"""
-    def __init__(self, env, k):
+    def __init__(self, env, k, agents):
         """Buffer observations and stack across channels (last axis)."""
         gym.Wrapper.__init__(self, env)
+        self.agents = agents
         self.k = k  # history length
         self.frames = deque([], maxlen=k)
         shp = env.observation_space.shape
