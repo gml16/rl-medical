@@ -2,16 +2,21 @@ import torch
 import torch.nn as nn
 import numpy as np
 import collections
+import matplotlib.pyplot as plt
 
 def train(env):
     # Create a DQN (Deep Q-Network)
-    buffer = ReplayBuffer()
+    replay_buffer_size = 5000
+    buffer = ReplayBuffer(replay_buffer_size)
     dqn = DQN(env.agents*45*45*45, env.agents*6, buffer)
     episode = 1
     max_episodes = 10
     episode_duration = 50
     losses = []
     eps = 1
+    delta = 0.05
+    batch_size = 4
+    gamma = 0.9
     # Loop over episodes
     while episode <= max_episodes:
         print("episode ", episode, ", eps", eps)
@@ -19,20 +24,30 @@ def train(env):
 
         # Reset the environment for the start of the episode.
         obs = env.reset()
-        print("obs", obs.shape)
         # Loop over steps within this episode. The episode length here is 20.
 
         terminal = [False for _ in range(env.agents)]
         for step_num in range(episode_duration):
             acts, q_values = get_next_actions(obs, dqn, eps)
             # Step the agent once, and get the transition tuple for this step
-            print("acts, q_values", acts, q_values)
-            obs, reward, terminal, info = env.step(acts, q_values.data.numpy(), terminal)
-            print("obs, reward, terminal, info", obs.shape, reward, terminal, info)
-            #loss = dqn.train_q_network(transition)
-            #losses.append(loss)
+            #print("acts, q_values", acts, q_values)
+            next_obs, reward, terminal, info = env.step(acts, q_values.data.numpy(), terminal)
+            #print("obs, reward, terminal, info", obs.shape, reward, terminal, info)
+            buffer.add(obs, acts, reward, next_obs, terminal)
+            if len(buffer) >= batch_size:
+                eps -= delta
+                mini_batch = buffer.sample(batch_size)
+                print("mini batch shape", len(mini_batch))
+                loss = dqn.train_q_network(mini_batch, gamma)
+                losses.append(loss)
+            obs = next_obs
         eps = max(0, eps-0.05)
         episode += 1
+        plt.plot(list(range(len(losses))), losses)
+        plt.xlabel("Steps")
+        plt.ylabel("Loss")
+        plt.title("Training")
+        plt.yscale('log')
 
 # Function to get the next action, using whatever method you like
 def get_next_actions(obs, dqn, eps):
@@ -57,33 +72,66 @@ def get_greedy_actions(obs, dqn, doubleLearning = True):
     return greedy_steps
 
 
-class ReplayBuffer:
+class ReplayBuffer(object):
+    def __init__(self, size):
+        """Create Replay buffer.
+        Parameters
+        ----------
+        size: int
+            Max number of transitions to store in the buffer. When the buffer
+            overflows the old memories are dropped.
+        """
+        self._storage = []
+        self._maxsize = size
+        self._next_idx = 0
 
-    # TODO: implement binary heap for faster sampling
-    def __init__(self, capacity = 3000):
-        self.de = collections.deque(maxlen = capacity)
-        # Prevents edge case where TD error is 0 and transition never gets sampled
-        self.prob_epsilon = 0.0001
-        # Factor to accentuate the effect of the prioritised experience replay buffer, 0 is uniform sampling
-        self.alpha = 0.5
+    def __len__(self):
+        return len(self._storage)
 
-    def add(self, transition):
-        maxProb = max([t[4] for t in self.de], default = 1)
-        transition[4] = maxProb
-        self.de.append(transition)
+    def add(self, obs_t, action, reward, obs_tp1, done):
+        data = (obs_t, action, reward, obs_tp1, done)
 
-    def sample_batch(self, batch_size, replace = False):
-        tot = sum([t[4] for t in self.de])
-        probs = [t[4]/tot for t in self.de]
-        indexes = np.random.choice(len(self.de), batch_size, replace = replace, p = probs)
-        return [self.de[i] for i in indexes]
+        if self._next_idx >= len(self._storage):
+            self._storage.append(data)
+        else:
+            self._storage[self._next_idx] = data
+        self._next_idx = (self._next_idx + 1) % self._maxsize
 
-    def recompute_weights(self, transitions, td_errors):
-        for i in range(len(transitions)):
-            transitions[i][4] = (abs(td_errors[i].item()) + self.prob_epsilon)**self.alpha
+    def _encode_sample(self, idxes):
+        obses_t, actions, rewards, obses_tp1, dones = [], [], [], [], []
+        for i in idxes:
+            data = self._storage[i]
+            obs_t, action, reward, obs_tp1, done = data
+            obses_t.append(np.array(obs_t, copy=False))
+            actions.append(np.array(action, copy=False))
+            rewards.append(reward)
+            obses_tp1.append(np.array(obs_tp1, copy=False))
+            dones.append(done)
+        print("obses_t shape", obses_t.shape)
+        return np.array(obses_t), np.array(actions), np.array(rewards), np.array(obses_tp1), np.array(dones)
 
-    def size(self):
-        return len(self.de)
+    def sample(self, batch_size):
+        """Sample a batch of experiences.
+        Parameters
+        ----------
+        batch_size: int
+            How many transitions to sample.
+        Returns
+        -------
+        obs_batch: np.array
+            batch of observations
+        act_batch: np.array
+            batch of actions executed given obs_batch
+        rew_batch: np.array
+            rewards received as results of executing act_batch
+        next_obs_batch: np.array
+            next set of observations seen after executing act_batch
+        done_mask: np.array
+            done_mask[i] = 1 if executing act_batch[i] resulted in
+            the end of an episode and 0 otherwise.
+        """
+        idxes = [np.random.randint(0, len(self._storage) - 1) for _ in range(batch_size)]
+        return self._encode_sample(idxes)
 
 class Network(nn.Module):
 
@@ -137,10 +185,9 @@ class DQN:
 
     # Function to calculate the loss for a particular transition.
     def _calculate_loss(self, transitions, discount_factor):
-        # Inputs are a 1x4 tensor of the agent position and movement
-        batch_inputs = torch.tensor([np.append(t[0], t[1]) for t in transitions])
+        batch_inputs = torch.tensor(transitions[0])
         # Labels are the rewards
-        batch_labels = torch.tensor([t[2] for t in transitions])
+        batch_labels = torch.tensor(transitions[2])
         get_greedy = torch.tensor([np.append(t[0], pa) for pa in self.agent.possible_actions for t in transitions])
         y = self.target_network.forward(get_greedy).detach().squeeze().resize_((self.agent.batch_size,len(self.agent.possible_actions)))
         # Get the maximum prediction for the next state from the target network
