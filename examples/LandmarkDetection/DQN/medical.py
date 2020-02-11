@@ -386,7 +386,7 @@ class MedicalPlayer(gym.Env):
 
         # punish -1 reward if the agent tries to go out
         if self.task != 'play':
-            for i in range(0,self.agents):
+            for i in range(self.agents):
                 if go_out[i]:
                     self.reward[i]= -1
                 else:
@@ -414,6 +414,7 @@ class MedicalPlayer(gym.Env):
         if self.task == 'train':
             for i in range(self.agents):
                 if self.cur_dist[i]<=1:
+                    print("distance of agent", i ," is less than one")
                     self.terminal[i]=True
                     self.num_success[i].feed(1)
 
@@ -421,6 +422,8 @@ class MedicalPlayer(gym.Env):
         self.cnt += 1
         if self.cnt >= self.max_num_frames:
             for i in range(self.agents):
+                print("max number of steps reached", self.max_num_frames ,"which is")
+                input()
                 self.terminal[i] = True
 
         # update history buffer with new location and qvalues
@@ -455,11 +458,13 @@ class MedicalPlayer(gym.Env):
                 # terminate if scale is less than 1
                 else:
                     for i in range(self.agents):
+                        print("Oscillating and terminating")
                         self.terminal[i] = True
                         if self.cur_dist[i] <= 1 :
                             self.num_success[i].feed(1)
             else:
                 for i in range(self.agents):
+                    print("Oscillating and terminating")
                     self.terminal[i] = True
                     if self.cur_dist[i] <= 1:
                         self.num_success[i].feed(1)

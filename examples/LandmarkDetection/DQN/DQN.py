@@ -35,7 +35,7 @@ from tensorpack import (PredictConfig, OfflinePredictor, get_model_loader,
                         FullyConnected, PReLU, SimpleTrainer,
                         launch_train_with_config)
 
-from DQNModelTorch import train
+from trainer import Trainer
 
 
 ###############################################################################
@@ -147,7 +147,7 @@ class Model3D(DQNModel3D):
 
         with argscope(Conv3D, nl=PReLU.symbolic_function, use_bias=True):
 
-            for i in range(0, agents):
+            for i in range(agents):
                 images[i] = images[i] / 255.0
                 with argscope(Conv3D, nl=PReLU.symbolic_function, use_bias=True):
 
@@ -361,5 +361,12 @@ if __name__ == '__main__':
             config.session_init = get_model_loader(args.load)
         launch_train_with_config(config, SimpleTrainer())
         """
-        environment = get_player(task='train', files_list=args.files, agents=1, reward_strategy=1)
-        train(environment)
+        environment = get_player(task='train', files_list=args.files, agents=args.agents, reward_strategy=1, viz=False)
+        trainer = Trainer(environment,
+                          batch_size = BATCH_SIZE,
+                          image_size = IMAGE_SIZE,
+                          frame_history = FRAME_HISTORY,
+                          update_frequency = UPDATE_FREQ,
+                          gamma = GAMMA,
+                          steps_per_epoch = 50, # TODO: rename to steps per epidose?
+                          ).train()

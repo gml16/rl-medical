@@ -119,7 +119,7 @@ class Model3D(ModelDesc):
 
         See http://tensorpack.readthedocs.io/tutorial/training-interface.html for Mode lDesc documentation.
         """
-        self.agents=agents
+        self.agents = agents
         self.gamma = gamma
         self.method = method
         self.channel = channel
@@ -152,7 +152,7 @@ class Model3D(ModelDesc):
         comb_state, action ,reward, isOver= inputs
         comb_state = tf.cast(comb_state, tf.float32)  # agent 1
         states=[]
-        for i in range(0,self.agents):
+        for i in range(self.agents):
             states.append( tf.slice(comb_state[:,i,:,:,:,:], [0, 0, 0, 0, 0], [-1, -1, -1, -1, self.channel], name='state_{}'.format(i)))  # agent 1
 
         self.predict_values = self.get_DQN_prediction(states)
@@ -164,7 +164,7 @@ class Model3D(ModelDesc):
         action_onehot=[]
         pred_action_value=[]
         max_pred_rewards=[]
-        for i in range(0,self.agents):
+        for i in range(self.agents):
             rewards.append(tf.clip_by_value(reward[:,i], -1, 1))
             next_states.append(tf.slice(comb_state[:,i,:,:,:,:], [0, 0, 0, 0, 1], [-1, -1, -1, -1, self.channel], name='next_state_{}'.format(i)))
             action_onehot.append(tf.one_hot(action[:,i], self.num_actions, 1.0, 0.0))
