@@ -100,7 +100,7 @@ class filesListBrainMRLandmark(object):
                 # extract filename from path, remove .nii.gz extension
                 image_filenames = [self.image_files[idx][:-7]] * self.agents
                 images = [image] * self.agents
-                yield images, landmarks, image_filename, sitk_image.GetSpacing()
+                yield images, landmarks, image_filenames, sitk_image.GetSpacing()
 ###############################################################################
 
 
