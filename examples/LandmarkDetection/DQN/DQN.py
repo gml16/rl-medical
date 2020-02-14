@@ -363,7 +363,7 @@ if __name__ == '__main__':
         """
         environment = get_player(task='train', files_list=args.files, agents=args.agents, reward_strategy=1, viz=False)
         trainer = Trainer(environment,
-                          batch_size = BATCH_SIZE,
+                          batch_size = 16, #BATCH_SIZE, # Is batch size influencing oscillations? How come
                           image_size = IMAGE_SIZE,
                           frame_history = FRAME_HISTORY,
                           update_frequency = UPDATE_FREQ,

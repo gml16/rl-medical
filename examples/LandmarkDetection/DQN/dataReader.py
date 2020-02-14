@@ -71,13 +71,18 @@ class filesListBrainMRLandmark(object):
                     # landmark = all_landmarks[14] # landmark index is 13 for ac-point and 14 pc-point
                     # transform landmark from physical to image space if required
                     # landmark = sitk_image.TransformPhysicalPointToContinuousIndex(landmark)
-                    landmark = [np.round(all_landmarks[(i+14)%15]) for i in range(self.agents)]
+                    landmarks = [np.round(all_landmarks[(i+14)%15]) for i in range(self.agents)]
                 else:
-                    landmark = None
+                    landmarks = None
                 # extract filename from path, remove .nii.gz extension
-                image_filename = [self.image_files[idx][:-7]] * self.agents
+                image_filenames = [self.image_files[idx][:-7]] * self.agents
                 images = [image] * self.agents
-                yield images, landmark, image_filenames, sitk_image.GetSpacing()
+                yield images, landmarks, image_filenames, sitk_image.GetSpacing()
+###############################################################################
+
+
+class filesListCardioLandmark(object):
+    """ A class for managing train files for mri cardiac data"""
 
 ###############################################################################
 

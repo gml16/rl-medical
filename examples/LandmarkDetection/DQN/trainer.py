@@ -34,7 +34,7 @@ class Trainer(object):
         self.number_actions = number_actions
         self.frame_history = frame_history
         self.buffer = ReplayBuffer(self.replay_buffer_size)
-        self.dqn = DQN(self.batch_size, self.agents)
+        self.dqn = DQN(self.batch_size, self.agents, self.frame_history, type="MLP")
 
     def train(self):
         losses = []
@@ -44,28 +44,32 @@ class Trainer(object):
         print("number of agents", self.agents)
         # Loop over episodes
         while episode <= self.max_episodes:
-            print("episode ", episode, ", eps", self.eps)
+            print("episode", episode, "- eps", self.eps)
             #print("losses", losses)
 
             # Reset the environment for the start of the episode.
             obs = self.env.reset()
+            # Observations stacks is a numpy array with shape (agents, frame_history, *image_size)
+            obs_stack = np.stack([obs] * self.frame_history, axis=1)
             # Loop over steps within this episode. The episode length here is 20.
 
             terminal = [False for _ in range(self.agents)]
             for step_num in range(self.steps_per_epoch):
-                acts, q_values = self.get_next_actions(obs)
+                acts, q_values = self.get_next_actions(obs_stack)
+                print("acts in trainer", acts)
                 # Step the agent once, and get the transition tuple for this step
-                #print("acts, q_values", acts, q_values)
+                #tuple(map(tuple, q_values.data.numpy()))
                 next_obs, reward, terminal, info = self.env.step(acts, q_values.data.numpy(), terminal)
                 #print("obs, reward, terminal, info", obs.shape, reward, terminal, info)
-                self.buffer.add(obs/255, acts, reward, next_obs, terminal)
+                next_obs_stack = np.concatenate((obs_stack[:,1:], np.expand_dims(next_obs, axis=1)), axis=1)
+                self.buffer.add(obs_stack/255, acts, reward, next_obs_stack/255, terminal)
                 if len(self.buffer) >= self.batch_size:
                     mini_batch = self.buffer.sample(self.batch_size)
                     loss = self.dqn.train_q_network(mini_batch, self.gamma)
-                    #loss = 1
                     print("loss:", loss)
                     losses.append(loss)
                 obs = next_obs
+                obs_stack = next_obs_stack
                 if all(t for t in terminal):
                     break
             if episode % self.update_frequency == 0:
@@ -80,18 +84,18 @@ class Trainer(object):
         plt.show()
 
     # Function to get the next action, using whatever method you like
-    def get_next_actions(self, obs):
+    def get_next_actions(self, obs_stack):
         # epsilon-greedy policy
-        q_values = self.dqn.q_network.forward(torch.tensor(obs).flatten())
+        q_values = self.dqn.q_network.forward(torch.tensor(obs_stack).unsqueeze(0)).view(self.agents, self.number_actions)
         if np.random.random() < self.eps:
-            actions = [np.random.choice(6) for _ in range(obs.shape[0])]
+            actions = [np.random.choice(6) for _ in range(self.agents)]
             #q_values = actions.detach().squeeze()
         else:
-            actions = self.get_greedy_actions(obs, doubleLearning=True)
+            actions = self.get_greedy_actions(obs_stack, doubleLearning=True)
         return actions, q_values
 
-    def get_greedy_actions(self, obs, doubleLearning = True):
-        inputs = torch.tensor(obs).flatten()
+    def get_greedy_actions(self, obs_stack, doubleLearning = True):
+        inputs = torch.tensor(obs_stack).unsqueeze(0)
         if doubleLearning:
             vals = self.dqn.q_network.forward(inputs).detach()
         else:

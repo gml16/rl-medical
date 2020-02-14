@@ -511,10 +511,15 @@ class MedicalPlayer(gym.Env):
         '''
         best_location = []
         for i in range(self.agents):
+            #print("self._qvalues_history", self._qvalues_history)
             last_qvalues_history = self._qvalues_history[i][-4:]
             last_loc_history = self._loc_history[i][-4:]
+            #print("last_qvalues_history", last_qvalues_history)
+            #print("last_loc_history", last_loc_history)
             best_qvalues = np.max(last_qvalues_history, axis=1)
+            #print("best_qvalues", best_qvalues)
             best_idx = best_qvalues.argmin()
+            #print("best_idx", best_idx)
             best_location.append(last_loc_history[best_idx])
 
         return best_location
@@ -533,10 +538,7 @@ class MedicalPlayer(gym.Env):
             self._loc_history[i].pop(0)
             self._loc_history[i].insert(len(self._loc_history[i]),self._location[i])
 
-
             # update q-value history
-            # self._qvalues_history[i][:-1] = self._qvalues_history[i][1:]
-            # self._qvalues_history[i][-1] = np.ravel(self._qvalues[i])
             self._qvalues_history[i].pop(0)
             self._qvalues_history[i].insert(len(self._qvalues_history[i]),self._qvalues[i])
 
