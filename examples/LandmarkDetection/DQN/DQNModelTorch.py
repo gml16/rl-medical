@@ -5,10 +5,11 @@ import torch.nn.functional as F
 class MLP(nn.Module):
 
     # The class initialisation function. This takes as arguments the dimension of the network's input (i.e. the dimension of the state), and the dimension of the network's output (i.e. the dimension of the action).
-    def __init__(self, input_dimension, output_dimension):
+    def __init__(self, input_dimension, output_dimension, agents):
         # Call the initialisation function of the parent class.
         super(MLP, self).__init__()
         # Define the network layers. This example network has two hidden layers, each with 100 units.
+        self.agents = agents
         self.layer_1 = nn.Linear(in_features=input_dimension, out_features=100)
         self.layer_2 = nn.Linear(in_features=100, out_features=100)
         self.output_layer = nn.Linear(in_features=100, out_features=output_dimension)
@@ -19,11 +20,12 @@ class MLP(nn.Module):
         layer_1_output = nn.functional.relu(self.layer_1(input))
         layer_2_output = nn.functional.relu(self.layer_2(layer_1_output))
         output = self.output_layer(layer_2_output)
-        return output.view(-1, 6)
+        output = output.view(-1, self.agents, 6)
+        return output
 
 class Network3D(nn.Module):
 
-    def __init__(self, in_channels, out_channels, agents, frame_history):
+    def __init__(self, agents, frame_history, number_actions):
         super(Network3D, self).__init__()
 
         self.agents = agents
@@ -45,7 +47,7 @@ class Network3D(nn.Module):
         self.prelu4 = [nn.PReLU() for _ in range(self.agents)]
         self.fc2 = [nn.Linear(in_features=256, out_features=128) for _ in range(self.agents)]
         self.prelu5 = [nn.PReLU() for _ in range(self.agents)]
-        self.fc3 = [nn.Linear(in_features=128, out_features=6) for _ in range(self.agents)]
+        self.fc3 = [nn.Linear(in_features=128, out_features=number_actions) for _ in range(self.agents)]
 
     def forward(self, input):
         # Input is a tensor of size (batch_size, agents, frame_history, *image_size)
@@ -94,15 +96,15 @@ class DQN:
         self.agents = agents
         self.number_actions = number_actions
         self.frame_history = frame_history
-        input_dimension = self.agents*self.frame_history*45*45*45
-        output_dimension = self.agents*self.number_actions
+        input_dimension = agents*frame_history*45*45*45
+        output_dimension = agents*number_actions
         # Create a Q-network, which predicts the q-value for a particular state.
         if type == "Network3d":
-            self.q_network = Network3D(input_dimension, output_dimension, agents, frame_history)
-            self.target_network = Network3D(input_dimension, output_dimension, agents, frame_history)
-        else:
-            self.q_network = MLP(input_dimension, output_dimension)
-            self.target_network = MLP(input_dimension, output_dimension)
+            self.q_network = Network3D(agents, frame_history, number_actions)
+            self.target_network = Network3D(agents, frame_history, number_actions)
+        elif type == "MLP":
+            self.q_network = MLP(input_dimension, output_dimension, agents)
+            self.target_network = MLP(input_dimension, output_dimension, agents)
         self.copy_to_target_network()
         # Define the optimiser which is used when updating the Q-network. The learning rate determines how big each gradient step is during backpropagation.
         self.optimiser = torch.optim.RMSprop(self.q_network.parameters(), lr=0.0004, momentum=0)
