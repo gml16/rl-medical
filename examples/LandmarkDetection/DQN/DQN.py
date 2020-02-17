@@ -361,7 +361,7 @@ if __name__ == '__main__':
             config.session_init = get_model_loader(args.load)
         launch_train_with_config(config, SimpleTrainer())
         """
-        environment = get_player(task='train', files_list=args.files, agents=args.agents, reward_strategy=1, viz=False)
+        environment = get_player(task='train', files_list=args.files, agents=args.agents, reward_strategy=1, viz=0.01)
         trainer = Trainer(environment,
                           batch_size = BATCH_SIZE, # Is batch size influencing oscillations? How come
                           image_size = IMAGE_SIZE,

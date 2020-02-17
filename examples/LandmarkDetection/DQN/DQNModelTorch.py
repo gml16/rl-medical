@@ -112,6 +112,12 @@ class DQN:
     def copy_to_target_network(self):
         self.target_network.load_state_dict(self.q_network.state_dict())
 
+    def save_model():
+        try:
+            torch.save(self.q_network.state_dict(), "data/models/test_models/dqn_" + str(int(time.time())) +".pt")
+        except:
+            print("Cannot save model")
+
     # Function that is called whenever we want to train the Q-network. Each call to this function takes in a transition tuple containing the data we use to update the Q-network.
     def train_q_network(self, transitions, discount_factor):
         # Set all the gradients stored in the optimiser to zero.

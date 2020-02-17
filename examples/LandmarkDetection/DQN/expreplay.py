@@ -31,7 +31,6 @@ Experience = namedtuple('Experience',['state', 'action', 'reward', 'isOver'])
 
 class ReplayMemory(object):
     def __init__(self, max_size, state_shape, history_len, agents):
-        logger.info("Replay memory init")
         self.max_size = int(max_size)
         self.state_shape = state_shape
         self.history_len = int(history_len)
@@ -117,7 +116,7 @@ class ReplayMemory(object):
         actions_out=[]
         isOver_out=[]
         for i in range(0,self.agents):
-            if states[i].ndim==4: # xxx States
+            if states[i].ndim==4: # 3D States
                 states[i]=states[i].transpose(1,2,3,0)
             else: # 2D States
                 states[i]=states[i].transpose(1,2,0)
@@ -165,7 +164,7 @@ class ExpReplay(DataFlow, Callback):
                  batch_size,
                  memory_size, init_memory_size,
                  init_exploration,
-                 update_frequency, history_len, agents):
+                 update_frequency, history_len):
         """
         Args:
             predictor_io_names (tuple of list of str): input/output names to
@@ -176,13 +175,12 @@ class ExpReplay(DataFlow, Callback):
             history_len (int): length of history frames to concat. Zero-filled
                 initial frames.
         """
-        logger.info("Exp replay init")
         self.init_memory_size = int(init_memory_size)
         # for k, v in locals().items():
         for k, v in list(locals().items()):
             if k != 'self':
                 setattr(self, k, v)
-        self.agents = agents
+        self.agents = player.agents
 
         self.exploration = init_exploration
         self.num_actions = player.action_space.n
@@ -203,7 +201,6 @@ class ExpReplay(DataFlow, Callback):
         for i in range(0,self.agents):
             self._player_scores.append(StatCounter())
             self._player_distError.append(StatCounter())
-        logger.info("Exp replay finished init")
 
     def get_simulator_thread(self):
         # spawn a separate thread to run policy

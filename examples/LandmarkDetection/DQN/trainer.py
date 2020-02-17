@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import numpy as np
-import matplotlib.pyplot as plt
 import time
 from expreplayTorch import ReplayBuffer
 from DQNModelTorch import DQN
@@ -39,32 +38,23 @@ class Trainer(object):
         self.number_actions = number_actions
         self.frame_history = frame_history
         self.buffer = ReplayBuffer(self.replay_buffer_size)
-        self.dqn = DQN(self.batch_size, self.agents, self.frame_history, type="Network3d")
+        self.dqn = DQN(self.batch_size, self.agents, self.frame_history, type="MLP")
 
     def train(self):
         losses = []
         episode = 1
-        # Create a DQN (Deep Q-Network)
-
-        print("number of agents", self.agents)
-        # Loop over episodes
         while episode <= self.max_episodes:
             print("episode", episode, "- eps", self.eps)
-            #print("losses", losses)
-
             # Reset the environment for the start of the episode.
             obs = self.env.reset()
             # Observations stacks is a numpy array with shape (agents, frame_history, *image_size)
             obs_stack = np.stack([obs] * self.frame_history, axis=1)
             # Loop over steps within this episode. The episode length here is 20.
-
             terminal = [False for _ in range(self.agents)]
             for step_num in range(self.steps_per_epoch):
                 acts, q_values = self.get_next_actions(obs_stack)
                 # Step the agent once, and get the transition tuple for this step
-                #tuple(map(tuple, q_values.data.numpy()))
                 next_obs, reward, terminal, info = self.env.step(acts, q_values.data.numpy(), terminal)
-                #print("obs, reward, terminal, info", obs.shape, reward, terminal, info)
                 next_obs_stack = np.concatenate((obs_stack[:,1:], np.expand_dims(next_obs, axis=1)), axis=1)
                 self.buffer.add(obs_stack/255, acts, reward, next_obs_stack/255, terminal)
                 if len(self.buffer) >= self.init_memory_size:
@@ -80,13 +70,9 @@ class Trainer(object):
                 self.dqn.copy_to_target_network()
             self.eps = max(self.min_eps, self.eps-self.delta)
             episode += 1
-        plt.plot(list(range(len(losses))), losses)
-        plt.xlabel("Steps")
-        plt.ylabel("Loss")
-        plt.title("Training")
-        plt.yscale('log')
-        plt.show()
-        torch.save(model.state_dict(), "data/models/test_models/model_test_" + str(int(time.time())) +".pt")
+        self.plot_loss(losses)
+        self.dqn.save_model()
+
 
     # Function to get the next action, using whatever method you like
     def get_next_actions(self, obs_stack):
@@ -111,3 +97,12 @@ class Trainer(object):
 
         # The actions are scaled for better training of the DQN
         return greedy_steps
+
+    def plot_loss(self, losses):
+        import matplotlib.pyplot as plt
+        plt.plot(list(range(len(losses))), losses)
+        plt.xlabel("Steps")
+        plt.ylabel("Loss")
+        plt.title("Training")
+        plt.yscale('log')
+        plt.show()
