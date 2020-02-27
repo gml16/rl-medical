@@ -458,13 +458,11 @@ class MedicalPlayer(gym.Env):
                 # terminate if scale is less than 1
                 else:
                     for i in range(self.agents):
-                        print("Oscillating and terminating")
                         self.terminal[i] = True
                         if self.cur_dist[i] <= 1 :
                             self.num_success[i].feed(1)
             else:
                 for i in range(self.agents):
-                    print("Oscillating and terminating")
                     self.terminal[i] = True
                     if self.cur_dist[i] <= 1:
                         self.num_success[i].feed(1)

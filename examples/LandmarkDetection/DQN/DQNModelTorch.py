@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import time
 
 class MLP(nn.Module):
 
@@ -10,18 +11,20 @@ class MLP(nn.Module):
         super(MLP, self).__init__()
         # Define the network layers. This example network has two hidden layers, each with 100 units.
         self.agents = agents
-        self.layer_1 = nn.Linear(in_features=input_dimension, out_features=100)
-        self.layer_2 = nn.Linear(in_features=100, out_features=100)
-        self.output_layer = nn.Linear(in_features=100, out_features=output_dimension)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.layer_1 = nn.Linear(in_features=input_dimension, out_features=100).to(self.device)
+        self.layer_2 = nn.Linear(in_features=100, out_features=100).to(self.device)
+        self.output_layer = nn.Linear(in_features=100, out_features=output_dimension).to(self.device)
 
     # Function which sends some input data through the network and returns the network's output. In this example, a ReLU activation function is used for both hidden layers, but the output layer has no activation function (it is just a linear layer).
     def forward(self, input):
+        input = input.to(self.device)
         input = input.view(-1, self.layer_1.in_features)
         layer_1_output = nn.functional.relu(self.layer_1(input))
         layer_2_output = nn.functional.relu(self.layer_2(layer_1_output))
         output = self.output_layer(layer_2_output)
         output = output.view(-1, self.agents, 6)
-        return output
+        return output.cpu()
 
 class Network3D(nn.Module):
 
@@ -30,44 +33,45 @@ class Network3D(nn.Module):
 
         self.agents = agents
         self.frame_history = frame_history
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.conv0 = nn.Conv3d(in_channels=frame_history, out_channels=32, kernel_size=(5,5,5))
-        self.maxpool0 = nn.MaxPool3d(kernel_size=(2,2,2))
-        self.prelu0 = nn.PReLU()
-        self.conv1 = nn.Conv3d(in_channels=32, out_channels=32, kernel_size=(5,5,5))
-        self.maxpool1 = nn.MaxPool3d(kernel_size=(2,2,2))
-        self.prelu1 = nn.PReLU()
-        self.conv2 = nn.Conv3d(in_channels=32, out_channels=64, kernel_size=(4,4,4))
-        self.maxpool2 = nn.MaxPool3d(kernel_size=(2,2,2))
-        self.prelu2 = nn.PReLU()
-        self.conv3 = nn.Conv3d(in_channels=64, out_channels=64, kernel_size=(3,3,3))
-        self.prelu3 = nn.PReLU()
+        self.conv0 = nn.Conv3d(in_channels=frame_history, out_channels=32, kernel_size=(5,5,5)).to(self.device)
+        self.maxpool0 = nn.MaxPool3d(kernel_size=(2,2,2)).to(self.device)
+        self.prelu0 = nn.PReLU().to(self.device)
+        self.conv1 = nn.Conv3d(in_channels=32, out_channels=32, kernel_size=(5,5,5)).to(self.device)
+        self.maxpool1 = nn.MaxPool3d(kernel_size=(2,2,2)).to(self.device)
+        self.prelu1 = nn.PReLU().to(self.device)
+        self.conv2 = nn.Conv3d(in_channels=32, out_channels=64, kernel_size=(4,4,4)).to(self.device)
+        self.maxpool2 = nn.MaxPool3d(kernel_size=(2,2,2)).to(self.device)
+        self.prelu2 = nn.PReLU().to(self.device)
+        self.conv3 = nn.Conv3d(in_channels=64, out_channels=64, kernel_size=(3,3,3)).to(self.device)
+        self.prelu3 = nn.PReLU().to(self.device)
 
-        self.fc1 = [nn.Linear(in_features=512, out_features=256) for _ in range(self.agents)]
-        self.prelu4 = [nn.PReLU() for _ in range(self.agents)]
-        self.fc2 = [nn.Linear(in_features=256, out_features=128) for _ in range(self.agents)]
-        self.prelu5 = [nn.PReLU() for _ in range(self.agents)]
-        self.fc3 = [nn.Linear(in_features=128, out_features=number_actions) for _ in range(self.agents)]
+        self.fc1 = [nn.Linear(in_features=512, out_features=256).to(self.device) for _ in range(self.agents)]
+        self.prelu4 = [nn.PReLU().to(self.device) for _ in range(self.agents)]
+        self.fc2 = [nn.Linear(in_features=256, out_features=128).to(self.device) for _ in range(self.agents)]
+        self.prelu5 = [nn.PReLU().to(self.device) for _ in range(self.agents)]
+        self.fc3 = [nn.Linear(in_features=128, out_features=number_actions).to(self.device) for _ in range(self.agents)]
+
 
     def forward(self, input):
+        """
         # Input is a tensor of size (batch_size, agents, frame_history, *image_size)
+        """
+        input = input.to(self.device)
         for i in range(self.agents):
             # Common layers
             x = input[:, i]
-            #print("input.shape", input.shape)
-            #print("x.shape",x.shape)
+
             x = self.conv0(x)
-            #print("x.shape conv0",x.shape)
             x = self.prelu0(x)
+
             x = self.maxpool0(x)
-            #print("x.shape maxpool0",x.shape)
+
             x = self.conv1(x)
-            #print("x.shape conv1",x.shape)
             x = self.prelu1(x)
             x = self.maxpool1(x)
-            #print("x.shape maxpool1",x.shape)
             x = self.conv2(x)
-            #print("x.shape conv2",x.shape)
             x = self.prelu2(x)
             x = self.maxpool2(x)
             #print("x.shape maxpool2",x.shape)
@@ -75,7 +79,6 @@ class Network3D(nn.Module):
             #print("x.shape conv3",x.shape)
             #x = self.prelu3(x)
             x = x.view(-1, 512)
-
             # Individual layers
             x = self.fc1[i](x)
             x = self.prelu4[i](x)
@@ -86,7 +89,7 @@ class Network3D(nn.Module):
                 output = x.unsqueeze(0)
             else:
                 output = torch.cat((output, x.unsqueeze(0)), dim=1)
-        return output
+        return output.cpu()
 
 
 class DQN:
@@ -96,15 +99,17 @@ class DQN:
         self.agents = agents
         self.number_actions = number_actions
         self.frame_history = frame_history
-        input_dimension = agents*frame_history*45*45*45
-        output_dimension = agents*number_actions
         # Create a Q-network, which predicts the q-value for a particular state.
         if type == "Network3d":
             self.q_network = Network3D(agents, frame_history, number_actions)
             self.target_network = Network3D(agents, frame_history, number_actions)
         elif type == "MLP":
+            input_dimension = agents*frame_history*45*45*45
+            output_dimension = agents*number_actions
             self.q_network = MLP(input_dimension, output_dimension, agents)
             self.target_network = MLP(input_dimension, output_dimension, agents)
+        self.q_network.cuda()
+        self.target_network.cuda()
         self.copy_to_target_network()
         # Define the optimiser which is used when updating the Q-network. The learning rate determines how big each gradient step is during backpropagation.
         self.optimiser = torch.optim.RMSprop(self.q_network.parameters(), lr=0.0004, momentum=0)
@@ -112,8 +117,9 @@ class DQN:
     def copy_to_target_network(self):
         self.target_network.load_state_dict(self.q_network.state_dict())
 
-    def save_model():
+    def save_model(self):
         try:
+            print("Saved model at data/models/test_models/dqn_" + str(int(time.time())) +".pt")
             torch.save(self.q_network.state_dict(), "data/models/test_models/dqn_" + str(int(time.time())) +".pt")
         except:
             print("Cannot save model")

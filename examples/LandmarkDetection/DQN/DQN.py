@@ -363,12 +363,13 @@ if __name__ == '__main__':
         """
         environment = get_player(task='train', files_list=args.files, agents=args.agents, reward_strategy=1, viz=0.01)
         trainer = Trainer(environment,
-                          batch_size = BATCH_SIZE, # Is batch size influencing oscillations? How come
+                          batch_size = 32, #BATCH_SIZE, # Is batch size influencing oscillations? How come
                           image_size = IMAGE_SIZE,
                           frame_history = FRAME_HISTORY,
                           update_frequency = UPDATE_FREQ,
-                          replay_buffer_size = MEMORY_SIZE,
-                          init_memory_size = INIT_MEMORY_SIZE,
+                          replay_buffer_size = 2e3, # MEMORY_SIZE,
+                          init_memory_size = 5e1, # INIT_MEMORY_SIZE,
                           gamma = GAMMA,
                           steps_per_epoch = STEPS_PER_EPOCH, # TODO: rename to steps per episode?
+                          max_episodes = 80,
                           ).train()
