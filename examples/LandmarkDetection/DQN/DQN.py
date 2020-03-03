@@ -64,11 +64,11 @@ EVAL_EPISODE = 50
 ###############################################################################
 
 def get_player(directory=None, files_list= None, viz=False,
-               task='play', saveGif=False, saveVideo=False, agents=1, reward_strategy=1):
+               task='play', saveGif=False, saveVideo=False, history_length=4, agents=1, reward_strategy=1):
     # in atari paper, max_num_frames = 30000
     env = MedicalPlayer(directory=directory, screen_dims=IMAGE_SIZE,
                         viz=viz, saveGif=saveGif, saveVideo=saveVideo,
-                        task=task, files_list=files_list, max_num_frames=1500, agents=agents, reward_strategy=reward_strategy)
+                        task=task, files_list=files_list, max_num_frames=1500, history_length=history_length, agents=agents, reward_strategy=reward_strategy)
     if task != 'train':
         # in training, env will be decorated by ExpReplay, and history
         # is taken care of in expreplay buffer
@@ -306,6 +306,12 @@ if __name__ == '__main__':
     parser.add_argument('--agents', help='Number of agents', type=int, default=1)
     parser.add_argument('--reward_strategy', help='Reward strategies: 1 is simple, 2 is line based, 3 is agent based',default=1)
 
+    parser.add_argument('--batch_size', help='',default=BATCH_SIZE, type=int)
+    parser.add_argument('--memory_size', help='',default=MEMORY_SIZE, type=int)
+    parser.add_argument('--init_memory_size', help='',default=INIT_MEMORY_SIZE, type=int)
+    parser.add_argument('--max_episodes', help='',default=5000, type=int)
+    parser.add_argument('--viz', help='',default=None, type=int)
+
 
 
     args = parser.parse_args()
@@ -361,15 +367,22 @@ if __name__ == '__main__':
             config.session_init = get_model_loader(args.load)
         launch_train_with_config(config, SimpleTrainer())
         """
-        environment = get_player(task='train', files_list=args.files, agents=args.agents, reward_strategy=1, viz=0.01)
+        dir = "data/experiments/log_" + str(int(time.time()))
+        script_dir = os.path.dirname(__file__)
+        abs_dir_path = os.path.join(script_dir, dir)
+        os.makedirs(abs_dir_path)
+        f = open(os.path.join(abs_dir_path, "logs.txt"),"w+")
+        environment = get_player(task='train', files_list=args.files, agents=args.agents, history_length=4, reward_strategy=1, viz=args.viz)
         trainer = Trainer(environment,
-                          batch_size = 32, #BATCH_SIZE, # Is batch size influencing oscillations? How come
+                          batch_size = args.batch_size, #BATCH_SIZE, # Is batch size influencing oscillations? How come
                           image_size = IMAGE_SIZE,
                           frame_history = FRAME_HISTORY,
                           update_frequency = UPDATE_FREQ,
-                          replay_buffer_size = 2e3, # MEMORY_SIZE,
-                          init_memory_size = 5e1, # INIT_MEMORY_SIZE,
+                          replay_buffer_size = args.memory_size, # MEMORY_SIZE,
+                          init_memory_size = args.init_memory_size, #5e1, # INIT_MEMORY_SIZE,
                           gamma = GAMMA,
                           steps_per_epoch = STEPS_PER_EPOCH, # TODO: rename to steps per episode?
-                          max_episodes = 80,
+                          max_episodes = args.max_episodes,
+                          delta=0.00001,
+                          file=f,
                           ).train()

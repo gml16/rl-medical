@@ -21,6 +21,7 @@ class Trainer(object):
                  gamma = 0.9,
                  number_actions = 6,
                  frame_history = 4,
+                 file=None,
                 ):
         self.env = env
         self.agents = env.agents
@@ -39,6 +40,7 @@ class Trainer(object):
         self.frame_history = frame_history
         self.buffer = ReplayBuffer(self.replay_buffer_size)
         self.dqn = DQN(self.batch_size, self.agents, self.frame_history, type="Network3d") #Network3d
+        self.file = file
 
     def train(self):
         losses = []
@@ -46,6 +48,9 @@ class Trainer(object):
         acc_steps = 0
         while episode <= self.max_episodes:
             print("episode", episode, "- eps", self.eps)
+            if self.file is not None:
+                self.file.write(f"episode {episode} - eps {self.eps} \n")
+
             # Reset the environment for the start of the episode.
             obs = self.env.reset()
             # Observations stacks is a numpy array with shape (agents, frame_history, *image_size)
@@ -67,13 +72,17 @@ class Trainer(object):
                 obs = next_obs
                 obs_stack = next_obs_stack
                 if all(t for t in terminal):
-                    print(f"Terminating episode after {step_num+1} steps, total of {acc_steps} steps, final distance is {info['distError_0']}.")
+                    msg = f"Terminating episode after {step_num+1} steps, total of {acc_steps} steps, final distance is {info['distError_0']}."
+                    print(msg)
+                    if self.file is not None:
+                        self.file.write(msg + "\n")
                     break
             if episode % self.update_frequency == 0:
                 self.dqn.copy_to_target_network()
             episode += 1
-            self.plot_loss(losses)
+            self.plot_loss(losses, self.file.name.split(".")[0])
         self.dqn.save_model()
+        file.close()
 
 
     # Function to get the next action, using whatever method you like
@@ -99,7 +108,7 @@ class Trainer(object):
         # The actions are scaled for better training of the DQN
         return greedy_steps
 
-    def plot_loss(self, losses):
+    def plot_loss(self, losses, name):
         import matplotlib.pyplot as plt
         if len(losses) == 0:
             return
@@ -109,5 +118,4 @@ class Trainer(object):
         plt.title("Training")
         plt.yscale('log')
         #plt.show()
-        plt.draw()
-        plt.pause(0.001)
+        plt.savefig(name + str(len(losses)))
