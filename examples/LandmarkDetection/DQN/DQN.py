@@ -64,11 +64,13 @@ EVAL_EPISODE = 50
 ###############################################################################
 
 def get_player(directory=None, files_list= None, viz=False,
-               task='play', saveGif=False, saveVideo=False, history_length=4, agents=1, reward_strategy=1):
+               task='play', saveGif=False, saveVideo=False, multiscale=True, history_length=4, agents=1, reward_strategy=1):
     # in atari paper, max_num_frames = 30000
     env = MedicalPlayer(directory=directory, screen_dims=IMAGE_SIZE,
                         viz=viz, saveGif=saveGif, saveVideo=saveVideo,
-                        task=task, files_list=files_list, max_num_frames=1500, history_length=history_length, agents=agents, reward_strategy=reward_strategy)
+                        task=task, files_list=files_list, max_num_frames=1500,
+                        history_length=history_length, multiscale=multiscale,
+                        agents=agents, reward_strategy=reward_strategy)
     if task != 'train':
         # in training, env will be decorated by ExpReplay, and history
         # is taken care of in expreplay buffer
@@ -310,7 +312,9 @@ if __name__ == '__main__':
     parser.add_argument('--memory_size', help='',default=MEMORY_SIZE, type=int)
     parser.add_argument('--init_memory_size', help='',default=INIT_MEMORY_SIZE, type=int)
     parser.add_argument('--max_episodes', help='',default=5000, type=int)
-    parser.add_argument('--viz', help='',default=None, type=int)
+    parser.add_argument('--viz', help='',default=None, type=float)
+    parser.add_argument('--multiscale', help='', dest='multiscale', action='store_true')
+    parser.set_defaults(multiscale=False)
 
 
 
@@ -372,7 +376,7 @@ if __name__ == '__main__':
         abs_dir_path = os.path.join(script_dir, dir)
         os.makedirs(abs_dir_path)
         f = open(os.path.join(abs_dir_path, "logs.txt"),"w+")
-        environment = get_player(task='train', files_list=args.files, agents=args.agents, history_length=4, reward_strategy=1, viz=args.viz)
+        environment = get_player(task='train', files_list=args.files, agents=args.agents, history_length=4, reward_strategy=1, viz=args.viz, multiscale=args.multiscale)
         trainer = Trainer(environment,
                           batch_size = args.batch_size, #BATCH_SIZE, # Is batch size influencing oscillations? How come
                           image_size = IMAGE_SIZE,

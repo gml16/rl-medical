@@ -60,8 +60,10 @@ class Trainer(object):
             for step_num in range(self.steps_per_epoch):
                 acc_steps += 1
                 acts, q_values = self.get_next_actions(obs_stack)
+
                 # Step the agent once, and get the transition tuple for this step
                 next_obs, reward, terminal, info = self.env.step(acts, q_values, terminal)
+
                 next_obs_stack = np.concatenate((obs_stack[:,1:], np.expand_dims(next_obs, axis=1)), axis=1)
                 self.buffer.add(obs_stack/255, acts, reward, next_obs_stack/255, terminal)
                 if len(self.buffer) >= self.init_memory_size:

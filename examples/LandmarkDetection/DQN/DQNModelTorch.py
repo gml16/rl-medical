@@ -144,17 +144,24 @@ class DQN:
 
         # Labels are the rewards
         batch_labels = torch.tensor(transitions[2], dtype=torch.float32)
+        print("batch labels", batch_labels)
         y = self.target_network.forward(batch_inputs).detach().squeeze()
         y = y.view(self.batch_size, self.agents, self.number_actions)
+        print("pred value actions", y)
         # Get the maximum prediction for the next state from the target network
         max_target_net = y.max(-1)[0]
+        print("max y", max_target_net)
         network_prediction = self.q_network.forward(batch_inputs).view(self.batch_size, self.agents, self.number_actions)
         # Bellman equation
         batch_labels_tensor = batch_labels + (discount_factor * max_target_net)
+        print("batch_labels_tensor", batch_labels_tensor)
         td_errors = (network_prediction - batch_labels_tensor.unsqueeze(-1)).detach()
 
+        print("actions", transitions[1])
         index = torch.tensor(transitions[1], dtype=torch.long).unsqueeze(-1)
         y_pred = (torch.gather(network_prediction, -1, index)).squeeze()
+        print("y_pred", y_pred)
+        input()
 
         # Update transitions' weights
         # self.buffer.recompute_weights(transitions, td_errors)
