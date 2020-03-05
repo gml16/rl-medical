@@ -39,7 +39,7 @@ class Trainer(object):
         self.number_actions = number_actions
         self.frame_history = frame_history
         self.buffer = ReplayBuffer(self.replay_buffer_size)
-        self.dqn = DQN(self.batch_size, self.agents, self.frame_history, type="Network3d") #Network3d
+        self.dqn = DQN(self.batch_size, self.agents, self.frame_history, type="Network2d")
         self.file = file
 
     def train(self):
