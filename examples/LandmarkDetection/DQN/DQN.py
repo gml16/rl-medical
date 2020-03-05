@@ -315,6 +315,8 @@ if __name__ == '__main__':
     parser.add_argument('--viz', help='',default=None, type=float)
     parser.add_argument('--multiscale', help='', dest='multiscale', action='store_true')
     parser.set_defaults(multiscale=False)
+    parser.add_argument('--write', help='', dest='write', action='store_true')
+    parser.set_defaults(write=False)
 
 
 
@@ -371,11 +373,13 @@ if __name__ == '__main__':
             config.session_init = get_model_loader(args.load)
         launch_train_with_config(config, SimpleTrainer())
         """
-        dir = "data/experiments/log_" + str(int(time.time()))
-        script_dir = os.path.dirname(__file__)
-        abs_dir_path = os.path.join(script_dir, dir)
-        os.makedirs(abs_dir_path)
-        f = open(os.path.join(abs_dir_path, "logs.txt"),"w+")
+        f = None
+        if args.write:
+            dir = "data/experiments/log_" + str(int(time.time()))
+            script_dir = os.path.dirname(__file__)
+            abs_dir_path = os.path.join(script_dir, dir)
+            os.makedirs(abs_dir_path)
+            f = open(os.path.join(abs_dir_path, "logs.txt"),"w+")
         environment = get_player(task='train', files_list=args.files, agents=args.agents, history_length=4, reward_strategy=1, viz=args.viz, multiscale=args.multiscale)
         trainer = Trainer(environment,
                           batch_size = args.batch_size, #BATCH_SIZE, # Is batch size influencing oscillations? How come

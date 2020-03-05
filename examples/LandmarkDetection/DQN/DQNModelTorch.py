@@ -30,7 +30,7 @@ class Network2D(nn.Module):
 
     def __init__(self, agents, frame_history, number_actions):
         super(Network2D, self).__init__()
-
+        print("Using Network2d")
         self.agents = agents
         self.frame_history = frame_history
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -204,24 +204,27 @@ class DQN:
 
     # Function to calculate the loss for a particular transition.
     def _calculate_loss(self, transitions, discount_factor):
-        # Transitions are tuple of shape obses_t, actions, rewards, obses_tp1, dones
-        batch_inputs = torch.tensor(transitions[0])
-        #batch_inputs = batch_inputs.view(self.batch_size, -1)
+        '''
+        Transitions are tuple of shape obses_t, actions, rewards, obses_tp1, dones
+        '''
+        curr_state = torch.tensor(transitions[0])
+        next_state = torch.tensor(transitions[3])
 
         # Labels are the rewards
-        batch_labels = torch.tensor(transitions[2], dtype=torch.float32)
-        y = self.target_network.forward(batch_inputs).detach().squeeze()
+        rewards = torch.clamp(torch.tensor(transitions[2], dtype=torch.float32), -1, 1)
+        y = self.target_network.forward(next_state).detach().squeeze() # TODO: should it be next state or current state that we forward?
         y = y.view(self.batch_size, self.agents, self.number_actions)
         # Get the maximum prediction for the next state from the target network
         max_target_net = y.max(-1)[0]
-        network_prediction = self.q_network.forward(batch_inputs).view(self.batch_size, self.agents, self.number_actions)
+        network_prediction = self.q_network.forward(curr_state).view(self.batch_size, self.agents, self.number_actions)
         # Bellman equation
-        batch_labels_tensor = batch_labels + (discount_factor * max_target_net)
-        td_errors = (network_prediction - batch_labels_tensor.unsqueeze(-1)).detach()
+        batch_labels_tensor = rewards + (discount_factor * max_target_net.detach())
+
+        #td_errors = (network_prediction - batch_labels_tensor.unsqueeze(-1)).detach() # TODO td error needed for exp replay
 
         index = torch.tensor(transitions[1], dtype=torch.long).unsqueeze(-1)
         y_pred = (torch.gather(network_prediction, -1, index)).squeeze()
 
         # Update transitions' weights
         # self.buffer.recompute_weights(transitions, td_errors)
-        return torch.nn.MSELoss()(y_pred, batch_labels_tensor)
+        return torch.nn.SmoothL1Loss()(y_pred, batch_labels_tensor)

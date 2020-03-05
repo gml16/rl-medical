@@ -68,6 +68,9 @@ class Trainer(object):
                 self.buffer.add(obs_stack/255, acts, reward, next_obs_stack/255, terminal)
                 if len(self.buffer) >= self.init_memory_size:
                     mini_batch = self.buffer.sample(self.batch_size)
+                    # print("getting out of mini batch acts", mini_batch[1], "reward", mini_batch[2], "size", mini_batch[0].shape)
+                    # for i in range(len(mini_batch[0])):
+                    #     print("trans", i, "there are non zeros:", np.count_nonzero(mini_batch[0][i,0,0]), "-", np.count_nonzero(mini_batch[0][i,0,1]), "-",np.count_nonzero(mini_batch[0][i,0,2]), "-",np.count_nonzero(mini_batch[0][i,0,3]), "-")
                     loss = self.dqn.train_q_network(mini_batch, self.gamma)
                     self.eps = max(self.min_eps, self.eps-self.delta)
                     losses.append(loss)
@@ -82,7 +85,7 @@ class Trainer(object):
             if episode % self.update_frequency == 0:
                 self.dqn.copy_to_target_network()
             episode += 1
-            self.plot_loss(losses, self.file.name.split(".")[0])
+            self.plot_loss(losses, self.file)
         self.dqn.save_model()
         file.close()
 
@@ -110,9 +113,9 @@ class Trainer(object):
         # The actions are scaled for better training of the DQN
         return greedy_steps
 
-    def plot_loss(self, losses, name):
+    def plot_loss(self, losses, file):
         import matplotlib.pyplot as plt
-        if len(losses) == 0:
+        if len(losses) == 0 or file is None:
             return
         plt.plot(list(range(len(losses))), losses, color='orange')
         plt.xlabel("Steps")
@@ -120,4 +123,4 @@ class Trainer(object):
         plt.title("Training")
         plt.yscale('log')
         #plt.show()
-        plt.savefig(name + str(len(losses)))
+        plt.savefig(file.name.split(".")[0] + str(len(losses)))
