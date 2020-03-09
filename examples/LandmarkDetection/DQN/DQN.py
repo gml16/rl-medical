@@ -36,6 +36,8 @@ from tensorpack import (PredictConfig, OfflinePredictor, get_model_loader,
                         launch_train_with_config)
 
 from trainer import Trainer
+from DQNModelTorch import Network2D
+import torch
 
 
 ###############################################################################
@@ -349,6 +351,16 @@ if __name__ == '__main__':
     num_files = init_player.files.num_files
 
     if args.task != 'train':
+        model = Network2D(args.agents, frame_history=4, number_actions=6)
+        model.load_state_dict(torch.load(args.load))
+        play_n_episodes(get_player(files_list=args.files, viz=0.01,
+                                   saveGif=args.saveGif,
+                                   saveVideo=args.saveVideo,
+                                   task=args.task,
+                                   agents=args.agents,
+                                   reward_strategy=args.reward_strategy),
+                                model, num_files) # TODO: try to see if .to("cuda") improves time
+        """
         assert args.load is not None
         pred = OfflinePredictor(PredictConfig(
             model=Model3D(agents=args.agents),
@@ -364,6 +376,7 @@ if __name__ == '__main__':
                                        agents=args.agents,
                                        reward_strategy=args.reward_strategy),
                             pred, num_files)
+        """
     else:  # train model
 
         # logger_dir = os.path.join(args.logDir, args.name)

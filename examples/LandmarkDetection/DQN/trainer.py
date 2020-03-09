@@ -76,9 +76,6 @@ class Trainer(object):
                 self.buffer.add(obs_stack/255.0, acts, reward, next_obs_stack/255.0, terminal)
                 if len(self.buffer) >= self.init_memory_size:
                     mini_batch = self.buffer.sample(self.batch_size)
-                    # print("getting out of mini batch acts", mini_batch[1], "reward", mini_batch[2], "size", mini_batch[0].shape)
-                    # for i in range(len(mini_batch[0])):
-                    #     print("trans", i, "there are non zeros:", np.count_nonzero(mini_batch[0][i,0,0]), "-", np.count_nonzero(mini_batch[0][i,0,1]), "-",np.count_nonzero(mini_batch[0][i,0,2]), "-",np.count_nonzero(mini_batch[0][i,0,3]), "-")
                     loss = self.dqn.train_q_network(mini_batch, self.gamma)
                     self.eps = max(self.min_eps, self.eps-self.delta)
                     losses.append(loss)
@@ -95,7 +92,7 @@ class Trainer(object):
                 self.dqn.copy_to_target_network()
             episode += 1
             self.plot_loss(losses, distances, self.file)
-        self.dqn.save_model()
+            self.dqn.save_model()
         file.close()
 
 

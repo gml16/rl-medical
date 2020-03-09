@@ -23,48 +23,33 @@ from tensorpack.utils.concurrency import (StoppableThread, ShareSessionThread)
 
 import traceback
 
+import torch
+
 
 ###############################################################################
 
-def play_one_episode(env, func, render=False, agents=1):
+def play_one_episode(env, func, render=False, agents=1, frame_history=4):
 
-    def predict(s, agents):
+    def predict(obs_stack):
         """
         Run a full episode, mapping observation to action, WITHOUT 0.001 greedy.
         :returns sum of rewards
         """
-        # pick action with best predicted Q-value
-        q_values = []
-        acts = np.zeros((agents,))
-        for i in range(agents):
-            #logger.info("func " + str(func(s[i][None, :, :, :])))
-            q_values.append(func(s[i][None, :, :, :])[0][0])
-            #logger.info("q_values " + str(q_values))
-            #input()
-            acts[i] = q_values[i].argmax()
+        inputs = torch.tensor(obs_stack).permute(0, 4, 1, 2, 3)
+        q_vals = func.forward(inputs).detach()
+        idx = torch.max(q_vals, -1)[1]
+        greedy_steps = np.array(idx, dtype = np.int32).flatten()
+        return greedy_steps, q_vals
 
-        #for i in range(agents):
-        #    s[i]=s[i][None,:,:,:]
-        # When model is for n agent
-        # q_values = func(*s)
-        # When model is for 1 agent
-        #for i in range(agents):
-        #    q_values[i] = func(*s[i])
-        #for i in range(agents):
-        #    q_values[i] = q_values[i].flatten()
-        #    acts[i] = np.argmax(q_values[i])
-        return acts, q_values
-
-    obs = env.reset()
-    obs = list(obs)
+    obs_stack = env.reset()
+    # Here obs are of the form (agent, *image_size, frame_history)
     sum_r = np.zeros((agents))
     filenames_list = []
     distError_list = []
     isOver = [False] * agents
     while True:
-        acts, q_values = predict(obs, agents)
-        obs, r, isOver, info = env.step(acts, q_values, isOver)
-        obs = list(obs)
+        acts, q_values = predict(obs_stack)
+        obs_stack, r, isOver, info = env.step(acts, q_values, isOver)
         if render:
             env.render()
 
