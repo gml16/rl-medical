@@ -360,23 +360,6 @@ if __name__ == '__main__':
                                    agents=args.agents,
                                    reward_strategy=args.reward_strategy),
                                 model, num_files) # TODO: try to see if .to("cuda") improves time
-        """
-        assert args.load is not None
-        pred = OfflinePredictor(PredictConfig(
-            model=Model3D(agents=args.agents),
-            session_init=get_model_loader(args.load),
-            input_names=['state'],
-            output_names=['Qvalue']))
-        # demo pretrained model one episode at a time
-        if args.task == 'play' or args.task == 'eval':
-            play_n_episodes(get_player(files_list=args.files, viz=0.01,
-                                       saveGif=args.saveGif,
-                                       saveVideo=args.saveVideo,
-                                       task=args.task,
-                                       agents=args.agents,
-                                       reward_strategy=args.reward_strategy),
-                            pred, num_files)
-        """
     else:  # train model
 
         # logger_dir = os.path.join(args.logDir, args.name)
@@ -398,7 +381,7 @@ if __name__ == '__main__':
                           batch_size = args.batch_size, #BATCH_SIZE, # Is batch size influencing oscillations? How come
                           image_size = IMAGE_SIZE,
                           frame_history = FRAME_HISTORY,
-                          update_frequency = UPDATE_FREQ,
+                          update_frequency = 10, #UPDATE_FREQ,
                           replay_buffer_size = args.memory_size, # MEMORY_SIZE,
                           init_memory_size = args.init_memory_size, #5e1, # INIT_MEMORY_SIZE,
                           gamma = GAMMA,

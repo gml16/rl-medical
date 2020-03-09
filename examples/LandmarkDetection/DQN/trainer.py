@@ -92,7 +92,7 @@ class Trainer(object):
                 self.dqn.copy_to_target_network()
             episode += 1
             self.plot_loss(losses, distances, self.file)
-            self.dqn.save_model()
+            #self.dqn.save_model()
         file.close()
 
 

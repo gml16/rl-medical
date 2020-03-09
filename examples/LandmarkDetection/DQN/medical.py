@@ -513,10 +513,13 @@ class MedicalPlayer(gym.Env):
             last_loc_history = self._loc_history[i][-4:]
             try:
                 best_qvalues = np.max(last_qvalues_history, axis=1)
-                best_idx = best_qvalues.argmin()
-                best_location.append(last_loc_history[best_idx])
             except:
                 print("medical.py:getBestLocation(), last_qvalues_history is", last_qvalues_history)
+                last_qvalues_history = [qval.flatten() for qval in last_qvalues_history]
+                print("medical.py:getBestLocation(), last_qvalues_history changed to", last_qvalues_history)
+                best_qvalues = np.max(last_qvalues_history, axis=1)
+        best_idx = best_qvalues.argmin()
+        best_location.append(last_loc_history[best_idx])
         return best_location
 
     def _clear_history(self):

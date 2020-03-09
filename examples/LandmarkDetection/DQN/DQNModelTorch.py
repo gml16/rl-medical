@@ -200,7 +200,6 @@ class DQN:
         # Calculate the loss for this transition.
         #self._calculate_loss_bis(transitions, discount_factor)
         loss = self._calculate_loss(transitions, discount_factor)
-        print("loss", loss.item())
         # Compute the gradients based on this loss, i.e. the gradients of the loss with respect to the Q-network parameters.
         loss.backward()
         # Take one gradient step to update the Q-network.
@@ -256,14 +255,13 @@ class DQN:
         next_state = torch.tensor(transitions[3])
         rewards = torch.clamp(torch.tensor(transitions[2], dtype=torch.float32), -1, 1)
 
-        y = self.target_network.forward(next_state) # TODO: should it be next state or current state that we forward? what about detaching?
+        y = self.target_network.forward(next_state)
         y = y.view(self.batch_size, self.agents, self.number_actions)
         # Get the maximum prediction for the next state from the target network
         max_target_net = y.max(-1)[0]
         network_prediction = self.q_network.forward(curr_state).view(self.batch_size, self.agents, self.number_actions)
         # Bellman equation
-        #print("rewards", rewards.data.numpy(), "max_target_net.detach()", max_target_net.data.numpy())
-        batch_labels_tensor = rewards + (discount_factor * max_target_net.detach()) # Add is Over
+        batch_labels_tensor = rewards + (discount_factor * max_target_net.detach()) # TODO: Add is Over
 
         #td_errors = (network_prediction - batch_labels_tensor.unsqueeze(-1)).detach() # TODO td error needed for exp replay
 
@@ -272,9 +270,6 @@ class DQN:
 
         # Update transitions' weights
         # self.buffer.recompute_weights(transitions, td_errors)
-        #print("pytorch batch_labels_tensor", batch_labels_tensor.data.numpy(), "y_pred", y_pred.data.numpy())
-        # print("loss v1", torch.nn.SmoothL1Loss()(batch_labels_tensor, y_pred), "vs loss v2", torch.nn.SmoothL1Loss()(batch_labels_tensor.flatten(), y_pred.flatten()))
-        # print("loss v3", torch.nn.SmoothL1Loss(reduction="sum")(batch_labels_tensor, y_pred), "vs loss v4", torch.nn.SmoothL1Loss(reduction="sum")(batch_labels_tensor.flatten(), y_pred.flatten()))
 
         return torch.nn.SmoothL1Loss()(batch_labels_tensor.flatten(), y_pred.flatten())
 
