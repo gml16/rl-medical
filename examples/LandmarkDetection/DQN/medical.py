@@ -63,7 +63,7 @@ class MedicalPlayer(gym.Env):
     an observation and a reward."""
 
     def __init__(self, directory=None, viz=False, task=False, files_list=None,
-                 screen_dims=(27,27,27), history_length=28, multiscale=True,
+                 screen_dims=(27,27,27), history_length=8, multiscale=True,
                  max_num_frames=0, saveGif=False, saveVideo=False, agents=1, reward_strategy=1):
         """
         :param train_directory: environment or game name
@@ -509,17 +509,14 @@ class MedicalPlayer(gym.Env):
         '''
         best_location = []
         for i in range(self.agents):
-            #print("self._qvalues_history", self._qvalues_history)
             last_qvalues_history = self._qvalues_history[i][-4:]
             last_loc_history = self._loc_history[i][-4:]
-            #print("last_qvalues_history", last_qvalues_history)
-            #print("last_loc_history", last_loc_history)
-            best_qvalues = np.max(last_qvalues_history, axis=1)
-            #print("best_qvalues", best_qvalues)
-            best_idx = best_qvalues.argmin()
-            #print("best_idx", best_idx)
-            best_location.append(last_loc_history[best_idx])
-
+            try:
+                best_qvalues = np.max(last_qvalues_history, axis=1)
+                best_idx = best_qvalues.argmin()
+                best_location.append(last_loc_history[best_idx])
+            except:
+                print("medical.py:getBestLocation(), last_qvalues_history is", last_qvalues_history)
         return best_location
 
     def _clear_history(self):
@@ -632,11 +629,11 @@ class MedicalPlayer(gym.Env):
             freq = counter.most_common()
             # At beginning of episodes, history is prefilled with (0, 0, 0), thus do not count their frequency
             if freq[0][0] == (0, 0, 0):
-                if len(freq) < 2:
+                if len(freq) < 4:
                     return False
-                if freq[1][1] < 2:
+                if freq[1][1] < 4:
                     return False
-            elif freq[0][1] < 2:
+            elif freq[0][1] < 4:
                 return False
         return True
 

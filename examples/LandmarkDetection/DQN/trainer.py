@@ -4,6 +4,8 @@ import numpy as np
 import time
 from expreplayTorch import ReplayBuffer
 from DQNModelTorch import DQN
+import matplotlib.pyplot as plt
+import os
 
 class Trainer(object):
     def __init__(self,
@@ -41,9 +43,13 @@ class Trainer(object):
         self.buffer = ReplayBuffer(self.replay_buffer_size)
         self.dqn = DQN(self.batch_size, self.agents, self.frame_history, type="Network2d")
         self.file = file
+        self.figname = None
 
     def train(self):
+        print(self.dqn.q_network)
+        self.set_reproducible()
         losses = []
+        distances = []
         episode = 1
         acc_steps = 0
         while episode <= self.max_episodes:
@@ -60,12 +66,14 @@ class Trainer(object):
             for step_num in range(self.steps_per_epoch):
                 acc_steps += 1
                 acts, q_values = self.get_next_actions(obs_stack)
-
                 # Step the agent once, and get the transition tuple for this step
                 next_obs, reward, terminal, info = self.env.step(acts, q_values, terminal)
 
+                if step_num == 0:
+                    start_dist = info['distError_0']
+
                 next_obs_stack = np.concatenate((obs_stack[:,1:], np.expand_dims(next_obs, axis=1)), axis=1)
-                self.buffer.add(obs_stack/255, acts, reward, next_obs_stack/255, terminal)
+                self.buffer.add(obs_stack/255.0, acts, reward, next_obs_stack/255.0, terminal)
                 if len(self.buffer) >= self.init_memory_size:
                     mini_batch = self.buffer.sample(self.batch_size)
                     # print("getting out of mini batch acts", mini_batch[1], "reward", mini_batch[2], "size", mini_batch[0].shape)
@@ -77,15 +85,16 @@ class Trainer(object):
                 obs = next_obs
                 obs_stack = next_obs_stack
                 if all(t for t in terminal):
-                    msg = f"Terminating episode after {step_num+1} steps, total of {acc_steps} steps, final distance is {info['distError_0']}."
+                    msg = f"Terminating episode after {step_num+1} steps, total of {acc_steps} steps, final distance is {info['distError_0']:.3f}, improved distance by {(start_dist-info['distError_0']):.3f}"
                     print(msg)
                     if self.file is not None:
                         self.file.write(msg + "\n")
                     break
+            distances.append(start_dist-info['distError_0'])
             if episode % self.update_frequency == 0:
                 self.dqn.copy_to_target_network()
             episode += 1
-            self.plot_loss(losses, self.file)
+            self.plot_loss(losses, distances, self.file)
         self.dqn.save_model()
         file.close()
 
@@ -93,12 +102,12 @@ class Trainer(object):
     # Function to get the next action, using whatever method you like
     def get_next_actions(self, obs_stack):
         # epsilon-greedy policy
-        q_values = self.dqn.q_network.forward(torch.tensor(obs_stack).unsqueeze(0))
-        q_values = q_values.view(self.agents, self.number_actions).data.numpy()
         if np.random.random() < self.eps:
+            q_values = self.dqn.q_network.forward(torch.tensor(obs_stack).unsqueeze(0))
+            q_values = q_values.view(self.agents, self.number_actions).data.numpy()
             actions = np.random.randint(self.number_actions, size=self.agents)
         else:
-            actions = self.get_greedy_actions(obs_stack, doubleLearning=True)
+            actions, q_values = self.get_greedy_actions(obs_stack, doubleLearning=True)
         return actions, q_values
 
     def get_greedy_actions(self, obs_stack, doubleLearning = True):
@@ -111,16 +120,34 @@ class Trainer(object):
         greedy_steps = np.array(idx, dtype = np.int32).flatten()
 
         # The actions are scaled for better training of the DQN
-        return greedy_steps
+        return greedy_steps, vals.data.numpy()
 
-    def plot_loss(self, losses, file):
-        import matplotlib.pyplot as plt
+    def plot_loss(self, losses, distances, file):
         if len(losses) == 0 or file is None:
             return
+
+        if self.figname is not None:
+            os.remove(os.path.join(os.path.dirname(__file__), os.path.normpath(self.figname + ".png")))
+        self.figname = file.name.split(".")[0] + str(len(losses))
+
+
+        plt.subplot(211)
         plt.plot(list(range(len(losses))), losses, color='orange')
         plt.xlabel("Steps")
         plt.ylabel("Loss")
         plt.title("Training")
         plt.yscale('log')
         #plt.show()
-        plt.savefig(file.name.split(".")[0] + str(len(losses)))
+        plt.subplot(212)
+        plt.plot(list(range(len(distances))), distances, color='orange')
+        plt.xlabel("Steps")
+        plt.ylabel("Distance change")
+        plt.title("Training")
+        #plt.show()
+        plt.savefig(self.figname)
+
+    def set_reproducible(self):
+        torch.manual_seed(0)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        np.random.seed(0)

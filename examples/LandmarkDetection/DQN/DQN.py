@@ -365,14 +365,14 @@ if __name__ == '__main__':
                                        reward_strategy=args.reward_strategy),
                             pred, num_files)
     else:  # train model
-        """
-        logger_dir = os.path.join(args.logDir, args.name)
-        logger.set_logger_dir(logger_dir)
-        config = get_config(args.files, args.agents, args.reward_strategy)
-        if args.load:  # resume training from a saved checkpoint
-            config.session_init = get_model_loader(args.load)
-        launch_train_with_config(config, SimpleTrainer())
-        """
+
+        # logger_dir = os.path.join(args.logDir, args.name)
+        # logger.set_logger_dir(logger_dir)
+        # config = get_config(args.files, args.agents, args.reward_strategy)
+        # if args.load:  # resume training from a saved checkpoint
+        #     config.session_init = get_model_loader(args.load)
+        # launch_train_with_config(config, SimpleTrainer())
+
         f = None
         if args.write:
             dir = "data/experiments/log_" + str(int(time.time()))
@@ -380,7 +380,7 @@ if __name__ == '__main__':
             abs_dir_path = os.path.join(script_dir, dir)
             os.makedirs(abs_dir_path)
             f = open(os.path.join(abs_dir_path, "logs.txt"),"w+")
-        environment = get_player(task='train', files_list=args.files, agents=args.agents, history_length=4, reward_strategy=1, viz=args.viz, multiscale=args.multiscale)
+        environment = get_player(task='train', files_list=args.files, agents=args.agents, history_length=8, reward_strategy=1, viz=args.viz, multiscale=args.multiscale)
         trainer = Trainer(environment,
                           batch_size = args.batch_size, #BATCH_SIZE, # Is batch size influencing oscillations? How come
                           image_size = IMAGE_SIZE,
@@ -389,8 +389,8 @@ if __name__ == '__main__':
                           replay_buffer_size = args.memory_size, # MEMORY_SIZE,
                           init_memory_size = args.init_memory_size, #5e1, # INIT_MEMORY_SIZE,
                           gamma = GAMMA,
-                          steps_per_epoch = STEPS_PER_EPOCH, # TODO: rename to steps per episode?
+                          steps_per_epoch = 100, # STEPS_PER_EPOCH, # TODO: rename to steps per episode?
                           max_episodes = args.max_episodes,
-                          delta=0.00001,
+                          delta=0.0001, #0.00001
                           file=f,
                           ).train()
