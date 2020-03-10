@@ -315,13 +315,14 @@ if __name__ == '__main__':
     parser.add_argument('--agents', help='Number of agents', type=int, default=1)
     parser.add_argument('--reward_strategy', help='Reward strategies: 1 is simple, 2 is line based, 3 is agent based',default=1)
 
+    parser.add_argument('--model_name', help='',default="CommNet", type=str)
     parser.add_argument('--batch_size', help='',default=BATCH_SIZE, type=int)
     parser.add_argument('--memory_size', help='',default=MEMORY_SIZE, type=int)
     parser.add_argument('--init_memory_size', help='',default=INIT_MEMORY_SIZE, type=int)
     parser.add_argument('--max_episodes', help='',default=5000, type=int)
     parser.add_argument('--steps_per_epoch', help='',default=STEPS_PER_EPOCH, type=int)
     parser.add_argument('--target_update_freq', help='',default=UPDATE_FREQ, type=int)
-    parser.add_argument('--delta', help='',default=DELTA, type=int)
+    parser.add_argument('--delta', help='',default=DELTA, type=float)
     parser.add_argument('--viz', help='',default=None, type=float)
     parser.add_argument('--multiscale', help='', dest='multiscale', action='store_true')
     parser.set_defaults(multiscale=False)
@@ -384,7 +385,7 @@ if __name__ == '__main__':
             abs_dir_path = os.path.join(script_dir, dir)
             os.makedirs(abs_dir_path)
             f = open(os.path.join(abs_dir_path, "logs.txt"),"w+")
-        environment = get_player(task='train', files_list=args.files, agents=args.agents, history_length=8, reward_strategy=1, viz=args.viz, multiscale=args.multiscale)
+        environment = get_player(task='train', files_list=args.files, agents=args.agents, history_length=28, reward_strategy=1, viz=args.viz, multiscale=args.multiscale)
         trainer = Trainer(environment,
                           batch_size = args.batch_size,
                           image_size = IMAGE_SIZE,
@@ -397,4 +398,5 @@ if __name__ == '__main__':
                           max_episodes = args.max_episodes,
                           delta=args.delta,
                           file=f,
+                          model_name=args.model_name,
                           ).train()

@@ -506,19 +506,14 @@ class MedicalPlayer(gym.Env):
         ''' get best location with best qvalue from last for locations
         stored in history
         '''
-        best_location = []
+        best_locations = []
         for i in range(self.agents):
             last_qvalues_history = self._qvalues_history[i][-4:]
             last_loc_history = self._loc_history[i][-4:]
-            try:
-                best_qvalues = np.max(last_qvalues_history, axis=1)
-            except:
-                print("medical.py:getBestLocation(), last_qvalues_history is", last_qvalues_history)
-                last_qvalues_history = [qval.flatten() for qval in last_qvalues_history]
-                best_qvalues = np.max(last_qvalues_history, axis=1)
-        best_idx = best_qvalues.argmin()
-        best_location.append(last_loc_history[best_idx])
-        return best_location
+            best_qvalues = np.max(last_qvalues_history, axis=1)
+            best_idx = best_qvalues.argmin()
+            best_locations.append(last_loc_history[best_idx])
+        return best_locations
 
     def _clear_history(self):
         ''' clear history buffer with current states

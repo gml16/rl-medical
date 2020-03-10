@@ -76,11 +76,8 @@ class Network2D(nn.Module):
         x = self.conv2(x)
         x = self.prelu2(x)
         x = self.maxpool2(x)
-        #print("x.shape maxpool2",x.shape)
-        #x = self.conv3(x)
-        #print("x.shape conv3",x.shape)
-        #x = self.prelu3(x)
         x = x.view(-1, 512)
+
         # Individual layers
         x = self.fc1(x)
         x = self.prelu4(x)
@@ -156,6 +153,92 @@ class Network3D(nn.Module):
                 output = torch.cat((output, x.unsqueeze(1)), dim=1)
         return output.cpu()
 
+class CommNet(nn.Module):
+
+    def __init__(self, agents, frame_history, number_actions):
+        super(CommNet, self).__init__()
+
+        self.agents = agents
+        self.frame_history = frame_history
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        self.conv0 = nn.Conv3d(in_channels=frame_history, out_channels=32, kernel_size=(5,5,5)).to(self.device)
+        self.maxpool0 = nn.MaxPool3d(kernel_size=(2,2,2)).to(self.device)
+        self.prelu0 = nn.PReLU().to(self.device)
+        self.conv1 = nn.Conv3d(in_channels=32, out_channels=32, kernel_size=(5,5,5)).to(self.device)
+        self.maxpool1 = nn.MaxPool3d(kernel_size=(2,2,2)).to(self.device)
+        self.prelu1 = nn.PReLU().to(self.device)
+        self.conv2 = nn.Conv3d(in_channels=32, out_channels=64, kernel_size=(4,4,4)).to(self.device)
+        self.maxpool2 = nn.MaxPool3d(kernel_size=(2,2,2)).to(self.device)
+        self.prelu2 = nn.PReLU().to(self.device)
+        self.conv3 = nn.Conv3d(in_channels=64, out_channels=64, kernel_size=(3,3,3)).to(self.device)
+        self.prelu3 = nn.PReLU().to(self.device)
+
+        self.fc1 = nn.ModuleList([nn.Linear(in_features=512*2, out_features=256).to(self.device) for _ in range(self.agents)])
+        self.prelu4 = nn.ModuleList([nn.PReLU().to(self.device) for _ in range(self.agents)])
+        self.fc2 = nn.ModuleList([nn.Linear(in_features=256*2, out_features=128).to(self.device) for _ in range(self.agents)])
+        self.prelu5 = nn.ModuleList([nn.PReLU().to(self.device) for _ in range(self.agents)])
+        self.fc3 = nn.ModuleList([nn.Linear(in_features=128*2, out_features=number_actions).to(self.device) for _ in range(self.agents)])
+
+
+    def forward(self, input):
+        """
+        # Input is a tensor of size (batch_size, agents, frame_history, *image_size)
+        # Output is a tensor of size (batch_size, agents, number_actions)
+        """
+        input1 = input.to(self.device)
+        for i in range(self.agents):
+            # Common layers
+            x = input1[:, i]
+
+            x = self.conv0(x)
+            x = self.prelu0(x)
+
+            x = self.maxpool0(x)
+
+            x = self.conv1(x)
+            x = self.prelu1(x)
+            x = self.maxpool1(x)
+            x = self.conv2(x)
+            x = self.prelu2(x)
+            x = self.maxpool2(x)
+            x = x.view(-1, 512)
+            if i == 0:
+                input2 = x.unsqueeze(1)
+            else:
+                input2 = torch.cat((input2, x.unsqueeze(1)), dim=1)
+
+        comm = torch.mean(input2, axis=1)
+        for i in range(self.agents):
+            x = input2[:, i]
+            x = self.fc1[i](torch.cat((x, comm), axis=-1))
+            x = self.prelu4[i](x)
+            if i == 0:
+                input3 = x.unsqueeze(1)
+            else:
+                input3 = torch.cat((input3, x.unsqueeze(1)), dim=1)
+
+        comm = torch.mean(input3, axis=1)
+        for i in range(self.agents):
+            x = input3[:, i]
+            x = self.fc2[i](torch.cat((x, comm), axis=-1))
+            x = self.prelu5[i](x)
+            if i == 0:
+                input4 = x.unsqueeze(1)
+            else:
+                input4 = torch.cat((input4, x.unsqueeze(1)), dim=1)
+
+        comm = torch.mean(input4, axis=1)
+        for i in range(self.agents):
+            x = input4[:, i]
+            x = self.fc3[i](torch.cat((x, comm), axis=-1))
+            if i == 0:
+                output = x.unsqueeze(1)
+            else:
+                output = torch.cat((output, x.unsqueeze(1)), dim=1)
+
+        return output.cpu()
+
 
 class DQN:
     # The class initialisation function.
@@ -169,6 +252,9 @@ class DQN:
         if type == "Network3d":
             self.q_network = Network3D(agents, frame_history, number_actions).to(self.device)
             self.target_network = Network3D(agents, frame_history, number_actions).to(self.device)
+        elif type == "CommNet":
+            self.q_network = CommNet(agents, frame_history, number_actions).to(self.device)
+            self.target_network = CommNet(agents, frame_history, number_actions).to(self.device)
         elif type=="Network2d":
             self.q_network = Network2D(agents, frame_history, number_actions).to(self.device)
             self.target_network = Network2D(agents, frame_history, number_actions).to(self.device)
