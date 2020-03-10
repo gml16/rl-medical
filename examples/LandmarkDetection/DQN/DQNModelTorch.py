@@ -90,7 +90,6 @@ class Network2D(nn.Module):
         output = x.unsqueeze(1)
         return output.cpu()
 
-
 class Network3D(nn.Module):
 
     def __init__(self, agents, frame_history, number_actions):
@@ -253,6 +252,8 @@ class DQN:
         '''
         curr_state = torch.tensor(transitions[0])
         next_state = torch.tensor(transitions[3])
+        terminal = torch.tensor(transitions[4]).type(torch.int)
+
         rewards = torch.clamp(torch.tensor(transitions[2], dtype=torch.float32), -1, 1)
 
         y = self.target_network.forward(next_state)
@@ -260,8 +261,9 @@ class DQN:
         # Get the maximum prediction for the next state from the target network
         max_target_net = y.max(-1)[0]
         network_prediction = self.q_network.forward(curr_state).view(self.batch_size, self.agents, self.number_actions)
+        isNotOver = (torch.ones(*terminal.shape)-terminal)
         # Bellman equation
-        batch_labels_tensor = rewards + (discount_factor * max_target_net.detach()) # TODO: Add is Over
+        batch_labels_tensor = rewards + isNotOver * (discount_factor * max_target_net.detach())
 
         #td_errors = (network_prediction - batch_labels_tensor.unsqueeze(-1)).detach() # TODO td error needed for exp replay
 

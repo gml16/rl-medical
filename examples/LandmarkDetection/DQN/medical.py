@@ -423,7 +423,6 @@ class MedicalPlayer(gym.Env):
         if self.cnt >= self.max_num_frames:
             for i in range(self.agents):
                 print("max number of steps reached", self.max_num_frames ,"which is")
-                input()
                 self.terminal[i] = True
 
         # update history buffer with new location and qvalues
@@ -516,7 +515,6 @@ class MedicalPlayer(gym.Env):
             except:
                 print("medical.py:getBestLocation(), last_qvalues_history is", last_qvalues_history)
                 last_qvalues_history = [qval.flatten() for qval in last_qvalues_history]
-                print("medical.py:getBestLocation(), last_qvalues_history changed to", last_qvalues_history)
                 best_qvalues = np.max(last_qvalues_history, axis=1)
         best_idx = best_qvalues.argmin()
         best_location.append(last_loc_history[best_idx])

@@ -18,22 +18,25 @@ import time
 import argparse
 from collections import deque
 
-import tensorflow as tf
+#import tensorflow as tf
 from medical import MedicalPlayer, FrameStack
+"""
 from tensorpack.input_source import QueueInput
 from tensorpack_medical.models.conv3d import Conv3D
 from tensorpack_medical.models.pool3d import MaxPooling3D
-from common import Evaluator, eval_model_multithread, play_n_episodes
-from DQNModel import Model3D as DQNModel3D
-from DQNModel import Model2D as DQNModel2D
-from expreplay import ExpReplay
-
 from tensorpack import (PredictConfig, OfflinePredictor, get_model_loader,
                         logger, TrainConfig, ModelSaver, PeriodicTrigger,
                         ScheduledHyperParamSetter, ObjAttrParam,
                         HumanHyperParamSetter, argscope, RunOp, LinearWrap,
                         FullyConnected, PReLU, SimpleTrainer,
                         launch_train_with_config)
+"""
+from common import Evaluator, eval_model_multithread, play_n_episodes
+from DQNModel import Model3D as DQNModel3D
+from DQNModel import Model2D as DQNModel2D
+from expreplay import ExpReplay
+
+
 
 from trainer import Trainer
 from DQNModelTorch import Network2D
@@ -62,11 +65,13 @@ STEPS_PER_EPOCH = 10000 // UPDATE_FREQ # 10000 // UPDATE_FREQ * 10
 EPOCHS_PER_EVAL = 2
 # the number of episodes to run during evaluation
 EVAL_EPISODE = 50
+# at each step, espilon -= delta
+DELTA = 0.0001
 
 ###############################################################################
 
 def get_player(directory=None, files_list= None, viz=False,
-               task='play', saveGif=False, saveVideo=False, multiscale=True, history_length=4, agents=1, reward_strategy=1):
+               task='play', saveGif=False, saveVideo=False, multiscale=True, history_length=28, agents=1, reward_strategy=1):
     # in atari paper, max_num_frames = 30000
     env = MedicalPlayer(directory=directory, screen_dims=IMAGE_SIZE,
                         viz=viz, saveGif=saveGif, saveVideo=saveVideo,
@@ -82,201 +87,201 @@ def get_player(directory=None, files_list= None, viz=False,
 
 ###############################################################################
 
-class Model2D(DQNModel2D):
-    def __init__(self):
-        super(Model2D, self).__init__(IMAGE_SIZE, FRAME_HISTORY, METHOD, NUM_ACTIONS, GAMMA)
-
-    def _get_DQN_prediction(self, image):
-        """ image: [0,255]
-
-        :returns predicted Q values"""
-        # normalize image values to [0, 1]
-        image = image / 255.0
-
-        with argscope(Conv3D, nl=PReLU.symbolic_function, use_bias=True):
-            # core layers of the network
-            conv = (LinearWrap(image)
-                 .Conv3D('conv0', out_channel=32,
-                         kernel_shape=[5,5,5], stride=[1,1,1])
-                 .MaxPooling3D('pool0',2)
-                 .Conv3D('conv1', out_channel=32,
-                         kernel_shape=[5,5,5], stride=[1,1,1])
-                 .MaxPooling3D('pool1',2)
-                 .Conv3D('conv2', out_channel=64,
-                         kernel_shape=[4,4,4], stride=[1,1,1])
-                 .MaxPooling3D('pool2',2)
-                 .Conv3D('conv3', out_channel=64,
-                         kernel_shape=[3,3,3], stride=[1,1,1])
-                 # .MaxPooling3D('pool3',2)
-                 )
-
-        if 'Dueling' not in self.method:
-            lq = (conv
-                 .FullyConnected('fc0', 512).tf.nn.leaky_relu(alpha=0.01)
-                 .FullyConnected('fc1', 256).tf.nn.leaky_relu(alpha=0.01)
-                 .FullyConnected('fc2', 128).tf.nn.leaky_relu(alpha=0.01)())
-            Q = FullyConnected('fct', lq, self.num_actions, nl=tf.identity)
-        else:
-            # Dueling DQN or Double Dueling
-            # state value function
-            lv = (conv
-                 .FullyConnected('fc0V', 512).tf.nn.leaky_relu(alpha=0.01)
-                 .FullyConnected('fc1V', 256).tf.nn.leaky_relu(alpha=0.01)
-                 .FullyConnected('fc2V', 128).tf.nn.leaky_relu(alpha=0.01)())
-            V = FullyConnected('fctV', lv, 1, nl=tf.identity)
-            # advantage value function
-            la = (conv
-                 .FullyConnected('fc0A', 512).tf.nn.leaky_relu(alpha=0.01)
-                 .FullyConnected('fc1A', 256).tf.nn.leaky_relu(alpha=0.01)
-                 .FullyConnected('fc2A', 128).tf.nn.leaky_relu(alpha=0.01)())
-            As = FullyConnected('fctA', la, self.num_actions, nl=tf.identity)
-
-            Q = tf.add(As, V - tf.reduce_mean(As, 1, keepdims=True))
-
-        return tf.identity(Q, name='Qvalue')
-
-class Model3D(DQNModel3D):
-    def __init__(self, agents=1):
-        super(Model3D, self).__init__(IMAGE_SIZE, FRAME_HISTORY, METHOD, NUM_ACTIONS, GAMMA, agents)
-
-    def _get_DQN_prediction(self, images):
-        """ image: [0,255]
-
-        :returns predicted Q values"""
-        # normalize image values to [0, 1]
-
-        agents = len(images)
-
-        Q_list = []
-
-        with argscope(Conv3D, nl=PReLU.symbolic_function, use_bias=True):
-
-            for i in range(agents):
-                images[i] = images[i] / 255.0
-                with argscope(Conv3D, nl=PReLU.symbolic_function, use_bias=True):
-
-                    if i == 0:
-                        conv_0 = tf.layers.conv3d(images[i], name='conv0',
-                                                  filters=32, kernel_size=[5, 5, 5], strides=[1, 1, 1], padding='same',
-                                                  kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
-                                                      2.0),
-                                                  bias_initializer=tf.zeros_initializer())
-                        max_pool_0 = tf.layers.max_pooling3d(conv_0, 2, 2, name='max_pool0')
-                        conv_1 = tf.layers.conv3d(max_pool_0, name='conv1',
-                                                  filters=32, kernel_size=[5, 5, 5], strides=[1, 1, 1], padding='same',
-                                                  kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
-                                                      2.0),
-                                                  bias_initializer=tf.zeros_initializer())
-                        max_pool1 = tf.layers.max_pooling3d(conv_1, 2, 2, name='max_pool1')
-                        conv_2 = tf.layers.conv3d(max_pool1, name='conv2',
-                                                  filters=64, kernel_size=[4, 4, 4], strides=[1, 1, 1], padding='same',
-                                                  kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
-                                                      2.0),
-                                                  bias_initializer=tf.zeros_initializer())
-                        max_pool2 = tf.layers.max_pooling3d(conv_2, 2, 2, name='max_pool2')
-                        conv3 = tf.layers.conv3d(max_pool2, name='conv3',
-                                                 filters=64, kernel_size=[3, 3, 3], strides=[1, 1, 1], padding='same',
-                                                 kernel_initializer=tf.contrib.layers.variance_scaling_initializer(2.0),
-                                                 bias_initializer=tf.zeros_initializer())
-                    else:
-                        conv_0 = tf.layers.conv3d(images[i], name='conv0', reuse=True,
-                                                  filters=32, kernel_size=[5, 5, 5], strides=[1, 1, 1], padding='same',
-                                                  kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
-                                                      2.0),
-                                                  bias_initializer=tf.zeros_initializer())
-                        max_pool_0 = tf.layers.max_pooling3d(conv_0, 2, 2, name='max_pool0')
-                        conv_1 = tf.layers.conv3d(max_pool_0, name='conv1', reuse=True,
-                                                  filters=32, kernel_size=[5, 5, 5], strides=[1, 1, 1], padding='same',
-                                                  kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
-                                                      2.0),
-                                                  bias_initializer=tf.zeros_initializer())
-                        max_pool1 = tf.layers.max_pooling3d(conv_1, 2, 2, name='max_pool1')
-                        conv_2 = tf.layers.conv3d(max_pool1, name='conv2', reuse=True,
-                                                  filters=64, kernel_size=[4, 4, 4], strides=[1, 1, 1], padding='same',
-                                                  kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
-                                                      2.0),
-                                                  bias_initializer=tf.zeros_initializer())
-                        max_pool2 = tf.layers.max_pooling3d(conv_2, 2, 2, name='max_pool2')
-                        conv3 = tf.layers.conv3d(max_pool2, name='conv3', reuse=True,
-                                                 filters=64, kernel_size=[3, 3, 3], strides=[1, 1, 1], padding='same',
-                                                 kernel_initializer=tf.contrib.layers.variance_scaling_initializer(2.0),
-                                                 bias_initializer=tf.zeros_initializer())
-
-                ### now for the dense layers##
-                if 'Dueling' not in self.method:
-                    fc0 = FullyConnected('fc0_{}'.format(i), conv3, 512, activation=tf.nn.relu)
-                    fc1 = FullyConnected('fc1_{}'.format(i), fc0, 256, activation=tf.nn.relu)
-                    fc2 = FullyConnected('fc2_{}'.format(i), fc1, 128, activation=tf.nn.relu)
-                    Q = FullyConnected('fct_{}'.format(i), fc2, self.num_actions, nl=tf.identity)
-                    Q_list.append(tf.identity(Q, name='Qvalue_{}'.format(i)))
-
-
-
-                else:
-                    fc0 = FullyConnected('fc0V_{}'.format(i), conv3, 512, activation=tf.nn.relu)
-                    fc1 = FullyConnected('fc1V_{}'.format(i), fc0, 256, activation=tf.nn.relu)
-                    fc2 = FullyConnected('fc2V_{}'.format(i), fc1, 128, activation=tf.nn.relu)
-                    V = FullyConnected('fctV_{}'.format(i), fc2, 1, nl=tf.identity)
-
-                    fcA0 = FullyConnected('fc0V_{}'.format(i), conv3, 512, activation=tf.nn.relu)
-                    fcA1 = FullyConnected('fc1V_{}'.format(i), fcA0, 256, activation=tf.nn.relu)
-                    fcA2 = FullyConnected('fc2V_{}'.format(i), fcA1, 128, activation=tf.nn.relu)
-                    A = FullyConnected('fctV_{}'.format(i), fcA2, self.num_actions, nl=tf.identity)
-
-                    Q = tf.add(A, V - tf.reduce_mean(A, 1, keepdims=True))
-                    Q_list.append(tf.identity(Q, name='Qvalue_{}'.format(i)))
-
-        return Q_list
+# class Model2D(DQNModel2D):
+#     def __init__(self):
+#         super(Model2D, self).__init__(IMAGE_SIZE, FRAME_HISTORY, METHOD, NUM_ACTIONS, GAMMA)
+#
+#     def _get_DQN_prediction(self, image):
+#         """ image: [0,255]
+#
+#         :returns predicted Q values"""
+#         # normalize image values to [0, 1]
+#         image = image / 255.0
+#
+#         with argscope(Conv3D, nl=PReLU.symbolic_function, use_bias=True):
+#             # core layers of the network
+#             conv = (LinearWrap(image)
+#                  .Conv3D('conv0', out_channel=32,
+#                          kernel_shape=[5,5,5], stride=[1,1,1])
+#                  .MaxPooling3D('pool0',2)
+#                  .Conv3D('conv1', out_channel=32,
+#                          kernel_shape=[5,5,5], stride=[1,1,1])
+#                  .MaxPooling3D('pool1',2)
+#                  .Conv3D('conv2', out_channel=64,
+#                          kernel_shape=[4,4,4], stride=[1,1,1])
+#                  .MaxPooling3D('pool2',2)
+#                  .Conv3D('conv3', out_channel=64,
+#                          kernel_shape=[3,3,3], stride=[1,1,1])
+#                  # .MaxPooling3D('pool3',2)
+#                  )
+#
+#         if 'Dueling' not in self.method:
+#             lq = (conv
+#                  .FullyConnected('fc0', 512).tf.nn.leaky_relu(alpha=0.01)
+#                  .FullyConnected('fc1', 256).tf.nn.leaky_relu(alpha=0.01)
+#                  .FullyConnected('fc2', 128).tf.nn.leaky_relu(alpha=0.01)())
+#             Q = FullyConnected('fct', lq, self.num_actions, nl=tf.identity)
+#         else:
+#             # Dueling DQN or Double Dueling
+#             # state value function
+#             lv = (conv
+#                  .FullyConnected('fc0V', 512).tf.nn.leaky_relu(alpha=0.01)
+#                  .FullyConnected('fc1V', 256).tf.nn.leaky_relu(alpha=0.01)
+#                  .FullyConnected('fc2V', 128).tf.nn.leaky_relu(alpha=0.01)())
+#             V = FullyConnected('fctV', lv, 1, nl=tf.identity)
+#             # advantage value function
+#             la = (conv
+#                  .FullyConnected('fc0A', 512).tf.nn.leaky_relu(alpha=0.01)
+#                  .FullyConnected('fc1A', 256).tf.nn.leaky_relu(alpha=0.01)
+#                  .FullyConnected('fc2A', 128).tf.nn.leaky_relu(alpha=0.01)())
+#             As = FullyConnected('fctA', la, self.num_actions, nl=tf.identity)
+#
+#             Q = tf.add(As, V - tf.reduce_mean(As, 1, keepdims=True))
+#
+#         return tf.identity(Q, name='Qvalue')
+#
+# class Model3D(DQNModel3D):
+#     def __init__(self, agents=1):
+#         super(Model3D, self).__init__(IMAGE_SIZE, FRAME_HISTORY, METHOD, NUM_ACTIONS, GAMMA, agents)
+#
+#     def _get_DQN_prediction(self, images):
+#         """ image: [0,255]
+#
+#         :returns predicted Q values"""
+#         # normalize image values to [0, 1]
+#
+#         agents = len(images)
+#
+#         Q_list = []
+#
+#         with argscope(Conv3D, nl=PReLU.symbolic_function, use_bias=True):
+#
+#             for i in range(agents):
+#                 images[i] = images[i] / 255.0
+#                 with argscope(Conv3D, nl=PReLU.symbolic_function, use_bias=True):
+#
+#                     if i == 0:
+#                         conv_0 = tf.layers.conv3d(images[i], name='conv0',
+#                                                   filters=32, kernel_size=[5, 5, 5], strides=[1, 1, 1], padding='same',
+#                                                   kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
+#                                                       2.0),
+#                                                   bias_initializer=tf.zeros_initializer())
+#                         max_pool_0 = tf.layers.max_pooling3d(conv_0, 2, 2, name='max_pool0')
+#                         conv_1 = tf.layers.conv3d(max_pool_0, name='conv1',
+#                                                   filters=32, kernel_size=[5, 5, 5], strides=[1, 1, 1], padding='same',
+#                                                   kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
+#                                                       2.0),
+#                                                   bias_initializer=tf.zeros_initializer())
+#                         max_pool1 = tf.layers.max_pooling3d(conv_1, 2, 2, name='max_pool1')
+#                         conv_2 = tf.layers.conv3d(max_pool1, name='conv2',
+#                                                   filters=64, kernel_size=[4, 4, 4], strides=[1, 1, 1], padding='same',
+#                                                   kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
+#                                                       2.0),
+#                                                   bias_initializer=tf.zeros_initializer())
+#                         max_pool2 = tf.layers.max_pooling3d(conv_2, 2, 2, name='max_pool2')
+#                         conv3 = tf.layers.conv3d(max_pool2, name='conv3',
+#                                                  filters=64, kernel_size=[3, 3, 3], strides=[1, 1, 1], padding='same',
+#                                                  kernel_initializer=tf.contrib.layers.variance_scaling_initializer(2.0),
+#                                                  bias_initializer=tf.zeros_initializer())
+#                     else:
+#                         conv_0 = tf.layers.conv3d(images[i], name='conv0', reuse=True,
+#                                                   filters=32, kernel_size=[5, 5, 5], strides=[1, 1, 1], padding='same',
+#                                                   kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
+#                                                       2.0),
+#                                                   bias_initializer=tf.zeros_initializer())
+#                         max_pool_0 = tf.layers.max_pooling3d(conv_0, 2, 2, name='max_pool0')
+#                         conv_1 = tf.layers.conv3d(max_pool_0, name='conv1', reuse=True,
+#                                                   filters=32, kernel_size=[5, 5, 5], strides=[1, 1, 1], padding='same',
+#                                                   kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
+#                                                       2.0),
+#                                                   bias_initializer=tf.zeros_initializer())
+#                         max_pool1 = tf.layers.max_pooling3d(conv_1, 2, 2, name='max_pool1')
+#                         conv_2 = tf.layers.conv3d(max_pool1, name='conv2', reuse=True,
+#                                                   filters=64, kernel_size=[4, 4, 4], strides=[1, 1, 1], padding='same',
+#                                                   kernel_initializer=tf.contrib.layers.variance_scaling_initializer(
+#                                                       2.0),
+#                                                   bias_initializer=tf.zeros_initializer())
+#                         max_pool2 = tf.layers.max_pooling3d(conv_2, 2, 2, name='max_pool2')
+#                         conv3 = tf.layers.conv3d(max_pool2, name='conv3', reuse=True,
+#                                                  filters=64, kernel_size=[3, 3, 3], strides=[1, 1, 1], padding='same',
+#                                                  kernel_initializer=tf.contrib.layers.variance_scaling_initializer(2.0),
+#                                                  bias_initializer=tf.zeros_initializer())
+#
+#                 ### now for the dense layers##
+#                 if 'Dueling' not in self.method:
+#                     fc0 = FullyConnected('fc0_{}'.format(i), conv3, 512, activation=tf.nn.relu)
+#                     fc1 = FullyConnected('fc1_{}'.format(i), fc0, 256, activation=tf.nn.relu)
+#                     fc2 = FullyConnected('fc2_{}'.format(i), fc1, 128, activation=tf.nn.relu)
+#                     Q = FullyConnected('fct_{}'.format(i), fc2, self.num_actions, nl=tf.identity)
+#                     Q_list.append(tf.identity(Q, name='Qvalue_{}'.format(i)))
+#
+#
+#
+#                 else:
+#                     fc0 = FullyConnected('fc0V_{}'.format(i), conv3, 512, activation=tf.nn.relu)
+#                     fc1 = FullyConnected('fc1V_{}'.format(i), fc0, 256, activation=tf.nn.relu)
+#                     fc2 = FullyConnected('fc2V_{}'.format(i), fc1, 128, activation=tf.nn.relu)
+#                     V = FullyConnected('fctV_{}'.format(i), fc2, 1, nl=tf.identity)
+#
+#                     fcA0 = FullyConnected('fc0V_{}'.format(i), conv3, 512, activation=tf.nn.relu)
+#                     fcA1 = FullyConnected('fc1V_{}'.format(i), fcA0, 256, activation=tf.nn.relu)
+#                     fcA2 = FullyConnected('fc2V_{}'.format(i), fcA1, 128, activation=tf.nn.relu)
+#                     A = FullyConnected('fctV_{}'.format(i), fcA2, self.num_actions, nl=tf.identity)
+#
+#                     Q = tf.add(A, V - tf.reduce_mean(A, 1, keepdims=True))
+#                     Q_list.append(tf.identity(Q, name='Qvalue_{}'.format(i)))
+#
+#         return Q_list
 
 ###############################################################################
 
-def get_config(files_list, agents, reward_strategy):
-    """This is only used during training."""
-    input_names=['state_' + str(a+1) for a in range(agents)]
-    output_names=['Qvalue_' + str(a+1) for a in range(agents)]
-
-    expreplay = ExpReplay(
-        predictor_io_names=(['state'], ['Qvalue']),
-        player=get_player(task='train', files_list=files_list, agents=agents, reward_strategy=reward_strategy),
-        state_shape=IMAGE_SIZE,
-        batch_size=BATCH_SIZE,
-        memory_size=MEMORY_SIZE,
-        init_memory_size=INIT_MEMORY_SIZE,
-        init_exploration=1.0,
-        update_frequency=UPDATE_FREQ,
-        history_len=FRAME_HISTORY,
-        agents=agents
-    )
-
-    return TrainConfig(
-        # dataflow=expreplay,
-        data=QueueInput(expreplay),
-        model=Model3D(agents=agents),
-        callbacks=[
-            ModelSaver(),
-            PeriodicTrigger(
-                RunOp(DQNModel3D.update_target_param, verbose=True),
-                # update target network every 10k steps
-                every_k_steps=10000 // UPDATE_FREQ),
-            expreplay,
-            ScheduledHyperParamSetter('learning_rate',
-                                      [(60, 4e-4), (100, 2e-4)]),
-            ScheduledHyperParamSetter(
-                ObjAttrParam(expreplay, 'exploration'),
-                # 1->0.1 in the first million steps
-                [(0, 1), (10, 0.1), (320, 0.01)],
-                interp='linear'),
-            PeriodicTrigger(
-                Evaluator(nr_eval=EVAL_EPISODE, input_names=input_names,
-                          output_names=output_names, files_list=files_list,
-                          get_player_fn=get_player, agents=agents,
-                          reward_strategy=reward_strategy),
-                every_k_epochs=EPOCHS_PER_EVAL),
-            HumanHyperParamSetter('learning_rate'),
-        ],
-        steps_per_epoch=STEPS_PER_EPOCH,
-        max_epoch=1000,
-    )
+# def get_config(files_list, agents, reward_strategy):
+#     """This is only used during training."""
+#     input_names=['state_' + str(a+1) for a in range(agents)]
+#     output_names=['Qvalue_' + str(a+1) for a in range(agents)]
+#
+#     expreplay = ExpReplay(
+#         predictor_io_names=(['state'], ['Qvalue']),
+#         player=get_player(task='train', files_list=files_list, agents=agents, reward_strategy=reward_strategy),
+#         state_shape=IMAGE_SIZE,
+#         batch_size=BATCH_SIZE,
+#         memory_size=MEMORY_SIZE,
+#         init_memory_size=INIT_MEMORY_SIZE,
+#         init_exploration=1.0,
+#         update_frequency=UPDATE_FREQ,
+#         history_len=FRAME_HISTORY,
+#         agents=agents
+#     )
+#
+#     return TrainConfig(
+#         # dataflow=expreplay,
+#         data=QueueInput(expreplay),
+#         model=Model3D(agents=agents),
+#         callbacks=[
+#             ModelSaver(),
+#             PeriodicTrigger(
+#                 RunOp(DQNModel3D.update_target_param, verbose=True),
+#                 # update target network every 10k steps
+#                 every_k_steps=10000 // UPDATE_FREQ),
+#             expreplay,
+#             ScheduledHyperParamSetter('learning_rate',
+#                                       [(60, 4e-4), (100, 2e-4)]),
+#             ScheduledHyperParamSetter(
+#                 ObjAttrParam(expreplay, 'exploration'),
+#                 # 1->0.1 in the first million steps
+#                 [(0, 1), (10, 0.1), (320, 0.01)],
+#                 interp='linear'),
+#             PeriodicTrigger(
+#                 Evaluator(nr_eval=EVAL_EPISODE, input_names=input_names,
+#                           output_names=output_names, files_list=files_list,
+#                           get_player_fn=get_player, agents=agents,
+#                           reward_strategy=reward_strategy),
+#                 every_k_epochs=EPOCHS_PER_EVAL),
+#             HumanHyperParamSetter('learning_rate'),
+#         ],
+#         steps_per_epoch=STEPS_PER_EPOCH,
+#         max_epoch=1000,
+#     )
 
 
 
@@ -314,6 +319,9 @@ if __name__ == '__main__':
     parser.add_argument('--memory_size', help='',default=MEMORY_SIZE, type=int)
     parser.add_argument('--init_memory_size', help='',default=INIT_MEMORY_SIZE, type=int)
     parser.add_argument('--max_episodes', help='',default=5000, type=int)
+    parser.add_argument('--steps_per_epoch', help='',default=STEPS_PER_EPOCH, type=int)
+    parser.add_argument('--target_update_freq', help='',default=UPDATE_FREQ, type=int)
+    parser.add_argument('--delta', help='',default=DELTA, type=int)
     parser.add_argument('--viz', help='',default=None, type=float)
     parser.add_argument('--multiscale', help='', dest='multiscale', action='store_true')
     parser.set_defaults(multiscale=False)
@@ -378,15 +386,15 @@ if __name__ == '__main__':
             f = open(os.path.join(abs_dir_path, "logs.txt"),"w+")
         environment = get_player(task='train', files_list=args.files, agents=args.agents, history_length=8, reward_strategy=1, viz=args.viz, multiscale=args.multiscale)
         trainer = Trainer(environment,
-                          batch_size = args.batch_size, #BATCH_SIZE, # Is batch size influencing oscillations? How come
+                          batch_size = args.batch_size,
                           image_size = IMAGE_SIZE,
                           frame_history = FRAME_HISTORY,
-                          update_frequency = 10, #UPDATE_FREQ,
-                          replay_buffer_size = args.memory_size, # MEMORY_SIZE,
-                          init_memory_size = args.init_memory_size, #5e1, # INIT_MEMORY_SIZE,
+                          update_frequency = args.target_update_freq,
+                          replay_buffer_size = args.memory_size,
+                          init_memory_size = args.init_memory_size,
                           gamma = GAMMA,
-                          steps_per_epoch = 100, # STEPS_PER_EPOCH, # TODO: rename to steps per episode?
+                          steps_per_epoch = args.steps_per_epoch,
                           max_episodes = args.max_episodes,
-                          delta=0.0001, #0.00001
+                          delta=args.delta,
                           file=f,
                           ).train()
