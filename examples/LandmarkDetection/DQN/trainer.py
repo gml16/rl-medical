@@ -4,8 +4,6 @@ import numpy as np
 import time
 from expreplayTorch import ReplayBuffer
 from DQNModelTorch import DQN
-import matplotlib.pyplot as plt
-import os
 
 class Trainer(object):
     def __init__(self,
@@ -23,8 +21,8 @@ class Trainer(object):
                  gamma = 0.9,
                  number_actions = 6,
                  frame_history = 4,
-                 file=None,
                  model_name="CommNet",
+                 logger=None,
                 ):
         self.env = env
         self.agents = env.agents
@@ -42,19 +40,19 @@ class Trainer(object):
         self.number_actions = number_actions
         self.frame_history = frame_history
         self.buffer = ReplayBuffer(self.replay_buffer_size)
-        self.dqn = DQN(self.batch_size, self.agents, self.frame_history, type=model_name)
-        self.file = file
-        self.figname = None
+        self.dqn = DQN(self.batch_size, self.agents, self.frame_history, logger=logger, type=model_name)
+        self.logger = logger
+
 
     def train(self):
-        print(self.dqn.q_network)
+        self.logger.log(self.dqn.q_network)
         self.set_reproducible()
         losses = []
         distances = [[] for _ in range(self.agents)]
         episode = 1
         acc_steps = 0
         while episode <= self.max_episodes:
-            print("episode", episode, "- eps", self.eps)
+            self.logger.log(f"episode {episode} - eps {self.eps:.5f}")
 
             # Reset the environment for the start of the episode.
             obs = self.env.reset()
@@ -81,14 +79,14 @@ class Trainer(object):
                 obs = next_obs
                 obs_stack = next_obs_stack
                 if all(t for t in terminal):
-                    print(f"Terminating episode after {step_num+1} steps, total of {acc_steps} steps, final distance for first agent is {info['distError_0']:.3f}, improved distance by {(start_dist-info['distError_0']):.3f}")
+                    self.logger.log(f"Terminating episode after {step_num+1} steps, total of {acc_steps} steps, final distance for first agent is {info['distError_0']:.3f}, improved distance by {(start_dist-info['distError_0']):.3f}")
                     break
             for i in range(self.agents):
                 distances[i].append(start_dists[i]-info['distError_'+str(i)])
             if episode % self.update_frequency == 0:
                 self.dqn.copy_to_target_network()
             episode += 1
-            self.plot_loss(losses, distances, self.file)
+            self.logger.plot_res(losses, distances)
             self.dqn.save_model()
         file.close()
 
@@ -115,28 +113,6 @@ class Trainer(object):
         # The actions are scaled for better training of the DQN
         return greedy_steps, q_vals.data.numpy()
 
-    def plot_loss(self, losses, distances, file):
-        if len(losses) == 0 or file is None:
-            return
-
-        if self.figname is not None:
-            os.remove(os.path.join(os.path.dirname(__file__), os.path.normpath(self.figname + ".png")))
-        self.figname = file.name.split(".")[0] + str(len(losses))
-
-
-        plt.subplot(211)
-        plt.plot(list(range(len(losses))), losses, color='orange')
-        plt.xlabel("Steps")
-        plt.ylabel("Loss")
-        plt.title("Training")
-        plt.yscale('log')
-        plt.subplot(212)
-        for dist in distances:
-            plt.plot(list(range(len(dist))), dist)
-        plt.xlabel("Steps")
-        plt.ylabel("Distance change")
-        plt.title("Training")
-        plt.savefig(self.figname)
 
     def set_reproducible(self):
         torch.manual_seed(0)

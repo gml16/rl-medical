@@ -1,11 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import time
-import tensorflow as tf
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
 class MLP(nn.Module):
 
     # The class initialisation function. This takes as arguments the dimension of the network's input (i.e. the dimension of the state), and the dimension of the network's output (i.e. the dimension of the action).
@@ -242,11 +237,12 @@ class CommNet(nn.Module):
 
 class DQN:
     # The class initialisation function.
-    def __init__(self, batch_size, agents, frame_history, number_actions = 6, type="Network3d"):
+    def __init__(self, batch_size, agents, frame_history, logger, number_actions = 6, type="Network3d"):
         self.batch_size = batch_size
         self.agents = agents
         self.number_actions = number_actions
         self.frame_history = frame_history
+        self.logger = logger
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # Create a Q-network, which predicts the q-value for a particular state.
         if type == "Network3d":
@@ -272,11 +268,7 @@ class DQN:
         self.target_network.load_state_dict(self.q_network.state_dict())
 
     def save_model(self):
-        try:
-            print("Saved model at data/models/test_models/dqn_" + str(int(time.time())) +".pt")
-            torch.save(self.q_network.state_dict(), "data/models/test_models/dqn_" + str(int(time.time())) +".pt")
-        except:
-            print("Cannot save model")
+        self.logger.save_model(self.q_network.state_dict())
 
     # Function that is called whenever we want to train the Q-network. Each call to this function takes in a transition tuple containing the data we use to update the Q-network.
     def train_q_network(self, transitions, discount_factor):
@@ -293,43 +285,26 @@ class DQN:
 
 
     def _calculate_loss_tf(self, transitions, discount_factor):
+        import tensorflow as tf
         curr_state = transitions[0]
         self.predict_value = tf.convert_to_tensor(self.q_network.forward(torch.tensor(curr_state)).view(self.batch_size, self.number_actions).detach().numpy(), dtype=tf.float32) # Only works for 1 agent # self.get_DQN_prediction(state)
-        #print("predict_value", self.predict_value)
         reward = tf.squeeze(tf.clip_by_value(tf.convert_to_tensor(transitions[2], dtype=tf.float32), -1, 1), [1])
-        #print("reward", reward)
         next_state = transitions[3]
         action_onehot = tf.squeeze(tf.one_hot(transitions[1], 6, 1.0, 0.0), [1])
-        #print("action_onehot", action_onehot)
 
         pred_action_value = tf.reduce_sum(self.predict_value * action_onehot, 1)  # N,
-        #print("pred_action_value", pred_action_value)
         max_pred_reward = tf.reduce_mean(tf.reduce_max(
             self.predict_value, 1), name='predict_reward')
-        #print("max_pred_reward", max_pred_reward)
-
-        #summary.add_moving_summary(max_pred_reward)
-
         with tf.variable_scope('target'):
             targetQ_predict_value = tf.convert_to_tensor(self.q_network.forward(torch.tensor(next_state)).view(self.batch_size, self.number_actions).detach().numpy(), dtype=tf.float32)   # NxA
 
-        #print("targetQ_predict_value", targetQ_predict_value)
-
         best_v = tf.reduce_max(targetQ_predict_value, 1)    # N,
-        #print("best_v", best_v)
-
-        #print()
-        #print("discount_factor * tf.stop_gradient(best_v)", discount_factor * tf.stop_gradient(best_v))
-        target = reward + discount_factor * tf.stop_gradient(best_v) # TODO: (1.0 - tf.cast(isOver, tf.float32)) *
-        #print("target", target)
+        target = reward + discount_factor * tf.stop_gradient(best_v)
 
         cost = tf.losses.huber_loss(target, pred_action_value,
                                     reduction=tf.losses.Reduction.MEAN)
         with tf.Session() as sess:
-            #print("reward", reward.eval(), "best_v", best_v.eval())
-            print("cost", cost.eval())#, "target", target.eval(), "pred_action_value", pred_action_value.eval())
-            print("_______VS_______")
-
+            print("cost", cost.eval())
 
     # Function to calculate the loss for a particular transition.
     def _calculate_loss(self, transitions, discount_factor):
@@ -354,38 +329,19 @@ class DQN:
         #td_errors = (network_prediction - batch_labels_tensor.unsqueeze(-1)).detach() # TODO td error needed for exp replay
 
         index = torch.tensor(transitions[1], dtype=torch.long).unsqueeze(-1)
-        y_pred = (torch.gather(network_prediction, -1, index)).squeeze()
+        try:
+            y_pred = (torch.gather(network_prediction, -1, index)).squeeze()
+        except:
+            self.logger.log(network_prediction.shape)
+            self.logger.log(network_prediction)
+            self.logger.log(index.shape)
+            self.logger.log(index)
+            y_pred = (torch.gather(network_prediction, -1, index))
+            self.logger.log(y_pred.shape)
+            self.logger.log(y_pred)
+            y_pred = y_pred.squeeze()
 
         # Update transitions' weights
         # self.buffer.recompute_weights(transitions, td_errors)
 
         return torch.nn.SmoothL1Loss()(batch_labels_tensor.flatten(), y_pred.flatten())
-
-    """
-    # Function to calculate the loss for a particular transition.
-    def _calculate_loss(self, transitions, discount_factor):
-        '''
-        Transitions are tuple of shape obses_t, actions, rewards, obses_tp1, dones
-        '''
-        curr_state = torch.tensor(transitions[0])
-        next_state = torch.tensor(transitions[3])
-        rewards = torch.clamp(torch.tensor(transitions[2], dtype=torch.float32), -1, 1)
-
-        y = self.target_network.forward(next_state) # TODO: should it be next state or current state that we forward? what about detaching?
-        y = y.view(self.batch_size, self.agents, self.number_actions)
-        # Get the maximum prediction for the next state from the target network
-        max_target_net = y.max(-1)[0]
-        network_prediction = self.q_network.forward(curr_state).view(self.batch_size, self.agents, self.number_actions)
-        # Bellman equation
-        batch_labels_tensor = rewards + (discount_factor * max_target_net.detach()) # Add is Over
-
-        #td_errors = (network_prediction - batch_labels_tensor.unsqueeze(-1)).detach() # TODO td error needed for exp replay
-
-        index = torch.tensor(transitions[1], dtype=torch.long).unsqueeze(-1)
-        y_pred = (torch.gather(network_prediction, -1, index)).squeeze()
-
-        # Update transitions' weights
-        # self.buffer.recompute_weights(transitions, td_errors)
-        print("pytorch batch_labels_tensor", batch_labels_tensor.data, "y_pred", y_pred.data)
-        return torch.nn.SmoothL1Loss()(batch_labels_tensor, y_pred)
-    """

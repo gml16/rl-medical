@@ -13,6 +13,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 import numpy as np
 
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import sys
 import time
 import argparse
@@ -39,6 +40,7 @@ from expreplay import ExpReplay
 
 
 from trainer import Trainer
+from logger import Logger
 from DQNModelTorch import Network2D
 import torch
 
@@ -309,7 +311,7 @@ if __name__ == '__main__':
     parser.add_argument('--saveVideo', help='save video of the game',
                         action='store_true', default=False)
     parser.add_argument('--logDir', help='store logs in this directory during training',
-                        default='train_log')
+                        default='train_log', type=str)
     parser.add_argument('--name', help='name of current experiment for logs',
                         default='experiment_1')
     parser.add_argument('--agents', help='Number of agents', type=int, default=1)
@@ -370,21 +372,7 @@ if __name__ == '__main__':
                                    reward_strategy=args.reward_strategy),
                                 model, num_files) # TODO: try to see if .to("cuda") improves time
     else:  # train model
-
-        # logger_dir = os.path.join(args.logDir, args.name)
-        # logger.set_logger_dir(logger_dir)
-        # config = get_config(args.files, args.agents, args.reward_strategy)
-        # if args.load:  # resume training from a saved checkpoint
-        #     config.session_init = get_model_loader(args.load)
-        # launch_train_with_config(config, SimpleTrainer())
-
-        f = None
-        if args.write:
-            dir = "data/experiments/log_" + str(int(time.time()))
-            script_dir = os.path.dirname(__file__)
-            abs_dir_path = os.path.join(script_dir, dir)
-            os.makedirs(abs_dir_path)
-            f = open(os.path.join(abs_dir_path, "logs.txt"),"w+")
+        logger = Logger(args.logDir, args.write)
         environment = get_player(task='train', files_list=args.files, agents=args.agents, history_length=28, reward_strategy=1, viz=args.viz, multiscale=args.multiscale)
         trainer = Trainer(environment,
                           batch_size = args.batch_size,
@@ -397,6 +385,6 @@ if __name__ == '__main__':
                           steps_per_epoch = args.steps_per_epoch,
                           max_episodes = args.max_episodes,
                           delta=args.delta,
-                          file=f,
+                          logger = logger,
                           model_name=args.model_name,
                           ).train()
