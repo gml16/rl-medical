@@ -4,6 +4,7 @@ import numpy as np
 import time
 from expreplayTorch import ReplayBuffer
 from DQNModelTorch import DQN
+from tqdm import tqdm
 
 class Trainer(object):
     def __init__(self,
@@ -47,13 +48,13 @@ class Trainer(object):
     def train(self):
         self.logger.log(self.dqn.q_network)
         self.set_reproducible()
+        self.init_memory()
         losses = []
         distances = [[] for _ in range(self.agents)]
         episode = 1
         acc_steps = 0
         while episode <= self.max_episodes:
             self.logger.log(f"episode {episode} - eps {self.eps:.5f}")
-
             # Reset the environment for the start of the episode.
             obs = self.env.reset()
             # Observations stacks is a numpy array with shape (agents, frame_history, *image_size)
@@ -64,20 +65,20 @@ class Trainer(object):
                 acc_steps += 1
                 acts, q_values = self.get_next_actions(obs_stack)
                 # Step the agent once, and get the transition tuple for this step
-                next_obs, reward, terminal, info = self.env.step(acts, q_values, terminal)
+                obs, reward, terminal, info = self.env.step(acts, q_values, terminal)
 
                 if step_num == 0:
                     start_dists = [info['distError_' + str(i)] for i in range(self.agents)]
 
-                next_obs_stack = np.concatenate((obs_stack[:,1:], np.expand_dims(next_obs, axis=1)), axis=1)
+                next_obs_stack = np.concatenate((obs_stack[:,1:], np.expand_dims(obs, axis=1)), axis=1)
                 self.buffer.add(obs_stack/255.0, acts, reward, next_obs_stack/255.0, terminal)
-                if len(self.buffer) >= self.init_memory_size:
-                    mini_batch = self.buffer.sample(self.batch_size)
-                    loss = self.dqn.train_q_network(mini_batch, self.gamma)
-                    self.eps = max(self.min_eps, self.eps-self.delta)
-                    losses.append(loss)
-                obs = next_obs
                 obs_stack = next_obs_stack
+
+                mini_batch = self.buffer.sample(self.batch_size)
+                loss = self.dqn.train_q_network(mini_batch, self.gamma)
+                self.eps = max(self.min_eps, self.eps-self.delta)
+                losses.append(loss)
+
                 if all(t for t in terminal):
                     self.logger.log(f"Terminating episode after {step_num+1} steps, total of {acc_steps} steps, final distance for first agent is {info['distError_0']:.3f}, improved distance by {(start_dist-info['distError_0']):.3f}")
                     break
@@ -88,7 +89,31 @@ class Trainer(object):
             episode += 1
             self.logger.plot_res(losses, distances)
             self.dqn.save_model()
-        file.close()
+
+    def init_memory(self):
+        self.logger.log("Initialising memory buffer...")
+        pbar = tqdm(desc="Memory buffer", total=self.init_memory_size)
+        while len(self.buffer) < self.init_memory_size:
+            # Reset the environment for the start of the episode.
+            obs = self.env.reset()
+            # Observations stacks is a numpy array with shape (agents, frame_history, *image_size)
+            obs_stack = np.stack([obs] * self.frame_history, axis=1)
+            # Loop over steps within this episode. The episode length here is 20.
+            terminal = [False for _ in range(self.agents)]
+            steps = 0
+            for _ in range(self.steps_per_epoch):
+                steps+=1
+                acts, q_values = self.get_next_actions(obs_stack)
+                # Step the agent once, and get the transition tuple for this step
+                obs, reward, terminal, info = self.env.step(acts, q_values, terminal)
+                next_obs_stack = np.concatenate((obs_stack[:,1:], np.expand_dims(obs, axis=1)), axis=1)
+                self.buffer.add(obs_stack/255.0, acts, reward, next_obs_stack/255.0, terminal)
+                obs_stack = next_obs_stack
+                if all(t for t in terminal):
+                    break
+            pbar.update(steps)
+        pbar.close()
+        self.logger.log("Memory buffer filled")
 
 
     # Function to get the next action, using whatever method you like
