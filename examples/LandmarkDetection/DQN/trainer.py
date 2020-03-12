@@ -64,7 +64,7 @@ class Trainer(object):
                 acc_steps += 1
                 acts, q_values = self.get_next_actions(obs_stack)
                 # Step the agent once, and get the transition tuple for this step
-                obs, reward, terminal, info = self.env.step(acts, q_values, terminal)
+                obs, reward, terminal, info = self.env.step(np.copy(acts), q_values, terminal)
 
                 if step_num == 0:
                     start_dists = [info['distError_' + str(i)] for i in range(self.agents)]
