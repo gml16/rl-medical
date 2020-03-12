@@ -31,17 +31,15 @@ from tensorpack import (PredictConfig, OfflinePredictor, get_model_loader,
                         HumanHyperParamSetter, argscope, RunOp, LinearWrap,
                         FullyConnected, PReLU, SimpleTrainer,
                         launch_train_with_config)
-"""
-from common import Evaluator, eval_model_multithread, play_n_episodes
 from DQNModel import Model3D as DQNModel3D
 from DQNModel import Model2D as DQNModel2D
 from expreplay import ExpReplay
-
-
-
+from common import Evaluator, eval_model_multithread
+"""
+from common import play_n_episodes
+from DQNModelTorch import DQN
 from trainer import Trainer
 from logger import Logger
-from DQNModelTorch import Network2D
 import torch
 
 
@@ -361,8 +359,11 @@ if __name__ == '__main__':
     NUM_ACTIONS = init_player.action_space.n
     num_files = init_player.files.num_files
 
+    logger = Logger(args.logDir, args.write)
+
     if args.task != 'train':
-        model = Network2D(args.agents, frame_history=4, number_actions=6)
+        dqn = DQN(args.agents, frame_history=FRAME_HISTORY, logger=logger, type=args.model_name) # TODO: refactor to not have to create both a q_network and target_network
+        model = dqn.q_network
         model.load_state_dict(torch.load(args.load))
         play_n_episodes(get_player(files_list=args.files, viz=0.01,
                                    saveGif=args.saveGif,
@@ -370,9 +371,8 @@ if __name__ == '__main__':
                                    task=args.task,
                                    agents=args.agents,
                                    reward_strategy=args.reward_strategy),
-                                model, num_files) # TODO: try to see if .to("cuda") improves time
+                                model, num_files)
     else:  # train model
-        logger = Logger(args.logDir, args.write)
         environment = get_player(task='train', files_list=args.files, agents=args.agents, history_length=28, reward_strategy=1, viz=args.viz, multiscale=args.multiscale)
         trainer = Trainer(environment,
                           batch_size = args.batch_size,

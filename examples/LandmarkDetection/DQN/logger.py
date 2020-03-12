@@ -37,8 +37,9 @@ class Logger(object):
 
     def log(self, message):
         print(str(message))
-        with open(os.path.join(self.dir, "logs.txt"), "a") as logs:
-            logs.write(str(message) + "\n")
+        if self.write:
+            with open(os.path.join(self.dir, "logs.txt"), "a") as logs:
+                logs.write(str(message) + "\n")
 
     def create_dir(self):
         f = None

@@ -237,8 +237,7 @@ class CommNet(nn.Module):
 
 class DQN:
     # The class initialisation function.
-    def __init__(self, batch_size, agents, frame_history, logger, number_actions = 6, type="Network3d"):
-        self.batch_size = batch_size
+    def __init__(self, agents, frame_history, logger, number_actions = 6, type="Network3d"):
         self.agents = agents
         self.number_actions = number_actions
         self.frame_history = frame_history
@@ -262,7 +261,7 @@ class DQN:
 
         self.copy_to_target_network()
         # Define the optimiser which is used when updating the Q-network. The learning rate determines how big each gradient step is during backpropagation.
-        self.optimiser = torch.optim.RMSprop(self.q_network.parameters(), lr=0.0004, momentum=0)
+        self.optimiser = torch.optim.Adam(self.q_network.parameters(), lr=1e-3, eps=1e-3)
 
     def copy_to_target_network(self):
         self.target_network.load_state_dict(self.q_network.state_dict())
@@ -287,7 +286,7 @@ class DQN:
     def _calculate_loss_tf(self, transitions, discount_factor):
         import tensorflow as tf
         curr_state = transitions[0]
-        self.predict_value = tf.convert_to_tensor(self.q_network.forward(torch.tensor(curr_state)).view(self.batch_size, self.number_actions).detach().numpy(), dtype=tf.float32) # Only works for 1 agent # self.get_DQN_prediction(state)
+        self.predict_value = tf.convert_to_tensor(self.q_network.forward(torch.tensor(curr_state)).view(-1, self.number_actions).detach().numpy(), dtype=tf.float32) # Only works for 1 agent # self.get_DQN_prediction(state)
         reward = tf.squeeze(tf.clip_by_value(tf.convert_to_tensor(transitions[2], dtype=tf.float32), -1, 1), [1])
         next_state = transitions[3]
         action_onehot = tf.squeeze(tf.one_hot(transitions[1], 6, 1.0, 0.0), [1])
@@ -296,7 +295,7 @@ class DQN:
         max_pred_reward = tf.reduce_mean(tf.reduce_max(
             self.predict_value, 1), name='predict_reward')
         with tf.variable_scope('target'):
-            targetQ_predict_value = tf.convert_to_tensor(self.q_network.forward(torch.tensor(next_state)).view(self.batch_size, self.number_actions).detach().numpy(), dtype=tf.float32)   # NxA
+            targetQ_predict_value = tf.convert_to_tensor(self.q_network.forward(torch.tensor(next_state)).view(-1, self.number_actions).detach().numpy(), dtype=tf.float32)   # NxA
 
         best_v = tf.reduce_max(targetQ_predict_value, 1)    # N,
         target = reward + discount_factor * tf.stop_gradient(best_v)
@@ -318,10 +317,10 @@ class DQN:
         rewards = torch.clamp(torch.tensor(transitions[2], dtype=torch.float32), -1, 1)
 
         y = self.target_network.forward(next_state)
-        y = y.view(self.batch_size, self.agents, self.number_actions)
+        y = y.view(-1, self.agents, self.number_actions) # dim (batch_size, agents, number_actions)
         # Get the maximum prediction for the next state from the target network
         max_target_net = y.max(-1)[0]
-        network_prediction = self.q_network.forward(curr_state).view(self.batch_size, self.agents, self.number_actions)
+        network_prediction = self.q_network.forward(curr_state).view(-1, self.agents, self.number_actions) # dim (batch_size, agents, number_actions)
         isNotOver = (torch.ones(*terminal.shape)-terminal)
         # Bellman equation
         batch_labels_tensor = rewards + isNotOver * (discount_factor * max_target_net.detach())

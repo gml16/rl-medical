@@ -35,11 +35,11 @@ def play_one_episode(env, func, render=False, agents=1, frame_history=4):
         Run a full episode, mapping observation to action, WITHOUT 0.001 greedy.
         :returns sum of rewards
         """
-        inputs = torch.tensor(obs_stack).permute(0, 4, 1, 2, 3)
-        q_vals = func.forward(inputs).detach()
+        inputs = torch.tensor(obs_stack).permute(0, 4, 1, 2, 3).unsqueeze(0)
+        q_vals = func.forward(inputs).detach().squeeze(0)
         idx = torch.max(q_vals, -1)[1]
         greedy_steps = np.array(idx, dtype = np.int32).flatten()
-        return greedy_steps, q_vals
+        return greedy_steps, q_vals.data.numpy()
 
     obs_stack = env.reset()
     # Here obs are of the form (agent, *image_size, frame_history)

@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import numpy as np
-import time
 from expreplayTorch import ReplayBuffer
 from DQNModelTorch import DQN
 from tqdm import tqdm
@@ -41,7 +40,7 @@ class Trainer(object):
         self.number_actions = number_actions
         self.frame_history = frame_history
         self.buffer = ReplayBuffer(self.replay_buffer_size)
-        self.dqn = DQN(self.batch_size, self.agents, self.frame_history, logger=logger, type=model_name)
+        self.dqn = DQN(self.agents, self.frame_history, logger=logger, type=model_name)
         self.logger = logger
 
 
