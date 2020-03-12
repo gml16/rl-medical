@@ -4,12 +4,13 @@ import torch
 import matplotlib.pyplot as plt
 
 class Logger(object):
-    def __init__(self, directory, write):
+    def __init__(self, directory, write, save_freq = 10):
         self.parent_dir = directory
         self.write = write
         self.dir = ""
         self.fig_index = 0
         self.model_index = 0
+        self.save_freq = save_freq
         if self.write:
             self.create_dir()
 
@@ -49,12 +50,12 @@ class Logger(object):
         self.dir = os.path.join(self.parent_dir, f"experiment_{index}")
         os.makedirs(self.dir)
         with open(os.path.join(self.dir, "logs.txt"), "a") as logs:
-            logs.write("Logs from " + str(time.time()))
+            logs.write(f"Logs from {str(time.time())} \n")
 
     def save_model(self, state_dict):
         if not self.write:
             return
-        if self.model_index > 0:
-            os.remove(os.path.join(self.dir, f"dqn{self.model_index-1}.pt"))
+        if self.model_index > 0 and self.model_index % self.save_freq != 1:
+                os.remove(os.path.join(self.dir, f"dqn{self.model_index-1}.pt"))
         torch.save(state_dict, os.path.join(self.dir, f"dqn{self.model_index}.pt"))
         self.model_index+=1

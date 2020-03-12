@@ -70,14 +70,16 @@ DELTA = 0.0001
 
 ###############################################################################
 
-def get_player(directory=None, files_list= None, viz=False,
-               task='play', saveGif=False, saveVideo=False, multiscale=True, history_length=28, agents=1, reward_strategy=1):
+def get_player(directory=None, files_list=None, viz=False,
+               task='play', saveGif=False, saveVideo=False,
+               multiscale=True, history_length=28, agents=1,
+               reward_strategy=1, logger=None):
     # in atari paper, max_num_frames = 30000
     env = MedicalPlayer(directory=directory, screen_dims=IMAGE_SIZE,
                         viz=viz, saveGif=saveGif, saveVideo=saveVideo,
                         task=task, files_list=files_list, max_num_frames=1500,
                         history_length=history_length, multiscale=multiscale,
-                        agents=agents, reward_strategy=reward_strategy)
+                        agents=agents, reward_strategy=reward_strategy, logger=logger)
     if task != 'train':
         # in training, env will be decorated by ExpReplay, and history
         # is taken care of in expreplay buffer
@@ -349,20 +351,24 @@ if __name__ == '__main__':
 
 
     METHOD = args.algo
+
+    logger = Logger(args.logDir, args.write)
+
     # load files into env to set num_actions, num_validation_files
     init_player = MedicalPlayer(files_list=args.files,
                                 screen_dims=IMAGE_SIZE,
                                 # TODO: why is this always play?
                                 task='play',
                                 agents=args.agents,
-                                reward_strategy=args.reward_strategy)
+                                reward_strategy=args.reward_strategy,
+                                logger=logger)
     NUM_ACTIONS = init_player.action_space.n
     num_files = init_player.files.num_files
 
-    logger = Logger(args.logDir, args.write)
-
     if args.task != 'train':
-        dqn = DQN(args.agents, frame_history=FRAME_HISTORY, logger=logger, type=args.model_name) # TODO: refactor to not have to create both a q_network and target_network
+        # TODO: refactor DQN to not have to create both a q_network and target_network
+        dqn = DQN(args.agents, frame_history=FRAME_HISTORY,
+                  logger=logger, type=args.model_name)
         model = dqn.q_network
         model.load_state_dict(torch.load(args.load))
         play_n_episodes(get_player(files_list=args.files, viz=0.01,
@@ -370,10 +376,18 @@ if __name__ == '__main__':
                                    saveVideo=args.saveVideo,
                                    task=args.task,
                                    agents=args.agents,
-                                   reward_strategy=args.reward_strategy),
+                                   reward_strategy=args.reward_strategy,
+                                   logger=logger),
                                 model, num_files)
     else:  # train model
-        environment = get_player(task='train', files_list=args.files, agents=args.agents, history_length=28, reward_strategy=1, viz=args.viz, multiscale=args.multiscale)
+        environment = get_player(task='train',
+                                 files_list=args.files,
+                                 agents=args.agents,
+                                 history_length=20,
+                                 reward_strategy=1,
+                                 viz=args.viz,
+                                 multiscale=args.multiscale,
+                                 logger=logger)
         trainer = Trainer(environment,
                           batch_size = args.batch_size,
                           image_size = IMAGE_SIZE,

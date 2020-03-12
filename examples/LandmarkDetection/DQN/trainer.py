@@ -79,7 +79,7 @@ class Trainer(object):
                 losses.append(loss)
 
                 if all(t for t in terminal):
-                    self.logger.log(f"Terminating episode after {step_num+1} steps, total of {acc_steps} steps, final distance for first agent is {info['distError_0']:.3f}, improved distance by {(start_dist-info['distError_0']):.3f}")
+                    self.logger.log(f"Terminating episode after {step_num+1} steps, total of {acc_steps} steps, final distance for first agent is {info['distError_0']:.3f}, improved distance by {(start_dists[0]-info['distError_0']):.3f}")
                     break
             for i in range(self.agents):
                 distances[i].append(start_dists[i]-info['distError_'+str(i)])

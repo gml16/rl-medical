@@ -22,7 +22,6 @@ import six
 import random
 import threading
 import numpy as np
-from tensorpack import logger
 from collections import (Counter, defaultdict, deque, namedtuple)
 import copy
 
@@ -64,7 +63,8 @@ class MedicalPlayer(gym.Env):
 
     def __init__(self, directory=None, viz=False, task=False, files_list=None,
                  screen_dims=(27,27,27), history_length=8, multiscale=True,
-                 max_num_frames=0, saveGif=False, saveVideo=False, agents=1, reward_strategy=1):
+                 max_num_frames=0, saveGif=False, saveVideo=False, agents=1,
+                 reward_strategy=1, oscillations_allowed=4, logger=None):
         """
         :param train_directory: environment or game name
         :param viz: visualization
@@ -101,6 +101,8 @@ class MedicalPlayer(gym.Env):
 
         super(MedicalPlayer, self).__init__()
         self.agents = agents
+        self.oscillations_allowed = oscillations_allowed
+        self.logger = logger
         # inits stat counters
         self.reset_stat()
 
@@ -414,7 +416,7 @@ class MedicalPlayer(gym.Env):
         if self.task == 'train':
             for i in range(self.agents):
                 if self.cur_dist[i]<=1:
-                    print("distance of agent", i ," is less than one")
+                    self.logger.log(f"distance of agent {i} is <= 1")
                     self.terminal[i]=True
                     self.num_success[i].feed(1)
 
@@ -422,7 +424,7 @@ class MedicalPlayer(gym.Env):
         self.cnt += 1
         if self.cnt >= self.max_num_frames:
             for i in range(self.agents):
-                print("max number of steps reached", self.max_num_frames ,"which is")
+                self.logger.log(f"max number of steps reached {self.max_num_frames} which is")
                 self.terminal[i] = True
 
         # update history buffer with new location and qvalues
@@ -625,11 +627,11 @@ class MedicalPlayer(gym.Env):
             freq = counter.most_common()
             # At beginning of episodes, history is prefilled with (0, 0, 0), thus do not count their frequency
             if freq[0][0] == (0, 0, 0):
-                if len(freq) < 4:
+                if len(freq) < self.oscillations_allowed:
                     return False
-                if freq[1][1] < 4:
+                if freq[1][1] < self.oscillations_allowed:
                     return False
-            elif freq[0][1] < 4:
+            elif freq[0][1] < self.oscillations_allowed:
                 return False
         return True
 
@@ -800,7 +802,7 @@ class MedicalPlayer(gym.Env):
             dirname = 'tmp_video_cardiac'
             if self.cnt <= 1:
                 if os.path.isdir(dirname):
-                    logger.warn("""Log directory {} exists! Use 'd' to delete it. """.format(dirname))
+                    self.logger.log(f"Log directory {dirname} exists! Use 'd' to delete it.")
                     act = input("select action: d (delete) / q (quit): ").lower().strip()
                     if act == 'd':
                         shutil.rmtree(dirname, ignore_errors=True)
