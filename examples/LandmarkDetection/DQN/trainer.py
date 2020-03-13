@@ -13,7 +13,7 @@ class Trainer(object):
                  replay_buffer_size = 1e6,
                  init_memory_size = 5e4,
                  max_episodes = 100,
-                 steps_per_epoch = 50,
+                 steps_per_episode = 50,
                  eps = 1,
                  min_eps = 0.1,
                  delta = 0.001,
@@ -31,7 +31,7 @@ class Trainer(object):
         self.replay_buffer_size = replay_buffer_size
         self.init_memory_size = init_memory_size
         self.max_episodes = max_episodes
-        self.steps_per_epoch = steps_per_epoch
+        self.steps_per_episode = steps_per_episode
         self.eps = eps
         self.min_eps = min_eps
         self.delta = delta
@@ -60,7 +60,7 @@ class Trainer(object):
             obs_stack = np.stack([obs] * self.frame_history, axis=1)
             # Loop over steps within this episode. The episode length here is 20.
             terminal = [False for _ in range(self.agents)]
-            for step_num in range(self.steps_per_epoch):
+            for step_num in range(self.steps_per_episode):
                 acc_steps += 1
                 acts, q_values = self.get_next_actions(obs_stack)
                 # Step the agent once, and get the transition tuple for this step
@@ -100,7 +100,7 @@ class Trainer(object):
             # Loop over steps within this episode. The episode length here is 20.
             terminal = [False for _ in range(self.agents)]
             steps = 0
-            for _ in range(self.steps_per_epoch):
+            for _ in range(self.steps_per_episode):
                 steps+=1
                 acts, q_values = self.get_next_actions(obs_stack)
                 # Step the agent once, and get the transition tuple for this step
