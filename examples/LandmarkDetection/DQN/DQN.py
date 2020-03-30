@@ -84,13 +84,13 @@ if __name__ == '__main__':
     parser.add_argument('--saveVideo', help='Save video of the game',
                         action='store_true', default=False)
     parser.add_argument('--logDir', help='Store logs in this directory during training',
-                        default='train_log', type=str)
+                        default='runs', type=str)
     # parser.add_argument('--name', help='Name of current experiment for logs',
     #                     default='experiment_1')
     parser.add_argument('--agents', help='Number of agents', type=int, default=1)
 
     parser.add_argument('--model_name', help='Models implemented are: Network3d, CommNet',default="CommNet", choices=['CommNet', 'Network3d'], type=str)
-    parser.add_argument('--batch_size', help='Size of each batch',default=64, type=int)
+    parser.add_argument('--batch_size', help='Size of each batch', default=64, type=int)
     parser.add_argument('--memory_size', help="""Number of transitions stored in exp replay buffer.
                                                  If too much is allocated training may abruptly stop.""", default=5e4, type=int)
     parser.add_argument('--init_memory_size', help='Number of transitions stored in exp replay buffer before training', default=2048, type=int)
