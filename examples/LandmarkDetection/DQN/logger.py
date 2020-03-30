@@ -25,10 +25,12 @@ class Logger(object):
         if self.write:
             self.boardWriter.add_scalar('Loss', loss, step)
 
-    def add_distances_board(self, distances, episode):
+    def add_distances_board(self, start_dists, info, episode):
         if self.write:
-            agent_diffs = { f"Agent {i}" : distances[i] for i in range(len(distances))}
-            self.boardWriter.add_scalars('Distance', agent_diffs, episode)
+            agent_diffs = { f"Agent {i}" : start_dists[i]-info['distError_'+str(i)] for i in range(len(start_dists))}
+            final_distances = { f"Agent {i}" : info['distError_'+str(i)] for i in range(len(start_dists))}
+            self.boardWriter.add_scalars('Distance difference', agent_diffs, episode)
+            self.boardWriter.add_scalars('Distance final', final_distances, episode)
 
     def plot_res(self, losses, distances):
         if len(losses) == 0 or not self.write:
@@ -55,6 +57,7 @@ class Logger(object):
     def log(self, message):
         print(str(message))
         if self.write:
+            self.boardWriter.add_text("log", str(message))
             with open(os.path.join(self.dir, "logs.txt"), "a") as logs:
                 logs.write(str(message) + "\n")
 
@@ -65,3 +68,6 @@ class Logger(object):
                 os.remove(os.path.join(self.dir, f"dqn{self.model_index-1}.pt"))
         torch.save(state_dict, os.path.join(self.dir, f"dqn{self.model_index}.pt"))
         self.model_index+=1
+
+    def __del__(self):
+        self.boardWriter.close()
