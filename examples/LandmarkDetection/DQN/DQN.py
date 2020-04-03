@@ -22,7 +22,7 @@ from collections import deque
 #import tensorflow as tf
 from medical import MedicalPlayer, FrameStack
 from common import play_n_episodes
-from DQNModelTorch import DQN
+from DQNModel import DQN
 from trainer import Trainer
 from logger import Logger
 import torch

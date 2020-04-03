@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from expreplayTorch import ReplayBuffer
-from DQNModelTorch import DQN
+from expreplay import ReplayBuffer
+from DQNModel import DQN
 from tqdm import tqdm
 
 class Trainer(object):
