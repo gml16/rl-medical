@@ -19,12 +19,11 @@ import time
 import argparse
 from collections import deque
 
-#import tensorflow as tf
 from medical import MedicalPlayer, FrameStack
-from common import play_n_episodes
 from DQNModel import DQN
 from trainer import Trainer
 from logger import Logger
+from evaluator import Evaluator
 import torch
 
 
@@ -125,6 +124,7 @@ if __name__ == '__main__':
     logger = Logger(args.logDir, args.write)
 
     # load files into env to set num_actions, num_validation_files
+    # TODO: is this still necessary?
     init_player = MedicalPlayer(files_list=args.files,
                                 screen_dims=IMAGE_SIZE,
                                 # TODO: why is this always play?
@@ -132,7 +132,7 @@ if __name__ == '__main__':
                                 agents=args.agents,
                                 logger=logger)
     NUM_ACTIONS = init_player.action_space.n
-    num_files = init_player.files.num_files
+    # num_files = init_player.files.num_files
 
     if args.task != 'train':
         # TODO: refactor DQN to not have to create both a q_network and target_network
@@ -140,13 +140,15 @@ if __name__ == '__main__':
                   logger=logger, type=args.model_name)
         model = dqn.q_network
         model.load_state_dict(torch.load(args.load))
-        play_n_episodes(get_player(files_list=args.files, viz=0.01,
+        environment = get_player(files_list=args.files,
                                    saveGif=args.saveGif,
                                    saveVideo=args.saveVideo,
                                    task=args.task,
                                    agents=args.agents,
-                                   logger=logger),
-                                model, num_files)
+                                   viz=args.viz,
+                                   logger=logger)
+        evaluator = Evaluator(environment, model, logger, args.agents)
+        evaluator.play_n_episodes()
     else:  # train model
         environment = get_player(task='train',
                                  files_list=args.files,

@@ -68,6 +68,3 @@ class Logger(object):
                 os.remove(os.path.join(self.dir, f"dqn{self.model_index-1}.pt"))
         torch.save(state_dict, os.path.join(self.dir, f"dqn{self.model_index}.pt"))
         self.model_index+=1
-
-    def __del__(self):
-        self.boardWriter.close()
