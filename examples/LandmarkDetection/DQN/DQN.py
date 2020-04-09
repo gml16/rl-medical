@@ -170,5 +170,5 @@ if __name__ == '__main__':
                           delta=args.delta,
                           logger = logger,
                           model_name=args.model_name,
-                          training_freq = args.training_freq,
+                          train_freq = args.train_freq,
                           ).train()

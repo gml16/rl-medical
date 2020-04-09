@@ -23,7 +23,7 @@ class Trainer(object):
                  frame_history = 4,
                  model_name="CommNet",
                  logger=None,
-                 training_freq=1,
+                 train_freq=1,
                 ):
         self.env = env
         self.agents = env.agents
@@ -43,7 +43,7 @@ class Trainer(object):
         self.buffer = ReplayBuffer(self.replay_buffer_size)
         self.dqn = DQN(self.agents, self.frame_history, logger=logger, type=model_name)
         self.logger = logger
-        self.training_freq = training_freq
+        self.train_freq = train_freq
 
 
     def train(self):
@@ -75,7 +75,7 @@ class Trainer(object):
                 self.buffer.add(obs_stack/255.0, acts, reward, next_obs_stack/255.0, terminal)
                 obs_stack = next_obs_stack
 
-                if acc_steps % training_freq == 0:
+                if acc_steps % self.train_freq == 0:
                     mini_batch = self.buffer.sample(self.batch_size)
                     loss = self.dqn.train_q_network(mini_batch, self.gamma)
                     self.logger.add_loss_board(loss, acc_steps)
