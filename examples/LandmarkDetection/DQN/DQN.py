@@ -11,6 +11,7 @@ warnings.simplefilter("ignore", category=PendingDeprecationWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 import numpy as np
+import torch
 
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -24,8 +25,6 @@ from DQNModel import DQN
 from trainer import Trainer
 from logger import Logger
 from evaluator import Evaluator
-import torch
-
 
 ###############################################################################
 # BREAKOUT (84,84) - MEDICAL 2D (60,60) - MEDICAL 3D (26,26,26)
@@ -102,6 +101,7 @@ if __name__ == '__main__':
     parser.set_defaults(multiscale=False)
     parser.add_argument('--write', help='Saves the training logs', dest='write', action='store_true')
     parser.set_defaults(write=False)
+    parser.add_argument('--train_freq', help='Number of agent steps between each training step on one mini-batch', default=1, type=int)
 
 
 
@@ -170,4 +170,5 @@ if __name__ == '__main__':
                           delta=args.delta,
                           logger = logger,
                           model_name=args.model_name,
+                          training_freq = args.training_freq,
                           ).train()
