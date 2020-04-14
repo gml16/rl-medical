@@ -251,6 +251,7 @@ class DQN:
         self.frame_history = frame_history
         self.logger = logger
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.logger.log(f"Using {self.device}")
         # Create a Q-network, which predicts the q-value for a particular state.
         if type == "Network3d":
             self.q_network = Network3D(agents, frame_history, number_actions).to(self.device)
@@ -266,8 +267,11 @@ class DQN:
             output_dimension = agents*number_actions
             self.q_network = MLP(input_dimension, output_dimension, agents).to(self.device)
             self.target_network = MLP(input_dimension, output_dimension, agents).to(self.device)
-
         self.copy_to_target_network()
+        # Freezes target network
+        self.target_network.train(False)
+        for p in self.target_network.parameters():
+           p.requires_grad = False
         # Define the optimiser which is used when updating the Q-network. The learning rate determines how big each gradient step is during backpropagation.
         self.optimiser = torch.optim.Adam(self.q_network.parameters(), lr=1e-3, eps=1e-3)
 
@@ -336,17 +340,7 @@ class DQN:
         #td_errors = (network_prediction - batch_labels_tensor.unsqueeze(-1)).detach() # TODO td error needed for exp replay
 
         index = torch.tensor(transitions[1], dtype=torch.long).unsqueeze(-1)
-        try:
-            y_pred = (torch.gather(network_prediction, -1, index)).squeeze()
-        except:
-            self.logger.log(network_prediction.shape)
-            self.logger.log(network_prediction)
-            self.logger.log(index.shape)
-            self.logger.log(index)
-            y_pred = (torch.gather(network_prediction, -1, index))
-            self.logger.log(y_pred.shape)
-            self.logger.log(y_pred)
-            y_pred = y_pred.squeeze()
+        y_pred = (torch.gather(network_prediction, -1, index)).squeeze()
 
         # Update transitions' weights
         # self.buffer.recompute_weights(transitions, td_errors)

@@ -54,10 +54,10 @@ class Logger(object):
         self.boardWriter.add_figure(f"res{self.fig_index}", fig)
         self.fig_index+=1
 
-    def log(self, message):
+    def log(self, message, step=0):
         print(str(message))
         if self.write:
-            self.boardWriter.add_text("log", str(message))
+            self.boardWriter.add_text("log", str(message), step)
             with open(os.path.join(self.dir, "logs.txt"), "a") as logs:
                 logs.write(str(message) + "\n")
 

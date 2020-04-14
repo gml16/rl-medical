@@ -55,7 +55,7 @@ class Trainer(object):
         episode = 1
         acc_steps = 0
         while episode <= self.max_episodes:
-            self.logger.log(f"episode {episode} - eps {self.eps:.5f}")
+            self.logger.log(f"episode {episode} - eps {self.eps:.5f}", acc_steps)
             # Reset the environment for the start of the episode.
             obs = self.env.reset()
             # Observations stacks is a numpy array with shape (agents, frame_history, *image_size)
@@ -82,7 +82,7 @@ class Trainer(object):
                 self.eps = max(self.min_eps, self.eps-self.delta)
 
                 if all(t for t in terminal):
-                    self.logger.log(f"Terminating episode after {step_num+1} steps, total of {acc_steps} steps, final distance for first agent is {info['distError_0']:.3f}, improved distance by {(start_dists[0]-info['distError_0']):.3f}")
+                    self.logger.log(f"Terminating episode after {step_num+1} steps, total of {acc_steps} steps, final distance for first agent is {info['distError_0']:.3f}, improved distance by start_dists[0]-info['distError_0']):.3f}", acc_steps)
                     break
             self.logger.add_distances_board(start_dists, info, episode)
             if episode % self.update_frequency == 0:
