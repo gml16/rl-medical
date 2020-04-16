@@ -79,14 +79,13 @@ class Trainer(object):
                     mini_batch = self.buffer.sample(self.batch_size)
                     loss = self.dqn.train_q_network(mini_batch, self.gamma)
                     self.logger.add_loss_board(loss, acc_steps)
-                self.eps = max(self.min_eps, self.eps-self.delta)
-
                 if all(t for t in terminal):
-                    self.logger.log(f"Terminating episode after {step_num+1} steps, total of {acc_steps} steps, final distance for first agent is {info['distError_0']:.3f}, improved distance by start_dists[0]-info['distError_0']):.3f}", acc_steps)
+                    self.logger.log(f"Terminating episode after {step_num+1} steps, total of {acc_steps} steps, final distance for first agent is {info['distError_0']:.3f}, improved distance by {(start_dists[0]-info['distError_0']):.3f}", acc_steps)
                     break
             self.logger.add_distances_board(start_dists, info, episode)
             if episode % self.update_frequency == 0:
                 self.dqn.copy_to_target_network()
+            self.eps = max(self.min_eps, self.eps-self.delta)
             episode += 1
             self.dqn.save_model()
 

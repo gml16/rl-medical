@@ -95,7 +95,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_episodes', help='"Number of episodes to train for"', default=1000, type=int)
     parser.add_argument('--steps_per_episode', help='Maximum steps per episode', default=200, type=int)
     parser.add_argument('--target_update_freq', help='Number of episodes between each target network update', default=10, type=int)
-    parser.add_argument('--delta', help='Amount to decreases epsilon each step, for the epsilon-greedy policy', default=1e-4, type=float)
+    parser.add_argument('--delta', help='Amount to decreases epsilon each episode, for the epsilon-greedy policy', default=1e-4, type=float)
     parser.add_argument('--viz', help='Size of the window, None for no visualisation', default=0.01, type=float)
     parser.add_argument('--multiscale', help='Reduces size of voxel around the agent when it oscillates', dest='multiscale', action='store_true')
     parser.set_defaults(multiscale=False)
