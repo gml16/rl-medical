@@ -64,7 +64,6 @@ class Logger(object):
     def save_model(self, state_dict):
         if not self.write:
             return
-        if self.model_index > 0 and self.model_index % self.save_freq != 1:
-                os.remove(os.path.join(self.dir, f"dqn{self.model_index-1}.pt"))
-        torch.save(state_dict, os.path.join(self.dir, f"dqn{self.model_index}.pt"))
+        if self.model_index > 0 and self.model_index % self.save_freq == 0:
+            torch.save(state_dict, os.path.join(self.dir, f"dqn{self.model_index}.pt"))
         self.model_index+=1

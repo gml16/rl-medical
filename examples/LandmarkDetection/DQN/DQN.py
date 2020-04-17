@@ -95,6 +95,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_episodes', help='"Number of episodes to train for"', default=1000, type=int)
     parser.add_argument('--steps_per_episode', help='Maximum steps per episode', default=200, type=int)
     parser.add_argument('--target_update_freq', help='Number of episodes between each target network update', default=10, type=int)
+    parser.add_argument('--save_freq', help='Saves network every save_freq steps', default=1000, type=int)
     parser.add_argument('--delta', help='Amount to decreases epsilon each episode, for the epsilon-greedy policy', default=1e-4, type=float)
     parser.add_argument('--viz', help='Size of the window, None for no visualisation', default=0.01, type=float)
     parser.add_argument('--multiscale', help='Reduces size of voxel around the agent when it oscillates', dest='multiscale', action='store_true')
@@ -121,7 +122,7 @@ if __name__ == '__main__':
         error_message = """Wrong input files {} for {} task - should be 2 [\'images.txt\', \'landmarks.txt\'] """.format(len(args.files), args.task)
         assert len(args.files) == 2, (error_message)
 
-    logger = Logger(args.logDir, args.write)
+    logger = Logger(args.logDir, args.write, args.save_freq)
 
     # load files into env to set num_actions, num_validation_files
     # TODO: is this still necessary?
