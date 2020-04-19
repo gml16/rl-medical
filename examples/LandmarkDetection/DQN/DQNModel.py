@@ -273,7 +273,8 @@ class DQN:
         for p in self.target_network.parameters():
            p.requires_grad = False
         # Define the optimiser which is used when updating the Q-network. The learning rate determines how big each gradient step is during backpropagation.
-        self.optimiser = torch.optim.Adam(self.q_network.parameters(), lr=1e-3, eps=1e-3)
+        self.optimiser = torch.optim.Adam(self.q_network.parameters(), lr=1e-3)
+        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimiser, step_size=50, gamma=0.5)
 
     def copy_to_target_network(self):
         self.target_network.load_state_dict(self.q_network.state_dict())

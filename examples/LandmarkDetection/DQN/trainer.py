@@ -86,6 +86,10 @@ class Trainer(object):
             if episode % self.update_frequency == 0:
                 self.dqn.copy_to_target_network()
             self.eps = max(self.min_eps, self.eps-self.delta)
+            # Updates scheduler every epoch 
+            # TODO: change magic number 728 which is the number of brains in the dataset
+            if episode % 728 == 0:
+                self.dqn.scheduler.step()
             episode += 1
             self.dqn.save_model()
 
