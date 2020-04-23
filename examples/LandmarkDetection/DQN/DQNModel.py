@@ -16,7 +16,7 @@ class MLP(nn.Module):
 
     # Function which sends some input data through the network and returns the network's output. In this example, a ReLU activation function is used for both hidden layers, but the output layer has no activation function (it is just a linear layer).
     def forward(self, input):
-        input = input.to(self.device)
+        input = input.to(self.device)/255.0
         input = input.view(-1, self.layer_1.in_features)
         layer_1_output = nn.functional.relu(self.layer_1(input))
         layer_2_output = nn.functional.relu(self.layer_2(layer_1_output))
@@ -55,7 +55,7 @@ class Network2D(nn.Module):
         """
         # Input is a tensor of size (batch_size, agents, frame_history, *image_size)
         """
-        input = input.to(self.device)
+        input = input.to(self.device)/255.0
 
         # Common layers
         x = input.squeeze(1)#input[:, 0]
@@ -119,7 +119,7 @@ class Network3D(nn.Module):
         # Input is a tensor of size (batch_size, agents, frame_history, *image_size)
         # Output is a tensor of size (batch_size, agents, number_actions)
         """
-        input = input.to(self.device)
+        input = input.to(self.device)/255.0
         for i in range(self.agents):
             # Common layers
             x = input[:, i]
@@ -185,7 +185,7 @@ class CommNet(nn.Module):
         # Input is a tensor of size (batch_size, agents, frame_history, *image_size)
         # Output is a tensor of size (batch_size, agents, number_actions)
         """
-        input1 = input.to(self.device)
+        input1 = input.to(self.device)/255.0
         for i in range(self.agents):
             # Common layers
             x = input1[:, i]
@@ -319,7 +319,7 @@ class DQN:
     # Function to calculate the loss for a particular transition.
     def _calculate_loss(self, transitions, discount_factor):
         '''
-        Transitions are tuple of shape obses_t, actions, rewards, obses_tp1, dones
+        Transitions are tuple of shape (states, actions, rewards, next_states, dones)
         '''
         curr_state = torch.tensor(transitions[0])
         next_state = torch.tensor(transitions[3])
@@ -338,8 +338,8 @@ class DQN:
 
         #td_errors = (network_prediction - batch_labels_tensor.unsqueeze(-1)).detach() # TODO td error needed for exp replay
 
-        index = torch.tensor(transitions[1], dtype=torch.long).unsqueeze(-1)
-        y_pred = (torch.gather(network_prediction, -1, index)).squeeze()
+        actions = torch.tensor(transitions[1], dtype=torch.long).unsqueeze(-1)
+        y_pred = torch.gather(network_prediction, -1, actions).squeeze()
 
         # Update transitions' weights
         # self.buffer.recompute_weights(transitions, td_errors)

@@ -316,8 +316,8 @@ class MedicalPlayer(gym.Env):
             official evaluations of your agent are not allowed to use this for
             learning.
         """
-        for i in range(self.agents):
-            if isOver[i] : act[i]=10
+        #for i in range(self.agents):
+            #if isOver[i] : act[i]=10
         self._qvalues = q_values
         current_loc = self._location
         next_location = copy.deepcopy(current_loc)

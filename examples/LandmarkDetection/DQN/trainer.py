@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from expreplay import ReplayBuffer
+from expreplay import ReplayMemory
 from DQNModel import DQN
 from tqdm import tqdm
 
@@ -40,7 +40,7 @@ class Trainer(object):
         self.gamma = gamma
         self.number_actions = number_actions
         self.frame_history = frame_history
-        self.buffer = ReplayBuffer(self.replay_buffer_size)
+        self.buffer = ReplayMemory(self.replay_buffer_size, self.image_size, self.frame_history, self.agents)
         self.dqn = DQN(self.agents, self.frame_history, logger=logger, type=model_name)
         self.logger = logger
         self.train_freq = train_freq
@@ -64,16 +64,17 @@ class Trainer(object):
             terminal = [False for _ in range(self.agents)]
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
-                acts, q_values = self.get_next_actions(obs_stack)
+                acts, q_values = self.get_next_actions(self.buffer.recent_state())
                 # Step the agent once, and get the transition tuple for this step
                 obs, reward, terminal, info = self.env.step(np.copy(acts), q_values, terminal)
 
                 if step_num == 0:
-                    start_dists = [info['distError_' + str(i)] for i in range(self.agents)]
+                    start_dists = [info['distError_' + str(i)]   for i in range(self.agents)]
 
-                next_obs_stack = np.concatenate((obs_stack[:,1:], np.expand_dims(obs, axis=1)), axis=1)
-                self.buffer.add(obs_stack/255.0, acts, reward, next_obs_stack/255.0, terminal)
-                obs_stack = next_obs_stack
+                # TODO: pad at the end
+                #next_obs_stack = np.concatenate((obs_stack[:,1:], np.expand_dims(obs, axis=1)), axis=1) #TODO: use a queue
+                self.buffer.append((obs, acts, reward, terminal))
+                #obs_stack = next_obs_stack
 
                 if acc_steps % self.train_freq == 0:
                     mini_batch = self.buffer.sample(self.batch_size)
@@ -86,7 +87,7 @@ class Trainer(object):
             if episode % self.update_frequency == 0:
                 self.dqn.copy_to_target_network()
             self.eps = max(self.min_eps, self.eps-self.delta)
-            # Updates scheduler every epoch 
+            # Updates scheduler every epoch
             # TODO: change magic number 728 which is the number of brains in the dataset
             if episode % 728 == 0:
                 self.dqn.scheduler.step()
@@ -106,12 +107,13 @@ class Trainer(object):
             steps = 0
             for _ in range(self.steps_per_episode):
                 steps+=1
-                acts, q_values = self.get_next_actions(obs_stack)
+                recent_state = self.buffer.recent_state()
+                acts, q_values = self.get_next_actions(self.buffer.recent_state())
                 # Step the agent once, and get the transition tuple for this step
                 obs, reward, terminal, info = self.env.step(acts, q_values, terminal)
-                next_obs_stack = np.concatenate((obs_stack[:,1:], np.expand_dims(obs, axis=1)), axis=1)
-                self.buffer.add(obs_stack/255.0, acts, reward, next_obs_stack/255.0, terminal)
-                obs_stack = next_obs_stack
+                #next_obs_stack = np.concatenate((obs_stack[:,1:], np.expand_dims(obs, axis=1)), axis=1)
+                self.buffer.append((obs, acts, reward, terminal))
+                #obs_stack = next_obs_stack
                 if all(t for t in terminal):
                     break
             pbar.update(steps)
@@ -123,8 +125,7 @@ class Trainer(object):
     def get_next_actions(self, obs_stack):
         # epsilon-greedy policy
         if np.random.random() < self.eps:
-            q_values = self.dqn.q_network.forward(torch.tensor(obs_stack).unsqueeze(0))
-            q_values = q_values.view(self.agents, self.number_actions).data.numpy()
+            q_values = np.zeros((self.agents, self.number_actions))
             actions = np.random.randint(self.number_actions, size=self.agents)
         else:
             actions, q_values = self.get_greedy_actions(obs_stack, doubleLearning=True)
