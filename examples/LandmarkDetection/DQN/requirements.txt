@@ -3,4 +3,4 @@ tensorpack>=0.9.5
 numpy
 SimpleITK
 gym
-PIL
+pillow
