@@ -1,5 +1,4 @@
 import os
-import time
 from datetime import datetime
 import socket
 import torch
@@ -7,8 +6,9 @@ import matplotlib.pyplot as plt
 import sys
 from torch.utils.tensorboard import SummaryWriter
 
+
 class Logger(object):
-    def __init__(self, directory, write, save_freq = 10):
+    def __init__(self, directory, write, save_freq=10):
         self.parent_dir = directory
         self.write = write
         self.dir = ""
@@ -18,7 +18,11 @@ class Logger(object):
         if self.write:
             self.boardWriter = SummaryWriter()
             current_time = datetime.now().strftime('%b%d_%H-%M-%S')
-            self.dir = os.path.join(self.parent_dir, current_time + '_' + socket.gethostname())
+            self.dir = os.path.join(
+                self.parent_dir,
+                current_time +
+                '_' +
+                socket.gethostname())
             self.log(f"Logs from {self.dir}\n{' '.join(sys.argv)}\n")
 
     def add_loss_board(self, loss, step):
@@ -27,10 +31,16 @@ class Logger(object):
 
     def add_distances_board(self, start_dists, info, episode):
         if self.write:
-            agent_diffs = { f"Agent {i}" : start_dists[i]-info['distError_'+str(i)] for i in range(len(start_dists))}
-            final_distances = { f"Agent {i}" : info['distError_'+str(i)] for i in range(len(start_dists))}
-            self.boardWriter.add_scalars('Distance difference', agent_diffs, episode)
-            self.boardWriter.add_scalars('Distance final', final_distances, episode)
+            agent_diffs = {
+                f"Agent {i}": start_dists[i] - info['distError_' + str(i)]
+                for i in range(len(start_dists))}
+            final_distances = {
+                f"Agent {i}": info['distError_' + str(i)]
+                for i in range(len(start_dists))}
+            self.boardWriter.add_scalars(
+                'Distance difference', agent_diffs, episode)
+            self.boardWriter.add_scalars(
+                'Distance final', final_distances, episode)
 
     def plot_res(self, losses, distances):
         if len(losses) == 0 or not self.write:
@@ -52,7 +62,7 @@ class Logger(object):
             os.remove(os.path.join(self.dir, f"res{self.fig_index-1}.png"))
         fig.savefig(os.path.join(self.dir, f"res{self.fig_index}.png"))
         self.boardWriter.add_figure(f"res{self.fig_index}", fig)
-        self.fig_index+=1
+        self.fig_index += 1
 
     def log(self, message, step=0):
         print(str(message))
@@ -65,5 +75,9 @@ class Logger(object):
         if not self.write:
             return
         if self.model_index > 0 and self.model_index % self.save_freq == 0:
-            torch.save(state_dict, os.path.join(self.dir, f"dqn{self.model_index}.pt"))
-        self.model_index+=1
+            torch.save(
+                state_dict,
+                os.path.join(
+                    self.dir,
+                    f"dqn{self.model_index}.pt"))
+        self.model_index += 1
