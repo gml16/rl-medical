@@ -827,31 +827,11 @@ class MedicalPlayer(gym.Env):
             if all(self.terminal):
                 resolution = str(3 * self.viewer.img_width) + \
                     'x' + str(3 * self.viewer.img_height)
-                save_cmd = [
-                    'ffmpeg',
-                    '-f',
-                    'image2',
-                    '-framerate',
-                    '30',
-                    '-pattern_type',
-                    'sequence',
-                    '-start_number',
-                    '0',
-                    '-r',
-                    '6',
-                    '-i',
-                    dirname +
-                    '/%04d.png',
-                    '-s',
-                    resolution,
-                    '-vcodec',
-                    'libx264',
-                    '-b:v',
-                    '2567k',
-                    self.filename[0] +
-                    '_{}_agents.mp4'.format(
-                        i +
-                        1)]
+                save_cmd = ['ffmpeg', '-f', 'image2', '-framerate', '30',
+                            '-pattern_type', 'sequence', '-start_number', '0',
+                            '-r', '6', '-i', dirname + '/%04d.png', '-s',
+                            resolution, '-vcodec', 'libx264', '-b:v', '2567k',
+                            self.filename[0] + '_{}_agents.mp4'.format(i + 1)]
                 subprocess.check_output(save_cmd)
                 shutil.rmtree(dirname, ignore_errors=True)
 
