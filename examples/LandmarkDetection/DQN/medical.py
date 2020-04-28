@@ -451,11 +451,16 @@ class MedicalPlayer(gym.Env):
 
         info = {}
         for i in range(self.agents):
-            info['score_{}'.format(i)] = self.current_episode_score[i].sum
-            info['gameOver_{}'.format(i)] = self.terminal[i]
-            info['distError_{}'.format(i)] = distance_error[i]
-            info['filename_{}'.format(i)] = self.filename[i]
-
+            info[f"score_{i}"] = self.current_episode_score[i].sum
+            info[f"gameOver_{i}"] = self.terminal[i]
+            info[f"distError_{i}"] = distance_error[i]
+            info[f"filename_{i}"] = self.filename[i]
+            info[f"agent_xpos_{i}"] = self._location[i][0]
+            info[f"agent_ypos_{i}"] = self._location[i][1]
+            info[f"agent_zpos_{i}"] = self._location[i][2]
+            info[f"landmark_xpos_{i}"] = self._target_loc[i][0]
+            info[f"landmark_ypos_{i}"] = self._target_loc[i][1]
+            info[f"landmark_zpos_{i}"] = self._target_loc[i][2]
         return self._current_state(), self.reward, self.terminal, info
 
     def getBestLocation(self):

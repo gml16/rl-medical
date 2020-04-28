@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from itertools import chain
 
 
 class Evaluator(object):
@@ -10,18 +11,37 @@ class Evaluator(object):
         self.agents = agents
 
     def play_n_episodes(self, render=False):
-        """wraps play_one_episode, playing a single episode at a time and logs results
-        used when playing demos."""
-        self.logger.log("Getting distance errors:")
+        """
+        wraps play_one_episode, playing a single episode at a time and logs
+        results used when playing demos.
+        """
+        headers = ["number"] + list(chain.from_iterable(zip(
+            [f"Filename {i}" for i in range(self.agents)],
+            [f"Agent {i} pos x" for i in range(self.agents)],
+            [f"Agent {i} pos y" for i in range(self.agents)],
+            [f"Agent {i} pos z" for i in range(self.agents)],
+            [f"Landmark {i} pos x" for i in range(self.agents)],
+            [f"Landmark {i} pos y" for i in range(self.agents)],
+            [f"Landmark {i} pos z" for i in range(self.agents)],
+            [f"Distance {i}" for i in range(self.agents)])))
+        self.logger.write_locations(headers)
         for k in range(self.env.files.num_files):
-            ep = self.play_one_episode(render=render)
-            score, filename, ditance_error, start_dists, q_values, info = ep
+            score, start_dists, q_values, info = self.play_one_episode(render)
             self.logger.add_distances_board(start_dists, info, k)
             # self.logger.log(
             #     f"""{k + 1}/{self.env.files.num_files} - {filename} - score
-            #     {score} - distError {ditance_error} - q_values {q_values}""")
-            self.logger.log(
-                f"""{ditance_error[0]}""")
+            #     {score} - distError {distance_error} -
+            #     q_values {q_values}""")
+            row = [k + 1] + list(chain.from_iterable(zip(
+                [info[f"filename_{i}"] for i in range(self.agents)],
+                [info[f"agent_xpos_{i}"] for i in range(self.agents)],
+                [info[f"agent_ypos_{i}"] for i in range(self.agents)],
+                [info[f"agent_zpos_{i}"] for i in range(self.agents)],
+                [info[f"landmark_xpos_{i}"] for i in range(self.agents)],
+                [info[f"landmark_ypos_{i}"] for i in range(self.agents)],
+                [info[f"landmark_zpos_{i}"] for i in range(self.agents)],
+                [info[f"distError_{i}"] for i in range(self.agents)])))
+            self.logger.write_locations(row)
 
     def play_one_episode(self, render=False, frame_history=4):
 
@@ -38,10 +58,8 @@ class Evaluator(object):
             return greedy_steps, q_vals.data.numpy()
 
         obs_stack = self.env.reset()
-        # Here obs are of the form (agent, *image_size, frame_history)
+        # Here obs have shape (agent, *image_size, frame_history)
         sum_r = np.zeros((self.agents))
-        filenames_list = []
-        distError_list = []
         isOver = [False] * self.agents
         start_dists = None
         while True:
@@ -55,9 +73,5 @@ class Evaluator(object):
             for i in range(self.agents):
                 if not isOver[i]:
                     sum_r[i] += r[i]
-                if np.all(isOver):
-                    filenames_list.append(info['filename_{}'.format(i)])
-                    distError_list.append(info['distError_{}'.format(i)])
             if np.all(isOver):
-                return (sum_r, filenames_list, distError_list, start_dists,
-                        q_values, info)
+                return sum_r, start_dists, q_values, info

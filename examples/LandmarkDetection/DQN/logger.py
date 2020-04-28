@@ -5,6 +5,7 @@ import torch
 import matplotlib.pyplot as plt
 import sys
 from torch.utils.tensorboard import SummaryWriter
+import csv
 
 
 class Logger(object):
@@ -81,3 +82,11 @@ class Logger(object):
                     self.dir,
                     f"dqn{self.model_index}.pt"))
         self.model_index += 1
+
+    def write_locations(self, row):
+        self.log(str(row))
+        if self.write:
+            with open(os.path.join(self.dir, 'results.csv'),
+                      mode='a',  newline='') as f:
+                res_writer = csv.writer(f)
+                res_writer.writerow(row)
