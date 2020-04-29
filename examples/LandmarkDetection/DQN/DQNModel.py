@@ -324,8 +324,7 @@ class DQN:
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
         self.logger.log(f"Using {self.device}")
-        # Create a Q-network, which predicts the q-value for a particular
-        # state.
+        # Create a Q-network, which predicts the q-value for a particular state
         if type == "Network3d":
             self.q_network = Network3D(
                 agents,

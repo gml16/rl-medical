@@ -2,12 +2,14 @@ import torch
 import numpy as np
 from expreplay import ReplayMemory
 from DQNModel import DQN
+from evaluator import Evaluator
 from tqdm import tqdm
 
 
 class Trainer(object):
     def __init__(self,
                  env,
+                 eval_env=None,
                  image_size=(45, 45, 45),
                  update_frequency=4,
                  replay_buffer_size=1e6,
@@ -26,6 +28,7 @@ class Trainer(object):
                  train_freq=1,
                  ):
         self.env = env
+        self.eval_env = eval_env
         self.agents = env.agents
         self.image_size = image_size
         self.update_frequency = update_frequency
@@ -40,6 +43,7 @@ class Trainer(object):
         self.gamma = gamma
         self.number_actions = number_actions
         self.frame_history = frame_history
+        self.epoch_length = self.env.files.num_files
         self.buffer = ReplayMemory(
             self.replay_buffer_size,
             self.image_size,
@@ -50,6 +54,11 @@ class Trainer(object):
             self.frame_history,
             logger=logger,
             type=model_name)
+        self.dqn.q_network.train(True)
+        self.evaluator = Evaluator(eval_env,
+                                   self.dqn.q_network,
+                                   logger,
+                                   self.agents)
         self.logger = logger
         self.train_freq = train_freq
 
@@ -59,51 +68,41 @@ class Trainer(object):
         self.init_memory()
         episode = 1
         acc_steps = 0
+        epoch_distances = []
         while episode <= self.max_episodes:
-            self.logger.log(
-                f"episode {episode} - eps {self.eps:.5f}",
-                acc_steps)
             # Reset the environment for the start of the episode.
             obs = self.env.reset()
-            # Observations stacks is a numpy array with shape (agents,
-            # frame_history, *image_size)
             terminal = [False for _ in range(self.agents)]
+            losses = []
+            score = [0] * self.agents
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
                 acts, q_values = self.get_next_actions(
                     self.buffer.recent_state())
-                # Step the agent once, and get the transition tuple for this
-                # step
+                # Step the agent once, and get the transition tuple
                 obs, reward, terminal, info = self.env.step(
                     np.copy(acts), q_values, terminal)
-
-                if step_num == 0:
-                    start_dists = [info['distError_' +
-                                        str(i)] for i in range(self.agents)]
-
+                score = [sum(x) for x in zip(score, reward)]
                 self.buffer.append((obs, acts, reward, terminal))
-
                 if acc_steps % self.train_freq == 0:
                     mini_batch = self.buffer.sample(self.batch_size)
                     loss = self.dqn.train_q_network(mini_batch, self.gamma)
-                    self.logger.add_loss_board(loss, acc_steps)
+                    losses.append(loss)
                 if all(t for t in terminal):
-                    self.logger.log(
-                        f"""Terminating episode after {step_num+1} steps,
-                        total of {acc_steps} steps, final distance for first
-                        agent is {info['distError_0']:.3f}, improved distance
-                        by {(start_dists[0]-info['distError_0']):.3f}""",
-                        acc_steps)
                     break
-            self.logger.add_distances_board(start_dists, info, episode)
+            epoch_distances.append([info['distError_' + str(i)]
+                                    for i in range(self.agents)])
+            self.append_episode_board(info, score, "train", episode)
             if episode % self.update_frequency == 0:
                 self.dqn.copy_to_target_network()
             self.eps = max(self.min_eps, self.eps - self.delta)
-            # Updates scheduler every epoch
-            # TODO: change magic number 728 which is the number of brains in
-            # the dataset
-            if episode % 728 == 0:
+            # Every epoch
+            if episode % self.epoch_length == 0:
+                self.append_epoch_board(epoch_distances, self.eps, losses,
+                                        "train", episode)
+                self.validation_epoch(episode)
                 self.dqn.scheduler.step()
+                epoch_distances = []
             episode += 1
             self.dqn.save_model()
 
@@ -128,7 +127,50 @@ class Trainer(object):
         pbar.close()
         self.logger.log("Memory buffer filled")
 
-    # Function to get the next action, using whatever method you like
+    def validation_epoch(self, episode):
+        if self.eval_env is None:
+            return
+        self.dqn.q_network.train(False)
+        epoch_distances = []
+        for k in range(self.eval_env.files.num_files):
+            self.logger.log(f"eval episode {k}")
+            (score, start_dists, q_values,
+                info) = self.evaluator.play_one_episode()
+            epoch_distances.append([info['distError_' + str(i)]
+                                    for i in range(self.agents)])
+        self.append_epoch_board(epoch_distances, name="eval", episode=episode)
+        self.dqn.q_network.train(True)
+
+    def append_episode_board(self, info, score, name="train", episode=0):
+        dists = {f"Agent {i} distance error":
+                 info['distError_' + str(i)] for i in range(self.agents)}
+        self.logger.write_to_board(f"{name}/dist", dists, episode)
+        scores = {f"Agent {i} cumulative rewards":
+                  score[i] for i in range(self.agents)}
+        self.logger.write_to_board(f"{name}/score", scores, episode)
+
+    def append_epoch_board(self, epoch_dists, eps=0, losses=[],
+                           name="train", episode=0):
+        epoch_dists = np.array(epoch_dists)
+        if name == "train":
+            self.logger.write_to_board(
+                f"{name}/eps", {"Epsilon": eps}, episode)
+            if len(losses) > 0:
+                loss_dict = {"loss": sum(losses) / len(losses)}
+                self.logger.write_to_board(f"{name}/loss", loss_dict, episode)
+        for i in range(self.agents):
+            mean_dist = sum(epoch_dists[:, i]) / len(epoch_dists[:, i])
+            mean_dist_dict = {f"Agent {i} mean distance error": mean_dist}
+            self.logger.write_to_board(
+                f"{name}/mean_dist/{str(i)}", mean_dist_dict, episode)
+            min_dist_dict = {f"Agent {i} min distance error":
+                             min(epoch_dists[:, i])}
+            self.logger.write_to_board(
+                f"{name}/min_dist/{str(i)}", min_dist_dict, episode)
+            max_dist_dict = {f"Agent {i} max distance error":
+                             max(epoch_dists[:, i])}
+            self.logger.write_to_board(
+                f"{name}/max_dist/{str(i)}", max_dist_dict, episode)
 
     def get_next_actions(self, obs_stack):
         # epsilon-greedy policy

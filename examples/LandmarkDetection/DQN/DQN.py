@@ -94,8 +94,16 @@ if __name__ == '__main__':
         '--files',
         type=argparse.FileType('r'),
         nargs='+',
-        help="""Filepath to the text file that comtains list of images.
+        help="""Filepath to the text file that contains list of images.
                 Each line of this file is a full path to an image scan.
+                For (task == train or eval) there should be two input files
+                ['images', 'landmarks']""")
+    parser.add_argument(
+        '--val_files',
+        type=argparse.FileType('r'),
+        nargs='+',
+        help="""Filepath to the text file that contains list of validation
+                images. Each line of this file is a full path to an image scan.
                 For (task == train or eval) there should be two input files
                 ['images', 'landmarks']""")
     parser.add_argument('--saveGif', help='Save gif image of the game',
@@ -211,7 +219,7 @@ if __name__ == '__main__':
     logger = Logger(args.logDir, args.write, args.save_freq)
 
     # load files into env to set num_actions, num_validation_files
-    # TODO: is this still necessary?
+    # TODO: is this necessary?
     init_player = MedicalPlayer(files_list=args.files,
                                 screen_dims=IMAGE_SIZE,
                                 # TODO: why is this always play?
@@ -245,7 +253,14 @@ if __name__ == '__main__':
                                  viz=args.viz,
                                  multiscale=args.multiscale,
                                  logger=logger)
+        eval_env = None
+        if args.val_files is not None:
+            eval_env = get_player(files_list=args.val_files,
+                                  task='eval',
+                                  agents=args.agents,
+                                  logger=logger)
         trainer = Trainer(environment,
+                          eval_env=eval_env,
                           batch_size=args.batch_size,
                           image_size=IMAGE_SIZE,
                           frame_history=FRAME_HISTORY,

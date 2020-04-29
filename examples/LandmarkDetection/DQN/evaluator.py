@@ -15,6 +15,7 @@ class Evaluator(object):
         wraps play_one_episode, playing a single episode at a time and logs
         results used when playing demos.
         """
+        self.model.train(False)
         headers = ["number"] + list(chain.from_iterable(zip(
             [f"Filename {i}" for i in range(self.agents)],
             [f"Agent {i} pos x" for i in range(self.agents)],
@@ -28,10 +29,6 @@ class Evaluator(object):
         for k in range(self.env.files.num_files):
             score, start_dists, q_values, info = self.play_one_episode(render)
             self.logger.add_distances_board(start_dists, info, k)
-            # self.logger.log(
-            #     f"""{k + 1}/{self.env.files.num_files} - {filename} - score
-            #     {score} - distError {distance_error} -
-            #     q_values {q_values}""")
             row = [k + 1] + list(chain.from_iterable(zip(
                 [info[f"filename_{i}"] for i in range(self.agents)],
                 [info[f"agent_xpos_{i}"] for i in range(self.agents)],

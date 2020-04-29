@@ -26,27 +26,14 @@ class Logger(object):
                 socket.gethostname())
             self.log(f"Logs from {self.dir}\n{' '.join(sys.argv)}\n")
 
-    def add_loss_board(self, loss, step):
+    def write_to_board(self, name, scalars, index=0):
+        self.log(f"{name} at {index}: {str(scalars)}")
         if self.write:
-            self.boardWriter.add_scalar('Loss', loss, step)
-
-    def add_distances_board(self, start_dists, info, episode):
-        if self.write:
-            agent_diffs = {
-                f"Agent {i}": start_dists[i] - info['distError_' + str(i)]
-                for i in range(len(start_dists))}
-            final_distances = {
-                f"Agent {i}": info['distError_' + str(i)]
-                for i in range(len(start_dists))}
-            self.boardWriter.add_scalars(
-                'Distance difference', agent_diffs, episode)
-            self.boardWriter.add_scalars(
-                'Distance final', final_distances, episode)
+            self.boardWriter.add_scalars(name, scalars, index)
 
     def plot_res(self, losses, distances):
         if len(losses) == 0 or not self.write:
             return
-
         fig, axs = plt.subplots(2)
         axs[0].plot(list(range(len(losses))), losses, color='orange')
         axs[0].set_xlabel("Steps")
@@ -87,6 +74,6 @@ class Logger(object):
         self.log(str(row))
         if self.write:
             with open(os.path.join(self.dir, 'results.csv'),
-                      mode='a',  newline='') as f:
+                      mode='a', newline='') as f:
                 res_writer = csv.writer(f)
                 res_writer.writerow(row)
