@@ -25,9 +25,4 @@ def test_slices():
                           agents=2)
     replay.isOver[1, 9] = True
     replay._curr_size = 10
-    print("replay size", replay._curr_size)
-    print(replay._slice(replay.isOver[1], 7, 1))
-    assert False
-
-if __name__ == "__main__":
-    test_slices()
+    replay._slice(replay.isOver[1], 7, 1)

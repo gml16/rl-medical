@@ -243,7 +243,8 @@ if __name__ == '__main__':
                                  agents=args.agents,
                                  viz=args.viz,
                                  logger=logger)
-        evaluator = Evaluator(environment, model, logger, args.agents)
+        evaluator = Evaluator(environment, model, logger, args.agents,
+                              steps_per_episode)
         evaluator.play_n_episodes()
     else:  # train model
         environment = get_player(task='train',

@@ -59,16 +59,12 @@ class Logger(object):
             with open(os.path.join(self.dir, "logs.txt"), "a") as logs:
                 logs.write(str(message) + "\n")
 
-    def save_model(self, state_dict):
+    def save_model(self, state_dict, name="dqn.pt", forced=False):
         if not self.write:
             return
-        if self.model_index > 0 and self.model_index % self.save_freq == 0:
-            torch.save(
-                state_dict,
-                os.path.join(
-                    self.dir,
-                    f"dqn{self.model_index}.pt"))
-        self.model_index += 1
+        if (forced or
+            (self.model_index > 0 and self.model_index % self.save_freq == 0)):
+            torch.save(state_dict, os.path.join(self.dir, name))
 
     def write_locations(self, row):
         self.log(str(row))

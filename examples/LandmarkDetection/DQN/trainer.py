@@ -44,6 +44,7 @@ class Trainer(object):
         self.number_actions = number_actions
         self.frame_history = frame_history
         self.epoch_length = self.env.files.num_files
+        self.best_val_distance = float('inf')
         self.buffer = ReplayMemory(
             self.replay_buffer_size,
             self.image_size,
@@ -58,7 +59,8 @@ class Trainer(object):
         self.evaluator = Evaluator(eval_env,
                                    self.dqn.q_network,
                                    logger,
-                                   self.agents)
+                                   self.agents,
+                                   steps_per_episode)
         self.logger = logger
         self.train_freq = train_freq
 
@@ -101,10 +103,10 @@ class Trainer(object):
                 self.append_epoch_board(epoch_distances, self.eps, losses,
                                         "train", episode)
                 self.validation_epoch(episode)
+                self.dqn.save_model(name="latest_dqn.pt", forced=True)
                 self.dqn.scheduler.step()
                 epoch_distances = []
             episode += 1
-            self.dqn.save_model()
 
     def init_memory(self):
         self.logger.log("Initialising memory buffer...")
@@ -138,7 +140,13 @@ class Trainer(object):
                 info) = self.evaluator.play_one_episode()
             epoch_distances.append([info['distError_' + str(i)]
                                     for i in range(self.agents)])
-        self.append_epoch_board(epoch_distances, name="eval", episode=episode)
+
+        val_dists = self.append_epoch_board(epoch_distances, name="eval",
+                                            episode=episode)
+        if (val_dists < self.best_val_distance):
+            self.logger.log("Improved new best mean validation distances")
+            self.best_val_distance = val_dists
+            self.dqn.save_model(name="best_dqn.pt", forced=True)
         self.dqn.q_network.train(True)
 
     def append_episode_board(self, info, score, name="train", episode=0):
@@ -171,6 +179,7 @@ class Trainer(object):
                              max(epoch_dists[:, i])}
             self.logger.write_to_board(
                 f"{name}/max_dist/{str(i)}", max_dist_dict, episode)
+        return np.array(list(mean_dist_dict.values())).mean()
 
     def get_next_actions(self, obs_stack):
         # epsilon-greedy policy
@@ -191,7 +200,6 @@ class Trainer(object):
                 inputs).detach().squeeze(0)
         idx = torch.max(q_vals, -1)[1]
         greedy_steps = np.array(idx, dtype=np.int32).flatten()
-        # The actions are scaled for better training of the DQN
         return greedy_steps, q_vals.data.numpy()
 
     def set_reproducible(self):

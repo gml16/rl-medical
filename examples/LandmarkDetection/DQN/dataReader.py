@@ -93,8 +93,8 @@ class filesListBrainMRLandmark(object):
         """ return a random sampled ImageRecord from the list of files
         """
         if shuffle:
-            # indexes = rng.choice(x, len(x), replace=False)
-            pass
+            # TODO: could use PyTorch shuffles
+            indexes = rng.choice(x, len(x), replace=False)
         else:
             indexes = np.arange(self.num_files)
 

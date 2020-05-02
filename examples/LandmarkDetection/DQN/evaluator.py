@@ -4,11 +4,12 @@ from itertools import chain
 
 
 class Evaluator(object):
-    def __init__(self, environment, model, logger, agents):
+    def __init__(self, environment, model, logger, agents, max_steps):
         self.env = environment
         self.model = model
         self.logger = logger
         self.agents = agents
+        self.max_steps = max_steps
 
     def play_n_episodes(self, render=False):
         """
@@ -28,7 +29,8 @@ class Evaluator(object):
         self.logger.write_locations(headers)
         for k in range(self.env.files.num_files):
             score, start_dists, q_values, info = self.play_one_episode(render)
-            self.logger.add_distances_board(start_dists, info, k)
+            # TODO add to board?
+            # self.logger.add_distances_board(start_dists, info, k)
             row = [k + 1] + list(chain.from_iterable(zip(
                 [info[f"filename_{i}"] for i in range(self.agents)],
                 [info[f"agent_xpos_{i}"] for i in range(self.agents)],
@@ -59,9 +61,12 @@ class Evaluator(object):
         sum_r = np.zeros((self.agents))
         isOver = [False] * self.agents
         start_dists = None
-        while True:
+        # TODO: max number
+        steps = 0
+        while steps < self.max_steps and not np.all(isOver):
             acts, q_values = predict(obs_stack)
             obs_stack, r, isOver, info = self.env.step(acts, q_values, isOver)
+            steps += 1
             if start_dists is None:
                 start_dists = [
                     info['distError_' + str(i)] for i in range(self.agents)]
@@ -70,5 +75,4 @@ class Evaluator(object):
             for i in range(self.agents):
                 if not isOver[i]:
                     sum_r[i] += r[i]
-            if np.all(isOver):
-                return sum_r, start_dists, q_values, info
+        return sum_r, start_dists, q_values, info

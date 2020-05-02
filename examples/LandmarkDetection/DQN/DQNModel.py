@@ -369,8 +369,8 @@ class DQN:
     def copy_to_target_network(self):
         self.target_network.load_state_dict(self.q_network.state_dict())
 
-    def save_model(self):
-        self.logger.save_model(self.q_network.state_dict())
+    def save_model(self, name="dqn.pt", forced=False):
+        self.logger.save_model(self.q_network.state_dict(), name, forced)
 
     # Function that is called whenever we want to train the Q-network. Each
     # call to this function takes in a transition tuple containing the data we
