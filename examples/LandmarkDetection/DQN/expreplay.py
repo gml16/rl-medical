@@ -69,6 +69,8 @@ class ReplayMemory(object):
                 states.append(self.state[i, idx: idx + k])
                 next_states.append(self.state[i, idx + 1: idx + k + 1])
                 isOver.append(self.isOver[i, idx: idx + k])
+                rewards.append(self.reward[i, idx: idx + k])
+                actions.append(self.action[i, idx: idx + k])
             else:
                 end = idx + k - self._curr_size
                 states.append(self._slice(self.state[i], idx, end))
@@ -78,8 +80,8 @@ class ReplayMemory(object):
                         idx + 1,
                         end + 1))
                 isOver.append(self._slice(self.isOver[i], idx, end))
-        rewards.append(self.reward[i, (idx + k - 1) % self._curr_size])
-        actions.append(self.action[i, (idx + k - 1) % self._curr_size])
+                rewards.append(self._slice(self.reward[i], idx, end))
+                actions.append(self._slice(self.action[i], idx, end))
         states_padded = self._pad_sample(states, isOver)
         return states_padded, actions, rewards, next_states, isOver
 
@@ -98,10 +100,10 @@ class ReplayMemory(object):
             rewards.append(exp[2])
             next_states.append(exp[3])
             isOver.append(exp[4])
-
         # Only get most recent terminal state
-        return np.array(states), np.array(actions), np.array(
-            rewards), np.array(next_states), np.array(isOver)[:, :, -1]
+        return (np.array(states), np.array(actions)[:, :, -1],
+                np.array(rewards)[:, :, -1], np.array(next_states),
+                np.array(isOver)[:, :, -1])
 
     # the next_state is a different episode if current_state.isOver==True
     def _pad_sample(self, states, isOver):
