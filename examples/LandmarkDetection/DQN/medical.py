@@ -137,7 +137,7 @@ class MedicalPlayer(gym.Env):
             self.files = filesListBrainMRLandmark(files_list,
                                                   returnLandmarks,
                                                   self.agents)
-        elif file_type == "cardio":
+        elif file_type == "cardiac":
             self.files = filesListCardioLandmark(files_list,
                                                  returnLandmarks,
                                                  self.agents)
