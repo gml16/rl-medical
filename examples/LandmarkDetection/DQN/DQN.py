@@ -91,7 +91,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--file_type',
         help='Type of the training and validation files',
-        choices=['brain', 'cardio', 'fetal'],
+        choices=['brain', 'cardiac', 'fetal'],
         default='train')
     parser.add_argument(
         '--files',
