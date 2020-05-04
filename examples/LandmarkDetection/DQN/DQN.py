@@ -43,7 +43,7 @@ EVAL_EPISODE = 50
 
 
 def get_player(directory=None, files_list=None, viz=False,
-               task='play', saveGif=False, saveVideo=False,
+               task="play", file_type="brain", saveGif=False, saveVideo=False,
                multiscale=True, history_length=28, agents=1,
                reward_strategy=1, logger=None):
     env = MedicalPlayer(
@@ -54,12 +54,13 @@ def get_player(directory=None, files_list=None, viz=False,
         saveVideo=saveVideo,
         task=task,
         files_list=files_list,
+        file_type=file_type,
         history_length=history_length,
         multiscale=multiscale,
         agents=agents,
         reward_strategy=reward_strategy,
         logger=logger)
-    if task != 'train':
+    if task != "train":
         # in training, env will be decorated by ExpReplay, and history
         # is taken care of in expreplay buffer
         # otherwise, FrameStack modifies self.step to save observations into a
@@ -82,14 +83,16 @@ if __name__ == '__main__':
         '--task',
         help='''task to perform,
                 must load a pretrained model if task is "play" or "eval"''',
-        choices=[
-            'play',
-            'eval',
-            'train'],
+        choices=['play', 'eval', 'train'],
         default='train')
     # parser.add_argument('--algo', help='algorithm',
     #                     choices=['DQN', 'Double', 'Dueling','DuelingDouble'],
     #                     default='DQN')
+    parser.add_argument(
+        '--file_type',
+        help='Type of the training and validation files',
+        choices=['brain', 'cardio', 'fetal'],
+        default='train')
     parser.add_argument(
         '--files',
         type=argparse.FileType('r'),
@@ -122,14 +125,11 @@ if __name__ == '__main__':
         help='Number of agents',
         type=int,
         default=1)
-
     parser.add_argument(
         '--model_name',
         help='Models implemented are: Network3d, CommNet',
         default="CommNet",
-        choices=[
-            'CommNet',
-            'Network3d'],
+        choices=['CommNet', 'Network3d'],
         type=str)
     parser.add_argument(
         '--batch_size',
@@ -221,6 +221,7 @@ if __name__ == '__main__':
     # load files into env to set num_actions, num_validation_files
     # TODO: is this necessary?
     init_player = MedicalPlayer(files_list=args.files,
+                                file_type=args.file_type,
                                 screen_dims=IMAGE_SIZE,
                                 # TODO: why is this always play?
                                 task='play',
@@ -237,6 +238,7 @@ if __name__ == '__main__':
         model = dqn.q_network
         model.load_state_dict(torch.load(args.load))
         environment = get_player(files_list=args.files,
+                                 file_type=args.file_type,
                                  saveGif=args.saveGif,
                                  saveVideo=args.saveVideo,
                                  task=args.task,
@@ -244,11 +246,12 @@ if __name__ == '__main__':
                                  viz=args.viz,
                                  logger=logger)
         evaluator = Evaluator(environment, model, logger, args.agents,
-                              steps_per_episode)
+                              args.steps_per_episode)
         evaluator.play_n_episodes()
     else:  # train model
         environment = get_player(task='train',
                                  files_list=args.files,
+                                 file_type=args.file_type,
                                  agents=args.agents,
                                  history_length=20,
                                  viz=args.viz,
@@ -256,8 +259,9 @@ if __name__ == '__main__':
                                  logger=logger)
         eval_env = None
         if args.val_files is not None:
-            eval_env = get_player(files_list=args.val_files,
-                                  task='eval',
+            eval_env = get_player(task='eval',
+                                  files_list=args.val_files,
+                                  file_type=args.file_type,
                                   agents=args.agents,
                                   logger=logger)
         trainer = Trainer(environment,

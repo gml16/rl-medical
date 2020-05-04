@@ -63,7 +63,7 @@ class Logger(object):
         if not self.write:
             return
         if (forced or
-            (self.model_index > 0 and self.model_index % self.save_freq == 0)):
+           (self.model_index > 0 and self.model_index % self.save_freq == 0)):
             torch.save(state_dict, os.path.join(self.dir, name))
 
     def write_locations(self, row):

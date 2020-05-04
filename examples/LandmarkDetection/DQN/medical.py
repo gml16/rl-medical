@@ -3,7 +3,9 @@
 # File: medical.py
 # Author: Amir Alansary <amiralansary@gmail.com>
 
-from dataReader import filesListBrainMRLandmark
+from dataReader import (filesListBrainMRLandmark,
+                        filesListCardioLandmark,
+                        filesListFetalUSLandmark)
 from tensorpack.utils.stats import StatCounter
 from tensorpack.utils.utils import get_rng
 from gym import spaces
@@ -48,9 +50,10 @@ class MedicalPlayer(gym.Env):
     an observation and a reward."""
 
     def __init__(self, directory=None, viz=False, task=False, files_list=None,
-                 screen_dims=(27, 27, 27), history_length=8, multiscale=True,
-                 max_num_frames=0, saveGif=False, saveVideo=False, agents=1,
-                 reward_strategy=1, oscillations_allowed=4, logger=None):
+                 file_type="brain", screen_dims=(27, 27, 27), history_length=8,
+                 multiscale=True, max_num_frames=0, saveGif=False,
+                 saveVideo=False, agents=1, reward_strategy=1,
+                 oscillations_allowed=4, logger=None):
         """
         :param train_directory: environment or game name
         :param viz: visualization
@@ -127,15 +130,21 @@ class MedicalPlayer(gym.Env):
         # initialize rectangle limits from input image coordinates
         self.rectangle = [Rectangle(0, 0, 0, 0, 0, 0)] * int(self.agents)
 
+        returnLandmarks = (self.task != 'play')
+
         # add your data loader here
-        if self.task == 'play':
+        if file_type == "brain":
             self.files = filesListBrainMRLandmark(files_list,
-                                                  returnLandmarks=False,
-                                                  agents=self.agents)
-        else:
-            self.files = filesListBrainMRLandmark(files_list,
-                                                  returnLandmarks=True,
-                                                  agents=self.agents)
+                                                  returnLandmarks,
+                                                  self.agents)
+        elif file_type == "cardio":
+            self.files = filesListCardioLandmark(files_list,
+                                                 returnLandmarks,
+                                                 self.agents)
+        elif file_type == "fetal":
+            self.files = filesListFetalUSLandmark(files_list,
+                                                  returnLandmarks,
+                                                  self.agents)
 
         # prepare file sampler
         self.filepath = None

@@ -18,6 +18,7 @@ def test_instantiate_expreplay():
     assert replay.isOver.shape == (1, 10)
     assert len(replay._hist) == 0
 
+
 def test_slices():
     replay = ReplayMemory(max_size=20,
                           state_shape=(3, 3),

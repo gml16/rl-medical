@@ -94,7 +94,8 @@ class filesListBrainMRLandmark(object):
         """
         if shuffle:
             # TODO: could use PyTorch shuffles
-            indexes = rng.choice(x, len(x), replace=False)
+            # indexes = rng.choice(x, len(x), replace=False)
+            pass
         else:
             indexes = np.arange(self.num_files)
 
