@@ -17,7 +17,7 @@ __all__ = [
     'NiftiImage']
 
 
-def getLandmarksFromTXTFile(file):
+def getLandmarksFromTXTFile(file, split=','):
     """
     Extract each landmark point line by line from a text file, and return
     vector containing all landmarks.
@@ -25,7 +25,7 @@ def getLandmarksFromTXTFile(file):
     with open(file) as fp:
         landmarks = []
         for i, line in enumerate(fp):
-            landmarks.append([float(k) for k in line.split(',')])
+            landmarks.append([float(k) for k in line.split(split)])
         landmarks = np.asarray(landmarks).reshape((-1, 3))
         return landmarks
 
@@ -197,7 +197,6 @@ class filesListCardioLandmark(object):
 
 ###############################################################################
 
-
 class filesListFetalUSLandmark(object):
     """ A class for managing train files for fetal ultrasound data
 
@@ -244,7 +243,7 @@ class filesListFetalUSLandmark(object):
                 sitk_image, image = NiftiImage().decode(self.image_files[idx])
                 if self.returnLandmarks:
                     landmark_file = self.landmark_files[idx]
-                    all_landmarks = getLandmarksFromVTKFile(landmark_file)
+                    all_landmarks = getLandmarksFromTXTFile(landmark_file, split=' ')
                     # landmark point 12 csp
                     # 11 leftCerebellar
                     # 10 rightCerebellar
