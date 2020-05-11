@@ -50,10 +50,10 @@ class MedicalPlayer(gym.Env):
     an observation and a reward."""
 
     def __init__(self, directory=None, viz=False, task=False, files_list=None,
-                 file_type="brain", screen_dims=(27, 27, 27), history_length=8,
-                 multiscale=True, max_num_frames=0, saveGif=False,
-                 saveVideo=False, agents=1, reward_strategy=1,
-                 oscillations_allowed=4, logger=None):
+                 file_type="brain", landmark_ids=None,
+                 screen_dims=(27, 27, 27), history_length=8, multiscale=True,
+                 max_num_frames=0, saveGif=False, saveVideo=False, agents=1,
+                 reward_strategy=1, oscillations_allowed=4, logger=None):
         """
         :param train_directory: environment or game name
         :param viz: visualization
@@ -148,7 +148,7 @@ class MedicalPlayer(gym.Env):
 
         # prepare file sampler
         self.filepath = None
-        self.sampled_files = self.files.sample_circular()
+        self.sampled_files = self.files.sample_circular(landmark_ids)
         # reset buffer, terminal, counters, and init new_random_game
         self._restart_episode()
 

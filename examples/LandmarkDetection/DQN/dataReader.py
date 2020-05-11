@@ -89,7 +89,7 @@ class filesListBrainMRLandmark(object):
     def num_files(self):
         return len(self.image_files)
 
-    def sample_circular(self, shuffle=False):
+    def sample_circular(self, landmark_ids, shuffle=False):
         """ return a random sampled ImageRecord from the list of files
         """
         if shuffle:
@@ -113,7 +113,7 @@ class filesListBrainMRLandmark(object):
                     # required
                     # landmarks = sitk_image.
                     #         TransformPhysicalPointToContinuousIndex(landmark)
-                    landmarks = [np.round(all_landmarks[(i + 14) % 15])
+                    landmarks = [np.round(all_landmarks[landmark_ids[i] % 15])
                                  for i in range(self.agents)]
                 else:
                     landmarks = None
@@ -156,7 +156,7 @@ class filesListCardioLandmark(object):
     def num_files(self):
         return len(self.image_files)
 
-    def sample_circular(self, shuffle=False):
+    def sample_circular(self, landmark_ids, shuffle=False):
         """ return a random sampled ImageRecord from the list of files
         """
         if shuffle:
@@ -179,7 +179,7 @@ class filesListCardioLandmark(object):
                     # 1 -> RV lateral wall turning point
                     # 3 -> LV lateral wall mid-point,
                     # 4 -> apex, 5-> center of the mitral valve
-                    landmarks = [np.round(all_landmarks[(i + 4) % 6])
+                    landmarks = [np.round(all_landmarks[landmark_ids[i] % 6])
                                  for i in range(self.agents)]  # Apex + MV
                     # landmarks = [np.round(all_landmarks[(i + 3) % 6])
                     #              for i in range(self.agents)]  # LV + Apex
@@ -229,7 +229,7 @@ class filesListFetalUSLandmark(object):
     def num_files(self):
         return len(self.image_files)
 
-    def sample_circular(self, shuffle=False):
+    def sample_circular(self, landmark_ids, shuffle=False):
         """ return a random sampled ImageRecord from the list of files
         """
         if shuffle:
@@ -247,7 +247,7 @@ class filesListFetalUSLandmark(object):
                     # landmark point 12 csp
                     # 11 leftCerebellar
                     # 10 rightCerebellar
-                    landmarks = [np.round(all_landmarks[(i + 10) % 13])
+                    landmarks = [np.round(all_landmarks[landmark_ids[i] % 13])
                                  for i in range(self.agents)]  # Apex + MV
                 else:
                     landmarks = None

@@ -42,7 +42,7 @@ EVAL_EPISODE = 50
 ###############################################################################
 
 
-def get_player(directory=None, files_list=None, viz=False,
+def get_player(directory=None, files_list=None, landmark_ids=None ,viz=False,
                task="play", file_type="brain", saveGif=False, saveVideo=False,
                multiscale=True, history_length=28, agents=1,
                reward_strategy=1, logger=None):
@@ -55,6 +55,7 @@ def get_player(directory=None, files_list=None, viz=False,
         task=task,
         files_list=files_list,
         file_type=file_type,
+        landmark_ids=landmark_ids,
         history_length=history_length,
         multiscale=multiscale,
         agents=agents,
@@ -76,35 +77,23 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    # parser.add_argument('--gpu',
-    #                     help='comma separated list of GPU(s) to use.')
     parser.add_argument('--load', help='load model')
     parser.add_argument(
         '--task',
         help='''task to perform,
                 must load a pretrained model if task is "play" or "eval"''',
-        choices=['play', 'eval', 'train'],
-        default='train')
-    # parser.add_argument('--algo', help='algorithm',
-    #                     choices=['DQN', 'Double', 'Dueling','DuelingDouble'],
-    #                     default='DQN')
+        choices=['play', 'eval', 'train'], default='train')
     parser.add_argument(
-        '--file_type',
-        help='Type of the training and validation files',
-        choices=['brain', 'cardiac', 'fetal'],
-        default='train')
+        '--file_type', help='Type of the training and validation files',
+        choices=['brain', 'cardiac', 'fetal'], default='train')
     parser.add_argument(
-        '--files',
-        type=argparse.FileType('r'),
-        nargs='+',
+        '--files', type=argparse.FileType('r'), nargs='+',
         help="""Filepath to the text file that contains list of images.
                 Each line of this file is a full path to an image scan.
                 For (task == train or eval) there should be two input files
                 ['images', 'landmarks']""")
     parser.add_argument(
-        '--val_files',
-        type=argparse.FileType('r'),
-        nargs='+',
+        '--val_files', type=argparse.FileType('r'), nargs='+',
         help="""Filepath to the text file that contains list of validation
                 images. Each line of this file is a full path to an image scan.
                 For (task == train or eval) there should be two input files
@@ -114,88 +103,62 @@ if __name__ == '__main__':
     parser.add_argument('--saveVideo', help='Save video of the game',
                         action='store_true', default=False)
     parser.add_argument(
-        '--logDir',
-        help='Store logs in this directory during training',
-        default='runs',
-        type=str)
-    # parser.add_argument('--name', help='Name of current experiment for logs',
-    #                     default='experiment_1')
+        '--logDir', help='Store logs in this directory during training',
+        default='runs', type=str)
     parser.add_argument(
-        '--agents',
-        help='Number of agents',
-        type=int,
-        default=1)
+        '--agents', help='Number of agents', type=int, default=1)
     parser.add_argument(
-        '--model_name',
-        help='Models implemented are: Network3d, CommNet',
-        default="CommNet",
-        choices=['CommNet', 'Network3d'],
-        type=str)
+        '--landmarks', nargs='*', help='Landmarks to use in the images',
+        type=int, default=[1])
     parser.add_argument(
-        '--batch_size',
-        help='Size of each batch',
-        default=64,
-        type=int)
+        '--model_name', help='Models implemented are: Network3d, CommNet',
+        default="CommNet", choices=['CommNet', 'Network3d'], type=str)
+    parser.add_argument(
+        '--batch_size', help='Size of each batch', default=64, type=int)
     parser.add_argument(
         '--memory_size',
         help="""Number of transitions stored in exp replay buffer.
                 If too much is allocated training may abruptly stop.""",
-        default=5e4,
-        type=int)
+        default=5e4, type=int)
     parser.add_argument(
         '--init_memory_size',
         help='Number of transitions stored in exp replay before training',
-        default=2048,
-        type=int)
+        default=2048, type=int)
     parser.add_argument(
-        '--max_episodes',
-        help='"Number of episodes to train for"',
-        default=1000,
-        type=int)
+        '--max_episodes', help='"Number of episodes to train for"',
+        default=1000, type=int)
     parser.add_argument(
-        '--steps_per_episode',
-        help='Maximum steps per episode',
-        default=200,
-        type=int)
+        '--steps_per_episode', help='Maximum steps per episode',
+        default=200, type=int)
     parser.add_argument(
         '--target_update_freq',
         help='Number of episodes between each target network update',
-        default=10,
-        type=int)
+        default=10, type=int)
     parser.add_argument(
-        '--save_freq',
-        help='Saves network every save_freq steps',
-        default=1000,
-        type=int)
+        '--save_freq', help='Saves network every save_freq steps',
+        default=1000, type=int)
     parser.add_argument(
         '--delta',
         help="""Amount to decreases epsilon each episode,
                 for the epsilon-greedy policy""",
-        default=1e-4,
-        type=float)
+        default=1e-4, type=float)
     parser.add_argument(
-        '--viz',
-        help='Size of the window, None for no visualisation',
-        default=0.01,
-        type=float)
+        '--viz', help='Size of the window, None for no visualisation',
+        default=0.01, type=float)
     parser.add_argument(
         '--multiscale',
         help='Reduces size of voxel around the agent when it oscillates',
-        dest='multiscale',
-        action='store_true')
+        dest='multiscale', action='store_true')
     parser.set_defaults(multiscale=False)
     parser.add_argument(
-        '--write',
-        help='Saves the training logs',
-        dest='write',
+        '--write', help='Saves the training logs', dest='write',
         action='store_true')
     parser.set_defaults(write=False)
     parser.add_argument(
         '--train_freq',
         help="""Number of agent steps between each training step on one
                 mini-batch""",
-        default=1,
-        type=int)
+        default=1,type=int)
 
     args = parser.parse_args()
 
@@ -222,6 +185,7 @@ if __name__ == '__main__':
     # TODO: is this necessary?
     init_player = MedicalPlayer(files_list=args.files,
                                 file_type=args.file_type,
+                                landmark_ids=args.landmarks,
                                 screen_dims=IMAGE_SIZE,
                                 # TODO: why is this always play?
                                 task='play',
@@ -239,6 +203,7 @@ if __name__ == '__main__':
         model.load_state_dict(torch.load(args.load))
         environment = get_player(files_list=args.files,
                                  file_type=args.file_type,
+                                 landmark_ids=args.landmarks,
                                  saveGif=args.saveGif,
                                  saveVideo=args.saveVideo,
                                  task=args.task,
@@ -252,6 +217,7 @@ if __name__ == '__main__':
         environment = get_player(task='train',
                                  files_list=args.files,
                                  file_type=args.file_type,
+                                 landmark_ids=args.landmarks,
                                  agents=args.agents,
                                  history_length=20,
                                  viz=args.viz,
@@ -262,6 +228,7 @@ if __name__ == '__main__':
             eval_env = get_player(task='eval',
                                   files_list=args.val_files,
                                   file_type=args.file_type,
+                                  landmark_ids=args.landmarks,
                                   agents=args.agents,
                                   logger=logger)
         trainer = Trainer(environment,
