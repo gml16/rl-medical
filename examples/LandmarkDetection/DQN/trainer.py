@@ -150,35 +150,31 @@ class Trainer(object):
         self.dqn.q_network.train(True)
 
     def append_episode_board(self, info, score, name="train", episode=0):
-        dists = {f"Agent {i} distance error":
+        dists = {str(i):
                  info['distError_' + str(i)] for i in range(self.agents)}
         self.logger.write_to_board(f"{name}/dist", dists, episode)
-        scores = {f"Agent {i} cumulative rewards":
-                  score[i] for i in range(self.agents)}
+        scores = {str(i): score[i] for i in range(self.agents)}
         self.logger.write_to_board(f"{name}/score", scores, episode)
 
     def append_epoch_board(self, epoch_dists, eps=0, losses=[],
                            name="train", episode=0):
         epoch_dists = np.array(epoch_dists)
         if name == "train":
-            self.logger.write_to_board(
-                f"{name}/eps", {"Epsilon": eps}, episode)
+            self.logger.write_to_board(name, {"eps": eps}, episode)
             if len(losses) > 0:
                 loss_dict = {"loss": sum(losses) / len(losses)}
-                self.logger.write_to_board(f"{name}/loss", loss_dict, episode)
+                self.logger.write_to_board(name, loss_dict, episode)
         for i in range(self.agents):
             mean_dist = sum(epoch_dists[:, i]) / len(epoch_dists[:, i])
-            mean_dist_dict = {f"Agent {i} mean distance error": mean_dist}
+            mean_dist_dict = {str(i): mean_dist}
             self.logger.write_to_board(
-                f"{name}/mean_dist/{str(i)}", mean_dist_dict, episode)
-            min_dist_dict = {f"Agent {i} min distance error":
-                             min(epoch_dists[:, i])}
+                f"{name}/mean_dist", mean_dist_dict, episode)
+            min_dist_dict = {str(i): min(epoch_dists[:, i])}
             self.logger.write_to_board(
-                f"{name}/min_dist/{str(i)}", min_dist_dict, episode)
-            max_dist_dict = {f"Agent {i} max distance error":
-                             max(epoch_dists[:, i])}
+                f"{name}/min_dist", min_dist_dict, episode)
+            max_dist_dict = {str(i): max(epoch_dists[:, i])}
             self.logger.write_to_board(
-                f"{name}/max_dist/{str(i)}", max_dist_dict, episode)
+                f"{name}/max_dist", max_dist_dict, episode)
         return np.array(list(mean_dist_dict.values())).mean()
 
     def get_next_actions(self, obs_stack):

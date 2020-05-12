@@ -29,7 +29,8 @@ class Logger(object):
     def write_to_board(self, name, scalars, index=0):
         self.log(f"{name} at {index}: {str(scalars)}")
         if self.write:
-            self.boardWriter.add_scalars(name, scalars, index)
+            for key, value in scalars.items():
+                self.boardWriter.add_scalar(f"{name}/{key}", value, index)
 
     def plot_res(self, losses, distances):
         if len(losses) == 0 or not self.write:
@@ -55,7 +56,7 @@ class Logger(object):
     def log(self, message, step=0):
         print(str(message))
         if self.write:
-            self.boardWriter.add_text("log", str(message), step)
+            # self.boardWriter.add_text("log", str(message), step)
             with open(os.path.join(self.dir, "logs.txt"), "a") as logs:
                 logs.write(str(message) + "\n")
 

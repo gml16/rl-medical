@@ -42,7 +42,7 @@ EVAL_EPISODE = 50
 ###############################################################################
 
 
-def get_player(directory=None, files_list=None, landmark_ids=None ,viz=False,
+def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
                task="play", file_type="brain", saveGif=False, saveVideo=False,
                multiscale=True, history_length=28, agents=1,
                reward_strategy=1, logger=None):
@@ -158,7 +158,7 @@ if __name__ == '__main__':
         '--train_freq',
         help="""Number of agent steps between each training step on one
                 mini-batch""",
-        default=1,type=int)
+        default=1, type=int)
 
     args = parser.parse_args()
 
