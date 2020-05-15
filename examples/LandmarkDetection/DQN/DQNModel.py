@@ -147,8 +147,9 @@ class Network3D(nn.Module):
         (batch_size, agents, number_actions)
         """
         input = input.to(self.device) / 255.0
+        output = []
         for i in range(self.agents):
-            # Common layers
+            # Shared layers
             x = input[:, i]
             x = self.conv0(x)
             x = self.prelu0(x)
@@ -168,10 +169,8 @@ class Network3D(nn.Module):
             x = self.fc2[i](x)
             x = self.prelu5[i](x)
             x = self.fc3[i](x)
-            if i == 0:
-                output = x.unsqueeze(1)
-            else:
-                output = torch.cat((output, x.unsqueeze(1)), dim=1)
+            output.append(x)
+        output = torch.stack(output, dim=1)
         return output.cpu()
 
 
@@ -223,16 +222,14 @@ class CommNet(nn.Module):
                 out_features=256).to(
                 self.device) for _ in range(
                 self.agents)])
-        self.prelu4 = nn.ModuleList(
-            [nn.PReLU().to(self.device) for _ in range(self.agents)])
+        self.prelu4 = nn.PReLU().to(self.device)
         self.fc2 = nn.ModuleList(
             [nn.Linear(
                 in_features=256 * 2,
                 out_features=128).to(
                 self.device) for _ in range(
                 self.agents)])
-        self.prelu5 = nn.ModuleList(
-            [nn.PReLU().to(self.device) for _ in range(self.agents)])
+        self.prelu5 = nn.PReLU().to(self.device)
         self.fc3 = nn.ModuleList(
             [nn.Linear(
                 in_features=128 * 2,
@@ -253,15 +250,14 @@ class CommNet(nn.Module):
         (batch_size, agents, number_actions)
         """
         input1 = input.to(self.device) / 255.0
-        for i in range(self.agents):
-            # Common layers
-            x = input1[:, i]
 
+        # Shared layers
+        input2 = []
+        for i in range(self.agents):
+            x = input1[:, i]
             x = self.conv0(x)
             x = self.prelu0(x)
-
             x = self.maxpool0(x)
-
             x = self.conv1(x)
             x = self.prelu1(x)
             x = self.maxpool1(x)
@@ -271,39 +267,35 @@ class CommNet(nn.Module):
             x = self.conv3(x)
             x = self.prelu3(x)
             x = x.view(-1, 512)
-            if i == 0:
-                input2 = x.unsqueeze(1)
-            else:
-                input2 = torch.cat((input2, x.unsqueeze(1)), dim=1)
+            input2.append(x)
+        input2 = torch.stack(input2, dim=1)
 
+        # Communication layers
         comm = torch.mean(input2, axis=1)
+        input3 = []
         for i in range(self.agents):
             x = input2[:, i]
             x = self.fc1[i](torch.cat((x, comm), axis=-1))
-            x = self.prelu4[i](x)
-            if i == 0:
-                input3 = x.unsqueeze(1)
-            else:
-                input3 = torch.cat((input3, x.unsqueeze(1)), dim=1)
+            input3.append(x)
+        input3 = torch.stack(input3, dim=1)
+        input3 = self.prelu4(input3)
 
         comm = torch.mean(input3, axis=1)
+        input4 = []
         for i in range(self.agents):
             x = input3[:, i]
             x = self.fc2[i](torch.cat((x, comm), axis=-1))
-            x = self.prelu5[i](x)
-            if i == 0:
-                input4 = x.unsqueeze(1)
-            else:
-                input4 = torch.cat((input4, x.unsqueeze(1)), dim=1)
+            input4.append(x)
+        input4 = torch.stack(input4, dim=1)
+        input4 = self.prelu5(input4)
 
         comm = torch.mean(input4, axis=1)
+        output = []
         for i in range(self.agents):
             x = input4[:, i]
             x = self.fc3[i](torch.cat((x, comm), axis=-1))
-            if i == 0:
-                output = x.unsqueeze(1)
-            else:
-                output = torch.cat((output, x.unsqueeze(1)), dim=1)
+            output.append(x)
+        output = torch.stack(output, dim=1)
 
         return output.cpu()
 
