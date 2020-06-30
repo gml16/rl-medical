@@ -95,7 +95,7 @@ class Trainer(object):
             epoch_distances.append([info['distError_' + str(i)]
                                     for i in range(self.agents)])
             self.append_episode_board(info, score, "train", episode)
-            if episode % self.update_frequency == 0:
+            if (episode * self.epoch_length) % self.update_frequency == 0:
                 self.dqn.copy_to_target_network()
             self.eps = max(self.min_eps, self.eps - self.delta)
             # Every epoch
@@ -118,8 +118,7 @@ class Trainer(object):
             steps = 0
             for _ in range(self.steps_per_episode):
                 steps += 1
-                acts, q_values = self.get_next_actions(
-                    self.buffer.recent_state())
+                acts, q_values = self.get_next_actions(obs)
                 obs, reward, terminal, info = self.env.step(
                     acts, q_values, terminal)
                 self.buffer.append((obs, acts, reward, terminal))

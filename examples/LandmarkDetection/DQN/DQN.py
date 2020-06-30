@@ -44,8 +44,7 @@ EVAL_EPISODE = 50
 
 def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
                task="play", file_type="brain", saveGif=False, saveVideo=False,
-               multiscale=True, history_length=28, agents=1,
-               reward_strategy=1, logger=None):
+               multiscale=True, history_length=20, agents=1, logger=None):
     env = MedicalPlayer(
         directory=directory,
         screen_dims=IMAGE_SIZE,
@@ -59,7 +58,6 @@ def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
         history_length=history_length,
         multiscale=multiscale,
         agents=agents,
-        reward_strategy=reward_strategy,
         logger=logger)
     if task != "train":
         # in training, env will be decorated by ExpReplay, and history
@@ -75,9 +73,10 @@ def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument('--load', help='load model')
+    parser.add_argument('--load', help='Path to the model to load')
     parser.add_argument(
         '--task',
         help='''task to perform,
@@ -106,8 +105,6 @@ if __name__ == '__main__':
         '--logDir', help='Store logs in this directory during training',
         default='runs', type=str)
     parser.add_argument(
-        '--agents', help='Number of agents', type=int, default=1)
-    parser.add_argument(
         '--landmarks', nargs='*', help='Landmarks to use in the images',
         type=int, default=[1])
     parser.add_argument(
@@ -119,14 +116,14 @@ if __name__ == '__main__':
         '--memory_size',
         help="""Number of transitions stored in exp replay buffer.
                 If too much is allocated training may abruptly stop.""",
-        default=5e4, type=int)
+        default=1e5, type=int)
     parser.add_argument(
         '--init_memory_size',
         help='Number of transitions stored in exp replay before training',
-        default=2048, type=int)
+        default=3e4, type=int)
     parser.add_argument(
         '--max_episodes', help='"Number of episodes to train for"',
-        default=1000, type=int)
+        default=1e5, type=int)
     parser.add_argument(
         '--steps_per_episode', help='Maximum steps per episode',
         default=200, type=int)
@@ -162,11 +159,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    # if args.gpu:
-    #     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+    agents = len(args.landmarks)
 
     # check valid number of agents:
-    assert args.agents > 0
+    assert agents > 0
 
     # check input files
     if args.task == 'play':
@@ -189,16 +185,15 @@ if __name__ == '__main__':
                                 screen_dims=IMAGE_SIZE,
                                 # TODO: why is this always play?
                                 task='play',
-                                agents=args.agents,
+                                agents=agents,
                                 logger=logger)
     NUM_ACTIONS = init_player.action_space.n
-    # num_files = init_player.files.num_files
 
     if args.task != 'train':
         # TODO: refactor DQN to not have to create both a q_network and
         # target_network
-        dqn = DQN(args.agents, frame_history=FRAME_HISTORY,
-                  logger=logger, type=args.model_name)
+        dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
+                  type=args.model_name)
         model = dqn.q_network
         model.load_state_dict(torch.load(args.load))
         environment = get_player(files_list=args.files,
@@ -207,10 +202,10 @@ if __name__ == '__main__':
                                  saveGif=args.saveGif,
                                  saveVideo=args.saveVideo,
                                  task=args.task,
-                                 agents=args.agents,
+                                 agents=agents,
                                  viz=args.viz,
                                  logger=logger)
-        evaluator = Evaluator(environment, model, logger, args.agents,
+        evaluator = Evaluator(environment, model, logger, agents,
                               args.steps_per_episode)
         evaluator.play_n_episodes()
     else:  # train model
@@ -218,8 +213,7 @@ if __name__ == '__main__':
                                  files_list=args.files,
                                  file_type=args.file_type,
                                  landmark_ids=args.landmarks,
-                                 agents=args.agents,
-                                 history_length=20,
+                                 agents=agents,
                                  viz=args.viz,
                                  multiscale=args.multiscale,
                                  logger=logger)
@@ -229,7 +223,7 @@ if __name__ == '__main__':
                                   files_list=args.val_files,
                                   file_type=args.file_type,
                                   landmark_ids=args.landmarks,
-                                  agents=args.agents,
+                                  agents=agents,
                                   logger=logger)
         trainer = Trainer(environment,
                           eval_env=eval_env,

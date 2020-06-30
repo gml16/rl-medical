@@ -55,7 +55,7 @@ class Network2D(nn.Module):
         """
         input = input.to(self.device) / 255.0
 
-        # Common layers
+        # Shared layers
         x = input.squeeze(1)  # input[:, 0]
         x = self.conv0(x)
         x = self.prelu0(x)

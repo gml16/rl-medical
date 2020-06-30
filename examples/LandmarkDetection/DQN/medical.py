@@ -51,9 +51,9 @@ class MedicalPlayer(gym.Env):
 
     def __init__(self, directory=None, viz=False, task=False, files_list=None,
                  file_type="brain", landmark_ids=None,
-                 screen_dims=(27, 27, 27), history_length=8, multiscale=True,
+                 screen_dims=(27, 27, 27), history_length=28, multiscale=True,
                  max_num_frames=0, saveGif=False, saveVideo=False, agents=1,
-                 reward_strategy=1, oscillations_allowed=4, logger=None):
+                 oscillations_allowed=4, logger=None):
         """
         :param train_directory: environment or game name
         :param viz: visualization
@@ -117,7 +117,6 @@ class MedicalPlayer(gym.Env):
         self.observation_space = spaces.Box(low=0, high=255,
                                             shape=self.screen_dims,
                                             dtype=np.uint8)
-        self.reward_strategy = reward_strategy
 
         # history buffer for storing last locations to check oscilations
         self._history_length = history_length

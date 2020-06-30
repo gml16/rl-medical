@@ -61,7 +61,6 @@ class Evaluator(object):
         sum_r = np.zeros((self.agents))
         isOver = [False] * self.agents
         start_dists = None
-        # TODO: max number
         steps = 0
         while steps < self.max_steps and not np.all(isOver):
             acts, q_values = predict(obs_stack)
