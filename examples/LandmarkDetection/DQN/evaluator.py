@@ -28,7 +28,7 @@ class Evaluator(object):
             [f"Distance {i}" for i in range(self.agents)])))
         self.logger.write_locations(headers)
         distances = []
-        for k in range(3):#self.env.files.num_files):
+        for k in range(self.env.files.num_files):
             score, start_dists, q_values, info = self.play_one_episode(render)
             # TODO add to board?
             # self.logger.add_distances_board(start_dists, info, k)
@@ -41,7 +41,8 @@ class Evaluator(object):
                 [info[f"landmark_ypos_{i}"] for i in range(self.agents)],
                 [info[f"landmark_zpos_{i}"] for i in range(self.agents)],
                 [info[f"distError_{i}"] for i in range(self.agents)])))
-            distances.append([info[f"distError_{i}"] for i in range(self.agents)])
+            distances.append([info[f"distError_{i}"]
+                              for i in range(self.agents)])
             self.logger.write_locations(row)
         self.logger.log(f"mean distances {np.mean(distances, 0)}")
         self.logger.log(f"Std distances {np.std(distances, 0, ddof=1)}")
