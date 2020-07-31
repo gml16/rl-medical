@@ -129,7 +129,7 @@ if __name__ == '__main__':
         default=200, type=int)
     parser.add_argument(
         '--target_update_freq',
-        help='Number of episodes between each target network update',
+        help='Number of epochs between each target network update',
         default=10, type=int)
     parser.add_argument(
         '--save_freq', help='Saves network every save_freq steps',
