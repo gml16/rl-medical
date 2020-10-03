@@ -50,9 +50,9 @@ cd src
 python DQN.py --task train --files data/filenames/image_files.txt data/filenames/landmark_files.txt --model_name CommNet --file_type brain --landmarks 13 14 0 1 2 --multiscale --viz 0 --train_freq 50 --write
 ```
 
-With the `--write` flag, training will produce logs and a Tensorboard in the `--logDir` directory (runs by default).
+With the `--write` flag, training will produce logs and a Tensorboard in the `--logDir` directory (`runs` by default).
 
-Note: the landmarks flag specifies the number of agents and their target landmarks. For example, `--landmarks 0 1 1` means there are agents, one agent looks for landmark 0 while two agents look for the same landmark number 1. 
+Note: the landmarks flag specifies the number of agents and their target landmarks. For example, `--landmarks 0 1 1` means there are 3 agents, one agent looks for landmark 0 while two agents look for the same landmark number 1. 
 
 ### Evaluate
 
