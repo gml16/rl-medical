@@ -14,9 +14,9 @@ This code is originally a fork from [Amir Alansary's repository](https://github.
 10 brain MRI scans each with 20 landmarks annotated from the ADNI dataset are included in the `data` folder for convenience.
 
 ## Results
-Here are few examples of the learned agents on unseen data:
+Here are a few examples of the learned agents on unseen data:
 
-* An  example  of  our  proposed  C-MARL  system  consisting  of  5  agents.  These agents are looking for 5 different landmarks in a brain MRI scan. Each agent’s ROI is represented by a yellow box and centered around a blue point, while the red point is the target landmark. ROI is sampled with 3 mm spacing at the beginning of every episode. The length of the circumference of red disks denotes the distance between the current and target landmarks in z-axis.
+* An  example  of  our  proposed  C-MARL  system  consisting  of  5  agents.  These agents are looking for 5 different landmarks in a brain MRI scan. Each agent’s ROI is represented by a yellow box and centered around a blue point, while the red point is the target landmark. ROI is sampled with 3mm spacing at the beginning of every episode. The length of the circumference of red disks denotes the distance between the current and target landmarks in z-axis.
 <p align="center">
 <img src="./doc/brain_5_agents.gif">
 </p>
@@ -28,17 +28,17 @@ Here are few examples of the learned agents on unseen data:
 
 * Detecting the apex point in short-axis cardiac MRI [(HQ video)](videos/cardiac_apex.mp4)
 <p align="center">
-<img src="./images/cardiac_apex.gif" width="255">
+<img src="./doc/cardiac_apex.gif" width="255">
 </p>
 
 * Detecting the anterior commissure (AC) point in adult brain MRI [(HQ video)](videos/brain_ac.mp4)
 <p align="center">
-<img src="./images/brain_ac.gif" width="255">
+<img src="./doc/brain_ac.gif" width="255">
 </p>
 
 * Detecting the cavum septum pellucidum (CSP) point in fetal head ultrasound [(HQ video)](videos/fetal_csp.mp4)
 <p align="center">
-<img src="./images/fetal_csp.gif" width="255">
+<img src="./doc/fetal_csp.gif" width="255">
 </p>
 
 
@@ -47,7 +47,7 @@ Here are few examples of the learned agents on unseen data:
 Example to train 5 C-MARL agents
 ```
 cd src
-DQN.py --task train --files data/filenames/image_files.txt data/filenames/landmark_files.txt --model_name CommNet --file_type brain --landmarks 13 14 0 1 2 --multiscale --viz 0 --train_freq 50 --write
+python DQN.py --task train --files data/filenames/image_files.txt data/filenames/landmark_files.txt --model_name CommNet --file_type brain --landmarks 13 14 0 1 2 --multiscale --viz 0 --train_freq 50 --write
 ```
 
 With the `--write` flag, training will produce logs and a Tensorboard in the `--logDir` directory (runs by default).
