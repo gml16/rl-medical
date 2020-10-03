@@ -18,15 +18,28 @@ Here are few examples of the learned agents on unseen data:
 
 * An  example  of  our  proposed  C-MARL  system  consisting  of  5  agents.  These agents are looking for 5 different landmarks in a brain MRI scan. Each agent’s ROI is represented by a yellow box and centered around a blue point, while the red point is the target landmark. ROI is sampled with 3 mm spacing at the beginning of every episode. The length of the circumference of red disks denotes the distance between the current and target landmarks in z-axis.
 <p align="center">
-<img src="./doc/brain_5_agents.gif" width="255">
+<img src="./doc/brain_5_agents.gif">
 </p>
 
 * Similarly, 5 C-MARL agents in fetal ultrasounds scans.
 <p align="center">
-<img src="./images/fetal_5_agents.gif" width="255">
+<img src="./doc/fetal_5_agents.gif">
 </p>
 
-* Two examples for single agents: [detecting the apex point in short-axis cardiac MRI](doc/cardiac_apex.mp4) and [detecting the anterior commissure (AC) point in adult brain MRI](doc/brain_ac.mp4)
+* Detecting the apex point in short-axis cardiac MRI [(HQ video)](videos/cardiac_apex.mp4)
+<p align="center">
+<img src="./images/cardiac_apex.gif" width="255">
+</p>
+
+* Detecting the anterior commissure (AC) point in adult brain MRI [(HQ video)](videos/brain_ac.mp4)
+<p align="center">
+<img src="./images/brain_ac.gif" width="255">
+</p>
+
+* Detecting the cavum septum pellucidum (CSP) point in fetal head ultrasound [(HQ video)](videos/fetal_csp.mp4)
+<p align="center">
+<img src="./images/fetal_csp.gif" width="255">
+</p>
 
 
 ### Train
