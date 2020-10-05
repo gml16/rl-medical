@@ -195,7 +195,7 @@ if __name__ == '__main__':
         dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
                   type=args.model_name)
         model = dqn.q_network
-        model.load_state_dict(torch.load(args.load))
+        model.load_state_dict(torch.load(args.load, map_location=model.device))
         environment = get_player(files_list=args.files,
                                  file_type=args.file_type,
                                  landmark_ids=args.landmarks,
