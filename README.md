@@ -41,12 +41,25 @@ Here are a few examples of the learned agents on unseen data:
 <img src="./doc/fetal_csp.gif" width="255">
 </p>
 
+### Running the code
+
+The main file is `src/DQN.py` and offers two modes of use, training and evaluation, that are described below.
+For convenience, a Conda environment has been provided (note: on my machine the environment takes 3.7GB, mostly because of PyTorch and the CUDA toolkit). There's no need to use it if the code already runs for you.
+
+```
+conda env create -f environment.yml
+```
+
+All other commands are run from the `src` folder.
+
+```
+cd src
+```
 
 ### Train
 
 Example to train 5 C-MARL agents
 ```
-cd src
 python DQN.py --task train --files data/filenames/image_files.txt data/filenames/landmark_files.txt --model_name CommNet --file_type brain --landmarks 13 14 0 1 2 --multiscale --viz 0 --train_freq 50 --write
 ```
 
@@ -58,31 +71,26 @@ Note: the landmarks flag specifies the number of agents and their target landmar
 
 * 8 C-MARL agents 
 ```
-cd src
 python DQN.py --task eval --load 'data/models/BrainMRI/CommNet8agents.pt' --files 'data/filenames/image_files.txt' 'data/filenames/landmark_files.txt' --file_type brain --landmarks 13 14 0 1 2 3 4 5 --model_name "CommNet"
 ```
 
 * 5 C-MARL agents 
 ```
-cd src
 python DQN.py --task eval --load 'data/models/BrainMRI/CommNet5agents.pt' --files 'data/filenames/image_files.txt' 'data/filenames/landmark_files.txt' --file_type brain --landmarks 13 14 0 1 2 --model_name "CommNet"
 ```
 
 * 3 C-MARL agents 
 ```
-cd src
 python DQN.py --task eval --load 'data/models/BrainMRI/CommNet3agents.pt' --files 'data/filenames/image_files.txt' 'data/filenames/landmark_files.txt' --file_type brain --landmarks 13 14 0 --model_name "CommNet"
 ```
 
 * 8 Network3d agents 
 ```
-cd src
 python DQN.py --task eval --load 'data/models/BrainMRI/Network3d8agents.pt' --files 'data/filenames/image_files.txt' 'data/filenames/landmark_files.txt' --file_type brain --landmarks 13 14 0 1 2 3 4 5 --model_name "Network3d"
 ```
 
 * Single agent
 ```
-cd src
 python DQN.py --task eval --load 'data/models/BrainMRI/SingleAgent.pt' --files 'data/filenames/image_files.txt' 'data/filenames/landmark_files.txt' --file_type brain --landmarks 13 --model_name "Network3d"
 ```
 
@@ -163,7 +171,7 @@ optional arguments:
                         one mini-batch (default: 1)
 ```
 
-## Development
+## Contributing
 
 Issues and pull requests are very welcomed.
 

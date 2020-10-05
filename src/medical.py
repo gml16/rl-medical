@@ -6,8 +6,6 @@
 from dataReader import (filesListBrainMRLandmark,
                         filesListCardioLandmark,
                         filesListFetalUSLandmark)
-from tensorpack.utils.stats import StatCounter
-from tensorpack.utils.utils import get_rng
 from gym import spaces
 import gym
 import shutil
@@ -98,7 +96,6 @@ class MedicalPlayer(gym.Env):
             self.width, self.height, self.depth = screen_dims
 
         with _ALE_LOCK:
-            self.rng = get_rng(self)
             # visualization setup
             if isinstance(viz, six.string_types):  # check if viz is a string
                 assert os.path.isdir(viz), viz
@@ -110,7 +107,7 @@ class MedicalPlayer(gym.Env):
                 self.viewer = None
                 self.gif_buffer = []
         # stat counter to store current score or accumlated reward
-        self.current_episode_score = [StatCounter()] * self.agents
+        self.current_episode_score = [[]] * self.agents
         # get action space and minimal action set
         self.action_space = spaces.Discrete(6)  # change number actions here
         self.actions = self.action_space.n
@@ -163,7 +160,7 @@ class MedicalPlayer(gym.Env):
         self.terminal = [False] * self.agents
         self.reward = np.zeros((self.agents,))
         self.cnt = 0  # counter to limit number of steps per episodes
-        self.num_games.feed(1)
+        self.num_games+=1
         self._loc_history = [
             [(0,) * self.dims for _ in range(self._history_length)]
             for _ in range(self.agents)]
@@ -171,8 +168,7 @@ class MedicalPlayer(gym.Env):
         self._qvalues_history = [
             [(0,) * self.actions for _ in range(self._history_length)]
             for _ in range(self.agents)]
-        for i in range(0, self.agents):
-            self.current_episode_score[i].reset()
+        self.current_episode_score = [[]] * self.agents
         self.new_random_game()
 
     def new_random_game(self):
@@ -227,27 +223,18 @@ class MedicalPlayer(gym.Env):
                               int(self._image_dims[1] / 4),
                               int(self._image_dims[2] / 4))
 
-        x = [
-            self.rng.randint(
-                0 +
+        x = np.random.randint(
                 skip_thickness[0],
-                self._image_dims[0] -
-                skip_thickness[0]) for _ in range(
-                self.agents)]
-        y = [
-            self.rng.randint(
-                0 +
+                self._image_dims[0] - skip_thickness[0],
+                self.agents)
+        y = np.random.randint(
                 skip_thickness[1],
-                self._image_dims[1] -
-                skip_thickness[1]) for _ in range(
-                self.agents)]
-        z = [
-            self.rng.randint(
-                0 +
+                self._image_dims[1] - skip_thickness[1],
+                self.agents)
+        z = np.random.randint(
                 skip_thickness[2],
-                self._image_dims[2] -
-                skip_thickness[2]) for _ in range(
-                self.agents)]
+                self._image_dims[2] - skip_thickness[2],
+                self.agents)
 
         #######################################################################
 
@@ -398,7 +385,7 @@ class MedicalPlayer(gym.Env):
                 if self.cur_dist[i] <= 1:
                     self.logger.log(f"distance of agent {i} is <= 1")
                     self.terminal[i] = True
-                    self.num_success[i].feed(1)
+                    self.num_success[i] += 1
 
         """
         # terminate if maximum number of steps is reached
@@ -441,12 +428,12 @@ class MedicalPlayer(gym.Env):
                     for i in range(self.agents):
                         self.terminal[i] = True
                         if self.cur_dist[i] <= 1:
-                            self.num_success[i].feed(1)
+                            self.num_success[i] += 1
             else:
                 for i in range(self.agents):
                     self.terminal[i] = True
                     if self.cur_dist[i] <= 1:
-                        self.num_success[i].feed(1)
+                        self.num_success[i] += 1
         # render screen if viz is on
         with _ALE_LOCK:
             if self.viz:
@@ -455,11 +442,11 @@ class MedicalPlayer(gym.Env):
 
         distance_error = self.cur_dist
         for i in range(self.agents):
-            self.current_episode_score[i].feed(self.reward[i])
+            self.current_episode_score[i].append(self.reward[i])
 
         info = {}
         for i in range(self.agents):
-            info[f"score_{i}"] = self.current_episode_score[i].sum
+            info[f"score_{i}"] = np.sum(self.current_episode_score[i])
             info[f"gameOver_{i}"] = self.terminal[i]
             info[f"distError_{i}"] = distance_error[i]
             info[f"filename_{i}"] = self.filename[i]
@@ -663,8 +650,8 @@ class MedicalPlayer(gym.Env):
     def reset_stat(self):
         """ Reset all statistics counter"""
         self.stats = defaultdict(list)
-        self.num_games = StatCounter()
-        self.num_success = [StatCounter()] * int(self.agents)
+        self.num_games = 0
+        self.num_success = [0] * int(self.agents)
 
     def display(self, return_rgb_array=False):
         # Initializations
