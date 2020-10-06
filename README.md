@@ -1,7 +1,7 @@
 
 # RL-Medical
 
-Deep Reinforcement Learning (DRL) agents for anatomical landmark detection using PyTorch.
+Multiagent Deep Reinforcement Learning for Anatomical Landmark Detection using PyTorch.
 This is the code for the paper [Communicative Reinforcement Learning Agents for Landmark Detection in Brain Images](https://arxiv.org/abs/2008.08055).
 
 ## Introduction
@@ -48,6 +48,7 @@ For convenience, a Conda environment has been provided (note: on my machine the 
 
 ```
 conda env create -f environment.yml
+conda activate rl-medical
 ```
 
 All other commands are run from the `src` folder.
@@ -58,14 +59,15 @@ cd src
 
 ### Train
 
-Example to train 5 C-MARL agents
+Example to train 5 C-MARL agents (named CommNet in the code)
 ```
 python DQN.py --task train --files data/filenames/image_files.txt data/filenames/landmark_files.txt --model_name CommNet --file_type brain --landmarks 13 14 0 1 2 --multiscale --viz 0 --train_freq 50 --write
 ```
 
+The command above is the one used to train the models presented in the paper. The default value for the replay buffer size is very large. Consider using the `--memory_size` and `--init_memory_size` flags to reduce the memory used.
 With the `--write` flag, training will produce logs and a Tensorboard in the `--logDir` directory (`runs` by default).
 
-Note: the landmarks flag specifies the number of agents and their target landmarks. For example, `--landmarks 0 1 1` means there are 3 agents, one agent looks for landmark 0 while two agents look for the same landmark number 1. 
+The `--landmarks` flag specifies the number of agents and their target landmarks. For example, `--landmarks 0 1 1` means there are 3 agents. One agent looks for landmark 0 while two agents look for the same landmark number 1. All 3 agents communicate with each other. 
 
 ### Evaluate
 
@@ -191,5 +193,6 @@ If you use this code in your research, please cite this paper:
 ## Resources
 
 More information on this project:
+- [MLCN20 poster](./doc/MLCN20_poster.pdf)
 - [Master's project presentation video](https://www.youtube.com/watch?v=Q8Sy4_YbTFE)
 - [Master's project report](https://gml16.github.io/projects/mastersthesis.pdf)
