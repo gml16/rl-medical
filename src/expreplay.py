@@ -36,56 +36,61 @@ class ReplayMemory(object):
         else:
             self._assign(self._curr_pos, exp)
             self._curr_pos = (self._curr_pos + 1) % self.max_size
-        if np.all(exp[3]):
-            self._hist.clear()
-        else:
-            self._hist.append(exp)
+
+    def recent_transition(self):
+        """ Return hist_len transitions, padded with zeros if needed
+        Most recent transition is at the end of the arrays """
+        # print("self._curr_pos", self._curr_pos)
+        # print("self._curr_size", self._curr_size)
+        # print("self.action", self.action)
+        # print("isOver", self.isOver)
+        return self._encode_sample(self._curr_pos)
 
     def recent_state(self):
-        """ return a list of (hist_len,) + STATE_SIZE """
-        lst = list(self._hist)
-        states = []
-        for i in range(self.agents):
-            states_temp = [np.zeros(self.state_shape,
-                                    dtype='uint8')] \
-                                    * (self._hist.maxlen - len(lst))
-            states_temp.extend([k[0][i] for k in lst])
-            states.append(states_temp)
-        return np.array(states)
+        """ eturn a tuple of previous RoI and actions """
+        transition = self.recent_transition()
+        return transition[0], transition[1]
 
     def _encode_sample(self, idx):
         """ Sample an experience replay from memory with index idx
         :returns: a tuple of (state, next_state, reward, action, isOver)
                   where state is of shape STATE_SIZE + (history_length,)
         """
-        idx = (self._curr_pos + idx) % self._curr_size
-        k = self.history_len
+        states = self._slice(self.state, idx)
+        next_states = self._slice(self.state, idx + 1)
+        isOver = self._slice(self.isOver, idx)
+        rewards = self._slice(self.reward, idx)
+        actions = self._slice(self.action, idx)
+        next_actions = self._slice(self.action, idx + 1)
 
+        states = self._pad_sample(states, isOver)
+        next_states = self._pad_sample(next_states, isOver)
+        rewards = self._pad_sample(rewards, isOver)
+        actions = self._pad_sample(actions, isOver)
+        next_actions = self._pad_sample(next_actions, isOver)
+
+        return states, actions, rewards, next_states, isOver, next_actions
+
+    def sample_stacked_actions(self, batch_size):
+        idxes = [np.random.randint(0, len(self) - 1)
+                 for _ in range(batch_size)]
         states = []
         next_states = []
         rewards = []
         actions = []
+        next_actions = []
         isOver = []
-        for i in range(self.agents):
-            if idx + k < self._curr_size:
-                states.append(self.state[i, idx: idx + k])
-                next_states.append(self.state[i, idx + 1: idx + k + 1])
-                isOver.append(self.isOver[i, idx: idx + k])
-                rewards.append(self.reward[i, idx: idx + k])
-                actions.append(self.action[i, idx: idx + k])
-            else:
-                end = idx + k - self._curr_size
-                states.append(self._slice(self.state[i], idx, end))
-                next_states.append(
-                    self._slice(
-                        self.state[i],
-                        idx + 1,
-                        end + 1))
-                isOver.append(self._slice(self.isOver[i], idx, end))
-                rewards.append(self._slice(self.reward[i], idx, end))
-                actions.append(self._slice(self.action[i], idx, end))
-        states_padded = self._pad_sample(states, isOver)
-        return states_padded, actions, rewards, next_states, isOver
+        for i in idxes:
+            exp = self._encode_sample(i)
+            states.append(exp[0])
+            actions.append(exp[1])
+            rewards.append(exp[2])
+            next_states.append(exp[3])
+            isOver.append(exp[4])
+            next_actions.append(exp[5])
+        return ((np.array(states), np.array(actions)), np.array(actions)[:, :, -1],
+                np.array(rewards)[:, :, -1], (np.array(next_states), np.array(next_actions)),
+                np.array(isOver)[:, :, -1])
 
     def sample(self, batch_size):
         idxes = [np.random.randint(0, len(self) - 1)
@@ -108,19 +113,21 @@ class ReplayMemory(object):
                 np.array(isOver)[:, :, -1])
 
     # the next_state is a different episode if current_state.isOver==True
-    def _pad_sample(self, states, isOver):
+    def _pad_sample(self, arr, isOver):
         for k in range(self.history_len - 1, -1, -1):
             for i in range(self.agents):
                 if isOver[i][k]:
-                    states[i] = copy.deepcopy(states[i])
-                    states[i][:k + 1].fill(0)
+                    arr[i] = copy.deepcopy(arr[i])
+                    arr[i][:k + 1].fill(0)
             break
-        return states
+        return arr
 
-    def _slice(self, arr, start, end):
-        s1 = arr[start:self._curr_size]
-        s2 = arr[:end]
-        return np.concatenate((s1, s2), axis=0)
+    def _slice(self, arr, idx):
+        if idx >= self.history_len:
+            return arr[:, idx-self.history_len: idx]
+        s1 = arr[:, -self.history_len+idx:]
+        s2 = arr[:, :idx]
+        return np.concatenate((s1, s2), axis=1)
 
     def __len__(self):
         return self._curr_size

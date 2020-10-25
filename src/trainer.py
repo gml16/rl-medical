@@ -18,7 +18,7 @@ class Trainer(object):
                  steps_per_episode=50,
                  eps=1,
                  min_eps=0.1,
-                 delta=0.001,
+                 delta=0.1,#0.001, # TODO: change back
                  batch_size=4,
                  gamma=0.9,
                  number_actions=6,
@@ -96,7 +96,7 @@ class Trainer(object):
                 score = [sum(x) for x in zip(score, reward)]
                 self.buffer.append((obs, acts, reward, terminal))
                 if acc_steps % self.train_freq == 0:
-                    mini_batch = self.buffer.sample(self.batch_size)
+                    mini_batch = self.buffer.sample_stacked_actions(self.batch_size)
                     loss = self.dqn.train_q_network(mini_batch, self.gamma)
                     losses.append(loss)
                 if all(t for t in terminal):
@@ -127,7 +127,8 @@ class Trainer(object):
             steps = 0
             for _ in range(self.steps_per_episode):
                 steps += 1
-                acts, q_values = self.get_next_actions(obs)
+                last_trans = self.buffer.recent_state()
+                acts, q_values = self.get_next_actions(last_trans)
                 obs, reward, terminal, info = self.env.step(
                     acts, q_values, terminal)
                 self.buffer.append((obs, acts, reward, terminal))
@@ -197,7 +198,7 @@ class Trainer(object):
         return actions, q_values
 
     def get_greedy_actions(self, obs_stack, doubleLearning=True):
-        inputs = torch.tensor(obs_stack).unsqueeze(0)
+        inputs = torch.tensor(obs_stack[0]).unsqueeze(0), torch.tensor(obs_stack[1]).unsqueeze(0)
         if doubleLearning:
             q_vals = self.dqn.q_network.forward(inputs).detach().squeeze(0)
         else:
