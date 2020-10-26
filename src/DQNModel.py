@@ -70,7 +70,7 @@ class Network3D(nn.Module):
         Output is a tensor of size
         (batch_size, agents, number_actions)
         """
-        input = input.to(self.device) / 255.0
+        input = input[0].to(self.device) / 255.0
         output = []
         for i in range(self.agents):
             # Shared layers
@@ -283,7 +283,7 @@ class CommNet(nn.Module):
         # Output is a tensor of size
         (batch_size, agents, number_actions)
         """
-        input1 = input.to(self.device) / 255.0
+        input1 = input[0].to(self.device) / 255.0
 
         # Shared layers
         input2 = []
@@ -355,6 +355,7 @@ class GraphNet(nn.Module):
 
         self.agents = agents
         self.frame_history = frame_history
+        self.number_actions = number_actions
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
 
@@ -414,13 +415,17 @@ class GraphNet(nn.Module):
         self.gcn1 = GCNConv(512, 128).to(self.device)
         self.gcn2 = GCNConv(128, 16).to(self.device)
 
+        self.fc_last = nn.Linear(
+                in_features=16*agents,
+                out_features=number_actions*agents).to(
+                self.device)
+
         self.edge_index = []
         for i in range(self.agents):
             for j in range(self.agents):
                 if i == j: continue
                 self.edge_index.append([i, j])
         self.edge_index = torch.tensor(self.edge_index).t().contiguous().to(self.device)
-        print("self.edge_index", self.edge_index)
 
         if xavier:
             for module in self.modules():
@@ -460,13 +465,9 @@ class GraphNet(nn.Module):
         comm = self.prelu4(comm)
         comm = self.gcn2(comm, self.edge_index)
         comm = self.prelu5(comm)
-        print("comm", comm.shape)
-        comm = comm.permute(1,0,2)
-        print("comm", comm.shape)
-        comm = comm.view(comm.shape[0], -1) # comm is now of shape (agents, frame_history*16)
-        print("comm", comm.shape)
-
-        return output.cpu()
+        comm = comm.reshape(comm.shape[0], -1) # comm is now of shape (agents, frame_history*16)
+        output = self.fc_last(comm)
+        return output.view(*output.shape[:-1], self.agents, self.number_actions).cpu()
 
 
 class DQN:

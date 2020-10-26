@@ -41,7 +41,7 @@ class Trainer(object):
         self.init_memory_size = init_memory_size
         self.max_episodes = max_episodes
         self.steps_per_episode = steps_per_episode
-        self.eps = eps
+        self.eps = 0.5 # eps TODO: change back
         self.min_eps = min_eps
         self.delta = delta
         self.batch_size = batch_size

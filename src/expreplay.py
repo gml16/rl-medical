@@ -47,7 +47,7 @@ class ReplayMemory(object):
         return self._encode_sample(self._curr_pos)
 
     def recent_state(self):
-        """ eturn a tuple of previous RoI and actions """
+        """ Return a tuple of previous RoI and actions """
         transition = self.recent_transition()
         return transition[0], transition[1]
 
@@ -65,9 +65,6 @@ class ReplayMemory(object):
 
         states = self._pad_sample(states, isOver)
         next_states = self._pad_sample(next_states, isOver)
-        rewards = self._pad_sample(rewards, isOver)
-        actions = self._pad_sample(actions, isOver)
-        next_actions = self._pad_sample(next_actions, isOver)
 
         return states, actions, rewards, next_states, isOver, next_actions
 
