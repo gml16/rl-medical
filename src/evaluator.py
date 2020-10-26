@@ -17,7 +17,7 @@ class Evaluator(object):
         results used when playing demos.
         """
         if fixed_spawn is None:
-            num_runs = 1 
+            num_runs = 1
         else:
             # fixed_spawn should be, for example, [0.5 , 0.5 , 0.5, 0, 0, 0] for 2 runs
             # In the first run agents spawn in the middle and in the second they will spawn from the corner
@@ -63,13 +63,13 @@ class Evaluator(object):
 
     def play_one_episode(self, render=False, frame_history=4, fixed_spawn=None):
 
-        def predict(obs_stack):
+        def predict(inputs):
             """
             Run a full episode, mapping observation to action,
             using greedy policy.
             """
-            inputs = torch.tensor(obs_stack).permute(
-                0, 4, 1, 2, 3).unsqueeze(0)
+            inputs = torch.tensor(inputs[0]).permute(
+                0, 4, 1, 2, 3).unsqueeze(0), torch.tensor(inputs[1]).unsqueeze(0)
             q_vals = self.model.forward(inputs).detach().squeeze(0)
             idx = torch.max(q_vals, -1)[1]
             greedy_steps = np.array(idx, dtype=np.int32).flatten()
@@ -82,8 +82,11 @@ class Evaluator(object):
         start_dists = None
         steps = 0
         while steps < self.max_steps and not np.all(isOver):
-            acts, q_values = predict(obs_stack)
+            acts, q_values = predict(inputs)
             obs_stack, r, isOver, info = self.env.step(acts, q_values, isOver)
+            # Keeps tracks of previous actions
+            prev_acts = [a[1:] + [acts[i]] for i, a in enumerate(prev_acts)]
+            inputs = obs_stack, prev_acts
             steps += 1
             if start_dists is None:
                 start_dists = [
