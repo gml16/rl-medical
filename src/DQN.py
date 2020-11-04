@@ -114,6 +114,9 @@ if __name__ == '__main__':
         '--model_name', help='Models implemented are: Network3d, CommNet',
         default="CommNet", choices=['CommNet', 'Network3d', 'Network3d_stacked', 'GraphNet', 'GraphNet_v2'], type=str)
     parser.add_argument(
+        '--graph_type', help='Types of graph layers, only used for GraphNet_v2',
+        default="GCNConv", type=str)
+    parser.add_argument(
         '--batch_size', help='Size of each batch', default=64, type=int)
     parser.add_argument(
         '--memory_size',
@@ -215,8 +218,13 @@ if __name__ == '__main__':
     logger = Logger(args.log_dir, args.write, args.save_freq, comment=args.log_comment)
 
     if args.task != 'train':
-        dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
-                  type=args.model_name, collective_rewards=args.team_reward, attention=args.attention)
+        dqn = DQN(agents,
+                  frame_history=FRAME_HISTORY,
+                  logger=logger,
+                  type=args.model_name,
+                  collective_rewards=args.team_reward,
+                  attention=args.attention,
+                  graph_type=args.graph_type)
         model = dqn.q_network
         model.load_state_dict(torch.load(args.load, map_location=model.device))
         environment = get_player(files_list=args.files,
@@ -262,6 +270,7 @@ if __name__ == '__main__':
                           delta=args.delta,
                           logger=logger,
                           model_name=args.model_name,
+                          graph_type=args.graph_type,
                           train_freq=args.train_freq,
                           team_reward=args.team_reward,
                           attention=args.attention,

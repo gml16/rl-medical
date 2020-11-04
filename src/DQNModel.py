@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GCNConv, GatedGraphConv, GATConv, GENConv, GravNetConv
 
 class Network3D(nn.Module):
 
@@ -472,7 +472,7 @@ class GraphNet(nn.Module):
 
 class GraphNet_v2(nn.Module):
 
-    def __init__(self, agents, frame_history, number_actions, xavier=True):
+    def __init__(self, agents, frame_history, number_actions, xavier=True, graph_type="GCNConv"):
         super(GraphNet_v2, self).__init__()
 
         self.agents = agents
@@ -535,11 +535,25 @@ class GraphNet_v2(nn.Module):
                 self.device) for _ in range(
                 self.agents)])
 
-        self.gcn1 = GCNConv(512, 512).to(self.device)
+        if graph_type == "GCNConv":
+            self.gcn1 = GCNConv(512, 512).to(self.device)
+            self.gcn2 = GCNConv(256, 256).to(self.device)
+            self.gcn3 = GCNConv(128, 128).to(self.device)
+        elif graph_type == "GatedGraphConv":
+            self.gcn1 = GatedGraphConv(512, 3).to(self.device)
+            self.gcn2 = GatedGraphConv(256, 3).to(self.device)
+            self.gcn3 = GatedGraphConv(128, 3).to(self.device)
+        elif graph_type == "GATConv":
+            self.gcn1 = GATConv(512, 512).to(self.device)
+            self.gcn2 = GATConv(256, 256).to(self.device)
+            self.gcn3 = GATConv(128, 128).to(self.device)
+        elif graph_type == "GENConv":
+            self.gcn1 = GENConv(512, 512).to(self.device)
+            self.gcn2 = GENConv(256, 256).to(self.device)
+            self.gcn3 = GENConv(128, 128).to(self.device)
+
         self.prelu_gcn1 = nn.PReLU().to(self.device)
-        self.gcn2 = GCNConv(256, 256).to(self.device)
         self.prelu_gcn2 = nn.PReLU().to(self.device)
-        self.gcn3 = GCNConv(128, 128).to(self.device)
         self.prelu_gcn3 = nn.PReLU().to(self.device)
 
         self.fc_last = nn.Linear(
@@ -635,6 +649,8 @@ class DQN:
             lr=1e-3,
             scheduler_gamma=0.9,
             scheduler_step_size=100):
+            type="Network3d",
+            graph_type="GCNConv"):
         self.agents = agents
         self.number_actions = number_actions
         self.frame_history = frame_history
@@ -662,9 +678,9 @@ class DQN:
                 agents, frame_history, number_actions)
         elif type == "GraphNet_v2":
             self.q_network = GraphNet_v2(
-                agents, frame_history, number_actions)
+                agents, frame_history, number_actions, graph_type=graph_type)
             self.target_network = GraphNet_v2(
-                agents, frame_history, number_actions)
+                agents, frame_history, number_actions, graph_type=graph_type)
         elif type == "CommNet":
             self.q_network = CommNet(
                 agents,

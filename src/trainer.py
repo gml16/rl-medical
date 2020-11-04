@@ -24,6 +24,7 @@ class Trainer(object):
                  number_actions=6,
                  frame_history=4,
                  model_name="CommNet",
+                 graph_type="GCNConv"
                  logger=None,
                  train_freq=1,
                  team_reward=False,
@@ -64,7 +65,8 @@ class Trainer(object):
             attention=attention,
             lr=lr,
             scheduler_gamma=scheduler_gamma,
-            scheduler_step_size=scheduler_step_size)
+            scheduler_step_size=scheduler_step_size,
+            graph_type=graph_type)
         self.dqn.q_network.train(True)
         self.evaluator = Evaluator(eval_env,
                                    self.dqn.q_network,
