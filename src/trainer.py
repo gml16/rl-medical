@@ -24,7 +24,7 @@ class Trainer(object):
                  number_actions=6,
                  frame_history=4,
                  model_name="CommNet",
-                 graph_type="GCNConv"
+                 graph_type="GCNConv",
                  logger=None,
                  train_freq=1,
                  team_reward=False,
@@ -42,7 +42,7 @@ class Trainer(object):
         self.init_memory_size = init_memory_size
         self.max_episodes = max_episodes
         self.steps_per_episode = steps_per_episode
-        self.eps = 0.5 # eps TODO: change back
+        self.eps = eps
         self.min_eps = min_eps
         self.delta = delta
         self.batch_size = batch_size

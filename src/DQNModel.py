@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch_geometric.nn import GCNConv, GatedGraphConv, GATConv, GENConv, GravNetConv
+from torch_geometric.data import Data, Batch
 
 class Network3D(nn.Module):
 
@@ -544,9 +545,9 @@ class GraphNet_v2(nn.Module):
             self.gcn2 = GatedGraphConv(256, 3).to(self.device)
             self.gcn3 = GatedGraphConv(128, 3).to(self.device)
         elif graph_type == "GATConv":
-            self.gcn1 = GATConv(512, 512).to(self.device)
-            self.gcn2 = GATConv(256, 256).to(self.device)
-            self.gcn3 = GATConv(128, 128).to(self.device)
+            self.gcn1 = GATConv(512, 32, heads=16, dropout=0.6).to(self.device)
+            self.gcn2 = GATConv(256, 16, heads=16, dropout=0.6).to(self.device)
+            self.gcn3 = GATConv(128, 16, heads=8, dropout=0.6).to(self.device)
         elif graph_type == "GENConv":
             self.gcn1 = GENConv(512, 512).to(self.device)
             self.gcn2 = GENConv(256, 256).to(self.device)
@@ -600,10 +601,11 @@ class GraphNet_v2(nn.Module):
             x = x.view(-1, 512)
             input2.append(x)
         input2 = torch.stack(input2, dim=1)
-
+        data = [Data(x=x, edge_index=self.edge_index) for x in input2]
+        batch = Batch.from_data_list(data)
         # Communication layers
-        comm = self.gcn1(input2, self.edge_index)
-        comm = self.prelu_gcn1(comm)
+        comm = self.gcn1(batch.x, batch.edge_index)
+        comm = self.prelu_gcn1(comm).view(len(data), self.agents, 512)
         input2 = torch.cat((input2, comm), axis=-1)
         input3 = []
         for i in range(self.agents):
@@ -612,8 +614,10 @@ class GraphNet_v2(nn.Module):
             input3.append(self.prelu4[i](x))
         input3 = torch.stack(input3, dim=1)
 
-        comm = self.gcn2(input3, self.edge_index)
-        comm = self.prelu_gcn2(comm)
+        data = [Data(x=x, edge_index=self.edge_index) for x in input3]
+        batch = Batch.from_data_list(data)
+        comm = self.gcn2(batch.x, batch.edge_index)
+        comm = self.prelu_gcn2(comm).view(len(data), self.agents, 256)
         input3 = torch.cat((input3, comm), axis=-1)
         input4 = []
         for i in range(self.agents):
@@ -622,8 +626,10 @@ class GraphNet_v2(nn.Module):
             input4.append(self.prelu5[i](x))
         input4 = torch.stack(input4, dim=1)
 
-        comm = self.gcn3(input4, self.edge_index)
-        comm = self.prelu_gcn3(comm)
+        data = [Data(x=x, edge_index=self.edge_index) for x in input4]
+        batch = Batch.from_data_list(data)
+        comm = self.gcn3(batch.x, batch.edge_index)
+        comm = self.prelu_gcn3(comm).view(len(data), self.agents, 128)
         input4 = torch.cat((input4, comm), axis=-1)
         output = []
         for i in range(self.agents):
