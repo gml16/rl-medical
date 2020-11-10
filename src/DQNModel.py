@@ -536,6 +536,8 @@ class GraphNet_v2(nn.Module):
                 self.device) for _ in range(
                 self.agents)])
 
+        
+        self.graph_type = graph_type
         if graph_type == "GCNConv":
             self.gcn1 = GCNConv(512, 512).to(self.device)
             self.gcn2 = GCNConv(256, 256).to(self.device)
@@ -552,6 +554,10 @@ class GraphNet_v2(nn.Module):
             self.gcn1 = GENConv(512, 512).to(self.device)
             self.gcn2 = GENConv(256, 256).to(self.device)
             self.gcn3 = GENConv(128, 128).to(self.device)
+        elif graph_type == "GravNetConv":
+            self.gcn1 = GravNetConv(512, 512, 4, 8, 2).to(self.device)
+            self.gcn2 = GravNetConv(256, 256, 4, 8, 2).to(self.device)
+            self.gcn3 = GravNetConv(128, 128, 4, 8, 2).to(self.device)
 
         self.prelu_gcn1 = nn.PReLU().to(self.device)
         self.prelu_gcn2 = nn.PReLU().to(self.device)
@@ -573,6 +579,16 @@ class GraphNet_v2(nn.Module):
             for module in self.modules():
                 if type(module) in [nn.Conv3d, nn.Linear]:
                     torch.nn.init.xavier_uniform(module.weight)
+
+    def forward_graph(self, gcn, inputs):
+        data = [Data(x=x, edge_index=self.edge_index) for x in inputs]
+        batch = Batch.from_data_list(data)
+        if self.graph_type == "GravNetConv":
+            res = gcn(batch.x, batch)
+        else:
+            res = gcn(batch.x, batch.edge_index)
+        return res
+
 
     def forward(self, input):
         """
@@ -601,11 +617,10 @@ class GraphNet_v2(nn.Module):
             x = x.view(-1, 512)
             input2.append(x)
         input2 = torch.stack(input2, dim=1)
-        data = [Data(x=x, edge_index=self.edge_index) for x in input2]
-        batch = Batch.from_data_list(data)
+        
         # Communication layers
-        comm = self.gcn1(batch.x, batch.edge_index)
-        comm = self.prelu_gcn1(comm).view(len(data), self.agents, 512)
+        comm = self.forward_graph(self.gcn1, input2)
+        comm = self.prelu_gcn1(comm).view(len(input2), self.agents, 512)
         input2 = torch.cat((input2, comm), axis=-1)
         input3 = []
         for i in range(self.agents):
@@ -614,10 +629,8 @@ class GraphNet_v2(nn.Module):
             input3.append(self.prelu4[i](x))
         input3 = torch.stack(input3, dim=1)
 
-        data = [Data(x=x, edge_index=self.edge_index) for x in input3]
-        batch = Batch.from_data_list(data)
-        comm = self.gcn2(batch.x, batch.edge_index)
-        comm = self.prelu_gcn2(comm).view(len(data), self.agents, 256)
+        comm = self.forward_graph(self.gcn2, input3)
+        comm = self.prelu_gcn2(comm).view(len(input3), self.agents, 256)
         input3 = torch.cat((input3, comm), axis=-1)
         input4 = []
         for i in range(self.agents):
@@ -626,10 +639,8 @@ class GraphNet_v2(nn.Module):
             input4.append(self.prelu5[i](x))
         input4 = torch.stack(input4, dim=1)
 
-        data = [Data(x=x, edge_index=self.edge_index) for x in input4]
-        batch = Batch.from_data_list(data)
-        comm = self.gcn3(batch.x, batch.edge_index)
-        comm = self.prelu_gcn3(comm).view(len(data), self.agents, 128)
+        comm = self.forward_graph(self.gcn3, input4)
+        comm = self.prelu_gcn3(comm).view(len(input4), self.agents, 128)
         input4 = torch.cat((input4, comm), axis=-1)
         output = []
         for i in range(self.agents):
