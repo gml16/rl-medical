@@ -543,9 +543,9 @@ class GraphNet_v2(nn.Module):
             self.gcn2 = GCNConv(256, 256).to(self.device)
             self.gcn3 = GCNConv(128, 128).to(self.device)
         elif graph_type == "GatedGraphConv":
-            self.gcn1 = GatedGraphConv(512, 3).to(self.device)
-            self.gcn2 = GatedGraphConv(256, 3).to(self.device)
-            self.gcn3 = GatedGraphConv(128, 3).to(self.device)
+            self.gcn1 = GatedGraphConv(512, 2).to(self.device)
+            self.gcn2 = GatedGraphConv(256, 2).to(self.device)
+            self.gcn3 = GatedGraphConv(128, 2).to(self.device)
         elif graph_type == "GATConv":
             self.gcn1 = GATConv(512, 32, heads=16, dropout=0.6).to(self.device)
             self.gcn2 = GATConv(256, 16, heads=16, dropout=0.6).to(self.device)
