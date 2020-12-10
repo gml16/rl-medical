@@ -164,6 +164,9 @@ if __name__ == '__main__':
     # check valid number of agents:
     assert agents > 0
 
+    # initial memory size cannot be less than memory size
+    init_memory_size = min(args.init_memory_size, args.memory_size)
+
     # check input files
     if args.task == 'play':
         error_message = f"""Wrong input files {len(args.files)} for {args.task}
@@ -232,7 +235,7 @@ if __name__ == '__main__':
                           frame_history=FRAME_HISTORY,
                           update_frequency=args.target_update_freq,
                           replay_buffer_size=args.memory_size,
-                          init_memory_size=args.init_memory_size,
+                          init_memory_size=init_memory_size,
                           gamma=GAMMA,
                           steps_per_episode=args.steps_per_episode,
                           max_episodes=args.max_episodes,
