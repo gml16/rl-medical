@@ -606,7 +606,7 @@ class MedicalPlayer(gym.Env):
                                       self.spacing)
         return curr_dist - next_dist
 
-    # TODO: does this not return the oscillation for the first agent only?
+    # TODO: return oscillate for each agent independently
     @property
     def _oscillate(self):
         """ Return True if all agents are stuck and oscillating

@@ -379,42 +379,6 @@ class DQN:
         self.optimiser.step()
         return loss.item()
 
-    def _calculate_loss_tf(self, transitions, discount_factor):
-        import tensorflow as tf
-        curr_state = transitions[0]
-        self.predict_value = tf.convert_to_tensor(
-            self.q_network.forward(
-                torch.tensor(curr_state)).view(
-                -1,
-                self.number_actions).detach().numpy(),
-            dtype=tf.float32)  # Only works for 1 agent
-        reward = tf.squeeze(
-            tf.clip_by_value(
-                tf.convert_to_tensor(
-                    transitions[2], dtype=tf.float32), -1, 1), [1])
-        next_state = transitions[3]
-        action_onehot = tf.squeeze(tf.one_hot(
-            transitions[1], 6, 1.0, 0.0), [1])
-
-        pred_action_value = tf.reduce_sum(
-            self.predict_value * action_onehot, 1)  # N,
-        # max_pred_reward = tf.reduce_mean(tf.reduce_max(
-        #     self.predict_value, 1), name='predict_reward')
-        with tf.variable_scope('target'):
-            targetQ_predict_value = tf.convert_to_tensor(
-                self.q_network.forward(torch.tensor(
-                    next_state)).view(-1, self.number_actions)
-                .detach().numpy(),
-                dtype=tf.float32)   # NxA
-
-        best_v = tf.reduce_max(targetQ_predict_value, 1)    # N,
-        target = reward + discount_factor * tf.stop_gradient(best_v)
-
-        cost = tf.losses.huber_loss(target, pred_action_value,
-                                    reduction=tf.losses.Reduction.MEAN)
-        with tf.Session() as _:
-            print("cost", cost.eval())
-
     # Function to calculate the loss for a particular transition.
     def _calculate_loss(self, transitions, discount_factor):
         '''
@@ -442,15 +406,8 @@ class DQN:
         batch_labels_tensor = rewards + isNotOver * \
             (discount_factor * max_target_net.detach())
 
-        # td_errors = (network_prediction -
-        # batch_labels_tensor.unsqueeze(-1)).detach() # TODO td error needed
-        # for exp replay
-
         actions = torch.tensor(transitions[1], dtype=torch.long).unsqueeze(-1)
         y_pred = torch.gather(network_prediction, -1, actions).squeeze()
-
-        # Update transitions' weights
-        # self.buffer.recompute_weights(transitions, td_errors)
 
         return torch.nn.SmoothL1Loss()(
                 batch_labels_tensor.flatten(), y_pred.flatten())

@@ -124,7 +124,6 @@ class filesListBrainMRLandmark(object):
                        sitk_image.GetSpacing())
 ###############################################################################
 
-
 class filesListCardioLandmark(object):
     """ A class for managing train files for mri cardiac data
         Attributes:

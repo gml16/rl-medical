@@ -17,12 +17,7 @@ class Logger(object):
         self.save_freq = save_freq
         if self.write:
             self.boardWriter = SummaryWriter()
-            current_time = datetime.now().strftime('%b%d_%H-%M-%S')
-            self.dir = os.path.join(
-                self.parent_dir,
-                current_time +
-                '_' +
-                socket.gethostname())
+            self.dir = self.boardWriter.log_dir
             self.log(f"Logs from {self.dir}\n{' '.join(sys.argv)}\n")
 
     def write_to_board(self, name, scalars, index=0):

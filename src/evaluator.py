@@ -30,8 +30,6 @@ class Evaluator(object):
         distances = []
         for k in range(self.env.files.num_files):
             score, start_dists, q_values, info = self.play_one_episode(render)
-            # TODO add to board?
-            # self.logger.add_distances_board(start_dists, info, k)
             row = [k + 1] + list(chain.from_iterable(zip(
                 [info[f"filename_{i}"] for i in range(self.agents)],
                 [info[f"agent_xpos_{i}"] for i in range(self.agents)],

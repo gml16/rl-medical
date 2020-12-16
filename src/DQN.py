@@ -12,6 +12,7 @@ from medical import MedicalPlayer, FrameStack
 import argparse
 import os
 import torch
+import numpy as np
 
 
 def warn(*args, **kwargs):
@@ -69,6 +70,12 @@ def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
 
 ###############################################################################
 ###############################################################################
+
+def set_reproducible(seed):
+    torch.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
 
 
 if __name__ == '__main__':
@@ -156,6 +163,9 @@ if __name__ == '__main__':
         help="""Number of agent steps between each training step on one
                 mini-batch""",
         default=1, type=int)
+    parser.add_argument(
+        '--seed',
+        help="Random seed for both training and evaluating. If none is provided, no seed will be set", type=int)
 
     args = parser.parse_args()
 
@@ -163,6 +173,9 @@ if __name__ == '__main__':
 
     # check valid number of agents:
     assert agents > 0
+
+    # initial memory size must be less or equal than memory size
+    init_memory_size = min(args.init_memory_size, args.memory_size)
 
     # check input files
     if args.task == 'play':
@@ -175,23 +188,22 @@ if __name__ == '__main__':
                             \'landmarks.txt\'] """
         assert len(args.files) == 2, (error_message)
 
+    if args.seed is not None:
+        set_reproducible(args.seed)
+
     logger = Logger(args.logDir, args.write, args.save_freq)
 
     # load files into env to set num_actions, num_validation_files
-    # TODO: is this necessary?
     init_player = MedicalPlayer(files_list=args.files,
                                 file_type=args.file_type,
                                 landmark_ids=args.landmarks,
                                 screen_dims=IMAGE_SIZE,
-                                # TODO: why is this always play?
                                 task='play',
                                 agents=agents,
                                 logger=logger)
     NUM_ACTIONS = init_player.action_space.n
 
     if args.task != 'train':
-        # TODO: refactor DQN to not have to create both a q_network and
-        # target_network
         dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
                   type=args.model_name)
         model = dqn.q_network
@@ -232,7 +244,7 @@ if __name__ == '__main__':
                           frame_history=FRAME_HISTORY,
                           update_frequency=args.target_update_freq,
                           replay_buffer_size=args.memory_size,
-                          init_memory_size=args.init_memory_size,
+                          init_memory_size=init_memory_size,
                           gamma=GAMMA,
                           steps_per_episode=args.steps_per_episode,
                           max_episodes=args.max_episodes,

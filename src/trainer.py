@@ -66,7 +66,6 @@ class Trainer(object):
 
     def train(self):
         self.logger.log(self.dqn.q_network)
-        self.set_reproducible()
         self.init_memory()
         episode = 1
         acc_steps = 0
@@ -196,9 +195,3 @@ class Trainer(object):
         idx = torch.max(q_vals, -1)[1]
         greedy_steps = np.array(idx, dtype=np.int32).flatten()
         return greedy_steps, q_vals.data.numpy()
-
-    def set_reproducible(self):
-        torch.manual_seed(0)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
-        np.random.seed(0)

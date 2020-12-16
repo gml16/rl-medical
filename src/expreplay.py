@@ -9,16 +9,18 @@ class ReplayMemory(object):
         self.state_shape = state_shape
         self.history_len = int(history_len)
         self.agents = agents
-
-        self.state = np.zeros(
-            (self.agents, self.max_size) + state_shape, dtype='uint8')
+        try:
+            self.state = np.zeros(
+                (self.agents, self.max_size) + state_shape, dtype='uint8')
+        except Exception as e:
+            print("Please consider reducing the memory usage with the --memory_size flag.")
+            raise e
         self.action = np.zeros((self.agents, self.max_size), dtype='int32')
         self.reward = np.zeros((self.agents, self.max_size), dtype='float32')
         self.isOver = np.zeros((self.agents, self.max_size), dtype='bool')
 
         self._curr_pos = 0
         self._curr_size = 0
-        # TODO: was maxlen = history_len - 1
         self._hist = deque(maxlen=history_len)
 
     def append(self, exp):
