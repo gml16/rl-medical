@@ -174,11 +174,7 @@ if __name__ == '__main__':
     # check valid number of agents:
     assert agents > 0
 
-<<<<<<< HEAD
     # initial memory size must be less or equal than memory size
-=======
-    # initial memory size cannot be less than memory size
->>>>>>> 8c2ca6478974214821ba9d0c498879846812d4c7
     init_memory_size = min(args.init_memory_size, args.memory_size)
 
     # check input files
