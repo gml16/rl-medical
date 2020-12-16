@@ -26,17 +26,17 @@ Here are a few examples of the learned agents on unseen data:
 <img src="./doc/fetal_5_agents.gif">
 </p>
 
-* Detecting the apex point in short-axis cardiac MRI [(HQ video)](videos/cardiac_apex.mp4)
+* Detecting the apex point in short-axis cardiac MRI [(HQ video)](doc/cardiac_apex.mp4)
 <p align="center">
 <img src="./doc/cardiac_apex.gif" width="255">
 </p>
 
-* Detecting the anterior commissure (AC) point in adult brain MRI [(HQ video)](videos/brain_ac.mp4)
+* Detecting the anterior commissure (AC) point in adult brain MRI [(HQ video)](doc/brain_ac.mp4)
 <p align="center">
 <img src="./doc/brain_ac.gif" width="255">
 </p>
 
-* Detecting the cavum septum pellucidum (CSP) point in fetal head ultrasound [(HQ video)](videos/fetal_csp.mp4)
+* Detecting the cavum septum pellucidum (CSP) point in fetal head ultrasound [(HQ video)](doc/fetal_csp.mp4)
 <p align="center">
 <img src="./doc/fetal_csp.gif" width="255">
 </p>
@@ -64,7 +64,7 @@ Example to train 5 C-MARL agents (named CommNet in the code)
 python DQN.py --task train --files data/filenames/image_files.txt data/filenames/landmark_files.txt --model_name CommNet --file_type brain --landmarks 13 14 0 1 2 --multiscale --viz 0 --train_freq 50 --write
 ```
 
-The command above is the one used to train the models presented in the paper. The default value for the replay buffer size is very large. Consider using the `--memory_size` and `--init_memory_size` flags to reduce the memory used.
+The command above is the one used to train the models presented in the paper. The default value for the replay buffer size is very large. Consider setting a lower value to the flags `--memory_size` and `--init_memory_size` to reduce the memory used.
 With the `--write` flag, training will produce logs and a Tensorboard in the `--logDir` directory (`runs` by default).
 
 The `--landmarks` flag specifies the number of agents and their target landmarks. For example, `--landmarks 0 1 1` means there are 3 agents. One agent looks for landmark 0 while two agents look for the same landmark number 1. All 3 agents communicate with each other. 
@@ -81,10 +81,10 @@ python DQN.py --task eval --load 'data/models/BrainMRI/CommNet8agents.pt' --file
 python DQN.py --task eval --load 'data/models/BrainMRI/CommNet5agents.pt' --files 'data/filenames/image_files.txt' 'data/filenames/landmark_files.txt' --file_type brain --landmarks 13 14 0 1 2 --model_name "CommNet"
 ```
 
-* 3 C-MARL agents 
+<!-- * 3 C-MARL agents 
 ```
 python DQN.py --task eval --load 'data/models/BrainMRI/CommNet3agents.pt' --files 'data/filenames/image_files.txt' 'data/filenames/landmark_files.txt' --file_type brain --landmarks 13 14 0 --model_name "CommNet"
-```
+``` -->
 
 * 8 Network3d agents 
 ```
@@ -99,7 +99,7 @@ python DQN.py --task eval --load 'data/models/BrainMRI/SingleAgent.pt' --files '
 
 ## Usage
 ```
-[-h] [--load LOAD] [--task {play,eval,train}]
+usage: DQN.py [-h] [--load LOAD] [--task {play,eval,train}]
               [--file_type {brain,cardiac,fetal}] [--files FILES [FILES ...]]
               [--val_files VAL_FILES [VAL_FILES ...]] [--saveGif]
               [--saveVideo] [--logDir LOGDIR]
@@ -111,7 +111,7 @@ python DQN.py --task eval --load 'data/models/BrainMRI/SingleAgent.pt' --files '
               [--steps_per_episode STEPS_PER_EPISODE]
               [--target_update_freq TARGET_UPDATE_FREQ]
               [--save_freq SAVE_FREQ] [--delta DELTA] [--viz VIZ]
-              [--multiscale] [--write] [--train_freq TRAIN_FREQ]
+              [--multiscale] [--write] [--train_freq TRAIN_FREQ] [--seed SEED]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -171,6 +171,8 @@ optional arguments:
   --train_freq TRAIN_FREQ
                         Number of agent steps between each training step on
                         one mini-batch (default: 1)
+  --seed SEED           Random seed for both training and evaluating. If none
+                        is provided, no seed will be set (default: None)
 ```
 
 ## Contributing

@@ -5,6 +5,9 @@ __pycache__/
 *$py.class
 .nfs*
 
+# VS code
+.vscode
+
 # C extensions
 *.so
 
