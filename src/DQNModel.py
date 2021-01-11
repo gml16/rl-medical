@@ -392,12 +392,15 @@ class DQN:
         rewards = torch.clamp(
             torch.tensor(
                 transitions[2], dtype=torch.float32), -1, 1)
+        rewards = torch.mean(rewards, axis=0) # Collective rewards
 
         y = self.target_network.forward(next_state)
         # dim (batch_size, agents, number_actions)
         y = y.view(-1, self.agents, self.number_actions)
         # Get the maximum prediction for the next state from the target network
         max_target_net = y.max(-1)[0]
+        max_target_net = torch.mean(max_target_net, axis=0) # Collective rewards
+
         # dim (batch_size, agents, number_actions)
         network_prediction = self.q_network.forward(curr_state).view(
             -1, self.agents, self.number_actions)
