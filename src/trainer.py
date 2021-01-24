@@ -26,6 +26,7 @@ class Trainer(object):
                  model_name="CommNet",
                  logger=None,
                  train_freq=1,
+                 team_reward=False,
                  ):
         self.env = env
         self.eval_env = eval_env
@@ -54,7 +55,8 @@ class Trainer(object):
             self.agents,
             self.frame_history,
             logger=logger,
-            type=model_name)
+            type=model_name,
+            collective_rewards=team_reward)
         self.dqn.q_network.train(True)
         self.evaluator = Evaluator(eval_env,
                                    self.dqn.q_network,

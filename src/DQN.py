@@ -159,6 +159,10 @@ if __name__ == '__main__':
         action='store_true')
     parser.set_defaults(write=False)
     parser.add_argument(
+    '--team_reward', help='Refers to adding the average reward of all agents to their individiual rewards', dest='team_reward',
+    action='store_true')
+    parser.set_defaults(write=False)
+    parser.add_argument(
         '--train_freq',
         help="""Number of agent steps between each training step on one
                 mini-batch""",
@@ -205,7 +209,7 @@ if __name__ == '__main__':
 
     if args.task != 'train':
         dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
-                  type=args.model_name)
+                  type=args.model_name, collective_rewards=args.team_reward)
         model = dqn.q_network
         model.load_state_dict(torch.load(args.load, map_location=model.device))
         environment = get_player(files_list=args.files,
@@ -252,4 +256,5 @@ if __name__ == '__main__':
                           logger=logger,
                           model_name=args.model_name,
                           train_freq=args.train_freq,
+                          team_reward=args.team_reward,
                           ).train()
