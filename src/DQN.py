@@ -161,7 +161,11 @@ if __name__ == '__main__':
     parser.add_argument(
     '--team_reward', help='Refers to adding the average reward of all agents to their individiual rewards', dest='team_reward',
     action='store_true')
-    parser.set_defaults(write=False)
+    parser.set_defaults(team_reward=False)
+    parser.add_argument(
+    '--attention', help='Use attention for communication channel in C-MARL/CommNet', dest='attention',
+    action='store_true')
+    parser.set_defaults(team_reward=False)
     parser.add_argument(
         '--train_freq',
         help="""Number of agent steps between each training step on one
@@ -257,4 +261,5 @@ if __name__ == '__main__':
                           model_name=args.model_name,
                           train_freq=args.train_freq,
                           team_reward=args.team_reward,
+                          attention=args.attention
                           ).train()

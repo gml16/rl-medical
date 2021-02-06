@@ -176,7 +176,7 @@ class Network3D(nn.Module):
 
 class CommNet(nn.Module):
 
-    def __init__(self, agents, frame_history, number_actions, xavier=True):
+    def __init__(self, agents, frame_history, number_actions, xavier=True, attention=False):
         super(CommNet, self).__init__()
 
         self.agents = agents
@@ -239,6 +239,12 @@ class CommNet(nn.Module):
                 self.device) for _ in range(
                 self.agents)])
 
+        self.attention = attention
+        if self.attention:
+                self.comm_att1 = nn.ParameterList([nn.Parameter(torch.randn(agents)) for _ in range(self.agents)])
+                self.comm_att2 = nn.ParameterList([nn.Parameter(torch.randn(agents)) for _ in range(self.agents)])
+                self.comm_att3 = nn.ParameterList([nn.Parameter(torch.randn(agents)) for _ in range(self.agents)])
+
         if xavier:
             for module in self.modules():
                 if type(module) in [nn.Conv3d, nn.Linear]:
@@ -271,29 +277,45 @@ class CommNet(nn.Module):
             x = x.view(-1, 512)
             input2.append(x)
         input2 = torch.stack(input2, dim=1)
-
+         
         # Communication layers
-        comm = torch.mean(input2, axis=1)
+        if self.attention:
+            comm = torch.cat([torch.sum((input2.transpose(1, 2) * self.comm_att1[i]), axis=2).unsqueeze(0)
+                              for i in range(self.agents)])
+            
+        else:
+            comm = torch.mean(input2, axis=1)
+            comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
         input3 = []
         for i in range(self.agents):
             x = input2[:, i]
-            x = self.fc1[i](torch.cat((x, comm), axis=-1))
+            x = self.fc1[i](torch.cat((x, comm[i]), axis=-1))
             input3.append(self.prelu4[i](x))
         input3 = torch.stack(input3, dim=1)
 
-        comm = torch.mean(input3, axis=1)
+        if self.attention:
+            comm = torch.cat([torch.sum((input3.transpose(1, 2) * self.comm_att2[i]), axis=2).unsqueeze(0)
+                              for i in range(self.agents)])
+        else:
+            comm = torch.mean(input3, axis=1)
+            comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
         input4 = []
         for i in range(self.agents):
             x = input3[:, i]
-            x = self.fc2[i](torch.cat((x, comm), axis=-1))
+            x = self.fc2[i](torch.cat((x, comm[i]), axis=-1))
             input4.append(self.prelu5[i](x))
         input4 = torch.stack(input4, dim=1)
 
-        comm = torch.mean(input4, axis=1)
+        if self.attention:
+            comm = torch.cat([torch.sum((input4.transpose(1, 2) * self.comm_att3[i]), axis=2).unsqueeze(0)
+                              for i in range(self.agents)])
+        else:
+            comm = torch.mean(input4, axis=1)
+            comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
         output = []
         for i in range(self.agents):
             x = input4[:, i]
-            x = self.fc3[i](torch.cat((x, comm), axis=-1))
+            x = self.fc3[i](torch.cat((x, comm[i]), axis=-1))
             output.append(x)
         output = torch.stack(output, dim=1)
 
@@ -309,7 +331,8 @@ class DQN:
             logger,
             number_actions=6,
             type="Network3d",
-            collective_rewards=False):
+            collective_rewards=False,
+            attention=False):
         self.agents = agents
         self.number_actions = number_actions
         self.frame_history = frame_history
@@ -331,12 +354,14 @@ class DQN:
             self.q_network = CommNet(
                 agents,
                 frame_history,
-                number_actions).to(
+                number_actions,
+                attention=attention).to(
                 self.device)
             self.target_network = CommNet(
                 agents,
                 frame_history,
-                number_actions).to(
+                number_actions,
+                attention=attention).to(
                 self.device)
         elif type == "Network2d":
             self.q_network = Network2D(
@@ -345,8 +370,7 @@ class DQN:
                 number_actions).to(
                 self.device)
             self.target_network = Network2D(
-                agents, frame_history, number_actions).to(
-                self.device)
+                agents, frame_history, number_actions).to(self.device)
         self.copy_to_target_network()
         # Freezes target network
         self.target_network.train(False)
@@ -415,5 +439,4 @@ class DQN:
         actions = torch.tensor(transitions[1], dtype=torch.long).unsqueeze(-1)
         y_pred = torch.gather(network_prediction, -1, actions).squeeze()
 
-        return torch.nn.SmoothL1Loss()(
-                batch_labels_tensor.flatten(), y_pred.flatten())
+        return torch.nn.SmoothL1Loss()(batch_labels_tensor.flatten(), y_pred.flatten())

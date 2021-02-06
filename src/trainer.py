@@ -27,6 +27,7 @@ class Trainer(object):
                  logger=None,
                  train_freq=1,
                  team_reward=False,
+                 attention=False,
                  ):
         self.env = env
         self.eval_env = eval_env
@@ -56,7 +57,8 @@ class Trainer(object):
             self.frame_history,
             logger=logger,
             type=model_name,
-            collective_rewards=team_reward)
+            collective_rewards=team_reward,
+            attention=attention)
         self.dqn.q_network.train(True)
         self.evaluator = Evaluator(eval_env,
                                    self.dqn.q_network,
