@@ -1,83 +1,6 @@
 import torch
 import torch.nn as nn
 
-
-class Network2D(nn.Module):
-
-    def __init__(self, agents, frame_history, number_actions):
-        super(Network2D, self).__init__()
-        self.agents = agents
-        self.frame_history = frame_history
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu")
-
-        self.conv0 = nn.Conv3d(
-            in_channels=frame_history,
-            out_channels=32,
-            kernel_size=(5, 5, 5)).to(
-            self.device)
-        self.maxpool0 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
-        self.prelu0 = nn.PReLU().to(self.device)
-        self.conv1 = nn.Conv3d(
-            in_channels=32,
-            out_channels=32,
-            kernel_size=(5, 5, 5)).to(
-            self.device)
-        self.maxpool1 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
-        self.prelu1 = nn.PReLU().to(self.device)
-        self.conv2 = nn.Conv3d(
-            in_channels=32,
-            out_channels=64,
-            kernel_size=(4, 4, 4)).to(
-            self.device)
-        self.maxpool2 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
-        self.prelu2 = nn.PReLU().to(self.device)
-        self.conv3 = nn.Conv3d(
-            in_channels=64,
-            out_channels=64,
-            kernel_size=(3, 3, 3)).to(
-            self.device)
-        self.prelu3 = nn.PReLU().to(self.device)
-
-        self.fc1 = nn.Linear(in_features=512, out_features=256).to(self.device)
-        self.prelu4 = nn.LeakyReLU().to(self.device)
-        self.fc2 = nn.Linear(in_features=256, out_features=128).to(self.device)
-        self.prelu5 = nn.LeakyReLU().to(self.device)
-        self.fc3 = nn.Linear(
-            in_features=128,
-            out_features=number_actions).to(
-            self.device)
-
-    def forward(self, input):
-        """
-        Input is a tensor of size
-        (batch_size, agents, frame_history, *image_size)
-        """
-        input = input.to(self.device) / 255.0
-
-        # Shared layers
-        x = input.squeeze(1)  # input[:, 0]
-        x = self.conv0(x)
-        x = self.prelu0(x)
-        x = self.maxpool0(x)
-        x = self.conv1(x)
-        x = self.prelu1(x)
-        x = self.maxpool1(x)
-        x = self.conv2(x)
-        x = self.prelu2(x)
-        x = self.maxpool2(x)
-        x = x.view(-1, 512)
-
-        # Individual layers
-        x = self.fc1(x)
-        x = self.prelu4(x)
-        x = self.fc2(x)
-        x = self.prelu5(x)
-        x = self.fc3(x)
-        output = x.unsqueeze(1)
-        return output.cpu()
-
-
 class Network3D(nn.Module):
 
     def __init__(self, agents, frame_history, number_actions, xavier=True):
@@ -280,7 +203,7 @@ class CommNet(nn.Module):
          
         # Communication layers
         if self.attention:
-            comm = torch.cat([torch.sum((input2.transpose(1, 2) * self.comm_att1[i]), axis=2).unsqueeze(0)
+            comm = torch.cat([torch.sum((input2.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att1[i])), axis=2).unsqueeze(0)
                               for i in range(self.agents)])
             
         else:
@@ -294,7 +217,7 @@ class CommNet(nn.Module):
         input3 = torch.stack(input3, dim=1)
 
         if self.attention:
-            comm = torch.cat([torch.sum((input3.transpose(1, 2) * self.comm_att2[i]), axis=2).unsqueeze(0)
+            comm = torch.cat([torch.sum((input3.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att2[i])), axis=2).unsqueeze(0)
                               for i in range(self.agents)])
         else:
             comm = torch.mean(input3, axis=1)
@@ -307,7 +230,7 @@ class CommNet(nn.Module):
         input4 = torch.stack(input4, dim=1)
 
         if self.attention:
-            comm = torch.cat([torch.sum((input4.transpose(1, 2) * self.comm_att3[i]), axis=2).unsqueeze(0)
+            comm = torch.cat([torch.sum((input4.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att3[i])), axis=2).unsqueeze(0)
                               for i in range(self.agents)])
         else:
             comm = torch.mean(input4, axis=1)
@@ -363,14 +286,9 @@ class DQN:
                 number_actions,
                 attention=attention).to(
                 self.device)
-        elif type == "Network2d":
-            self.q_network = Network2D(
-                agents,
-                frame_history,
-                number_actions).to(
-                self.device)
-            self.target_network = Network2D(
-                agents, frame_history, number_actions).to(self.device)
+        if collective_rewards == "attention":
+            self.q_network.rew_att = nn.Parameter(torch.randn(agents))
+            self.target_network.rew_att = nn.Parameter(torch.randn(agents))
         self.copy_to_target_network()
         # Freezes target network
         self.target_network.train(False)
@@ -418,9 +336,11 @@ class DQN:
         rewards = torch.clamp(
             torch.tensor(
                 transitions[2], dtype=torch.float32), -1, 1)
-        if self.collective_rewards:
-            # Collective rewards here refers to adding the average reward of all agents
+        # Collective rewards here refers to adding the (potentially weighted) average reward of all agents
+        if self.collective_rewards == "mean":
             rewards += torch.mean(rewards, axis=1).unsqueeze(1).repeat(1, rewards.shape[1])
+        elif self.collective_rewards == "attention":
+            rewards = rewards + torch.sum((rewards * nn.Softmax(dim=0)(self.q_network.rew_att)), axis=1).unsqueeze(1).repeat(1, rewards.shape[1])
 
         y = self.target_network.forward(next_state)
         # dim (batch_size, agents, number_actions)
