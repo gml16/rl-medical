@@ -8,7 +8,7 @@ import csv
 
 
 class Logger(object):
-    def __init__(self, directory, write, save_freq=10):
+    def __init__(self, directory, write, save_freq=10, comment=""):
         self.parent_dir = directory
         self.write = write
         self.dir = ""
@@ -16,7 +16,7 @@ class Logger(object):
         self.model_index = 0
         self.save_freq = save_freq
         if self.write:
-            self.boardWriter = SummaryWriter()
+            self.boardWriter = SummaryWriter(comment=comment)
             self.dir = self.boardWriter.log_dir
             self.log(f"Logs from {self.dir}\n{' '.join(sys.argv)}\n")
 

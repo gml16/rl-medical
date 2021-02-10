@@ -164,9 +164,9 @@ class CommNet(nn.Module):
 
         self.attention = attention
         if self.attention:
-                self.comm_att1 = nn.ParameterList([nn.Parameter(torch.randn(agents)) for _ in range(self.agents)])
-                self.comm_att2 = nn.ParameterList([nn.Parameter(torch.randn(agents)) for _ in range(self.agents)])
-                self.comm_att3 = nn.ParameterList([nn.Parameter(torch.randn(agents)) for _ in range(self.agents)])
+                self.comm_att1 = nn.ParameterList([nn.Parameter(torch.randn(agents)) for _ in range(agents)])
+                self.comm_att2 = nn.ParameterList([nn.Parameter(torch.randn(agents)) for _ in range(agents)])
+                self.comm_att3 = nn.ParameterList([nn.Parameter(torch.randn(agents)) for _ in range(agents)])
 
         if xavier:
             for module in self.modules():
@@ -287,8 +287,8 @@ class DQN:
                 attention=attention).to(
                 self.device)
         if collective_rewards == "attention":
-            self.q_network.rew_att = nn.Parameter(torch.randn(agents))
-            self.target_network.rew_att = nn.Parameter(torch.randn(agents))
+            self.q_network.rew_att = nn.Parameter(torch.randn(agents, agents))
+            self.target_network.rew_att = nn.Parameter(torch.randn(agents, agents))
         self.copy_to_target_network()
         # Freezes target network
         self.target_network.train(False)
@@ -340,7 +340,7 @@ class DQN:
         if self.collective_rewards == "mean":
             rewards += torch.mean(rewards, axis=1).unsqueeze(1).repeat(1, rewards.shape[1])
         elif self.collective_rewards == "attention":
-            rewards = rewards + torch.sum((rewards * nn.Softmax(dim=0)(self.q_network.rew_att)), axis=1).unsqueeze(1).repeat(1, rewards.shape[1])
+            rewards = rewards + torch.matmul(rewards, nn.Softmax(dim=0)(self.q_network.rew_att))
 
         y = self.target_network.forward(next_state)
         # dim (batch_size, agents, number_actions)

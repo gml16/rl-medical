@@ -109,8 +109,11 @@ if __name__ == '__main__':
     parser.add_argument('--saveVideo', help='Save video of the game',
                         action='store_true', default=False)
     parser.add_argument(
-        '--logDir', help='Store logs in this directory during training',
+        '--log_dir', help='Store logs in this directory during training.',
         default='runs', type=str)
+    parser.add_argument(
+        '--log_comment', help='Suffix appended to the name of the log folder name, which is the current time.',
+        default='', type=str)
     parser.add_argument(
         '--landmarks', nargs='*', help='Landmarks to use in the images',
         type=int, default=[1])
@@ -197,7 +200,7 @@ if __name__ == '__main__':
     if args.seed is not None:
         set_reproducible(args.seed)
 
-    logger = Logger(args.logDir, args.write, args.save_freq)
+    logger = Logger(args.log_dir, args.write, args.save_freq, comment=args.log_comment)
 
     # load files into env to set num_actions, num_validation_files
     init_player = MedicalPlayer(files_list=args.files,
