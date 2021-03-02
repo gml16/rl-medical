@@ -11,7 +11,7 @@ class Evaluator(object):
         self.agents = agents
         self.max_steps = max_steps
 
-    def play_n_episodes(self, render=False):
+    def play_n_episodes(self, render=False, ):
         """
         wraps play_one_episode, playing a single episode at a time and logs
         results used when playing demos.
@@ -28,8 +28,9 @@ class Evaluator(object):
             [f"Distance {i}" for i in range(self.agents)])))
         self.logger.write_locations(headers)
         distances = []
+        fixed_spawn = [[0.5 for _ in range(self.agents)] for _ in range(3)] # 3 dimensions
         for k in range(self.env.files.num_files):
-            score, start_dists, q_values, info = self.play_one_episode(render)
+            score, start_dists, q_values, info = self.play_one_episode(render, fixed_spawn=fixed_spawn)
             row = [k + 1] + list(chain.from_iterable(zip(
                 [info[f"filename_{i}"] for i in range(self.agents)],
                 [info[f"agent_xpos_{i}"] for i in range(self.agents)],
@@ -45,7 +46,7 @@ class Evaluator(object):
         self.logger.log(f"mean distances {np.mean(distances, 0)}")
         self.logger.log(f"Std distances {np.std(distances, 0, ddof=1)}")
 
-    def play_one_episode(self, render=False, frame_history=4):
+    def play_one_episode(self, render=False, frame_history=4, fixed_spawn=None):
 
         def predict(obs_stack):
             """
@@ -59,7 +60,7 @@ class Evaluator(object):
             greedy_steps = np.array(idx, dtype=np.int32).flatten()
             return greedy_steps, q_vals.data.numpy()
 
-        obs_stack = self.env.reset()
+        obs_stack = self.env.reset(fixed_spawn)
         # Here obs have shape (agent, *image_size, frame_history)
         sum_r = np.zeros((self.agents))
         isOver = [False] * self.agents
