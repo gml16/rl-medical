@@ -205,16 +205,6 @@ if __name__ == '__main__':
 
     logger = Logger(args.log_dir, args.write, args.save_freq, comment=args.log_comment)
 
-    # load files into env to set num_actions, num_validation_files
-    init_player = MedicalPlayer(files_list=args.files,
-                                file_type=args.file_type,
-                                landmark_ids=args.landmarks,
-                                screen_dims=IMAGE_SIZE,
-                                task='play',
-                                agents=agents,
-                                logger=logger)
-    NUM_ACTIONS = init_player.action_space.n
-
     if args.task != 'train':
         dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
                   type=args.model_name, collective_rewards=args.team_reward)

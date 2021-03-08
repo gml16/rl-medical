@@ -11,7 +11,7 @@ class Evaluator(object):
         self.agents = agents
         self.max_steps = max_steps
 
-    def play_n_episodes(self, render=False, fixed_spawn=None):
+    def play_n_episodes(self, render=False, fixed_spawn=None, silent=False):
         """
         wraps play_one_episode, playing a single episode at a time and logs
         results used when playing demos.
@@ -54,9 +54,12 @@ class Evaluator(object):
                 distances.append([info[f"distError_{i}"]
                                 for i in range(self.agents)])
                 self.logger.write_locations(row)
-        print("distances", distances)
-        self.logger.log(f"mean distances {np.mean(distances, 0)}")
-        self.logger.log(f"Std distances {np.std(distances, 0, ddof=1)}")
+        mean = np.mean(distances, 0)
+        std = np.std(distances, 0, ddof=1)
+        if not silent:
+            self.logger.log(f"mean distances {mean}")
+            self.logger.log(f"Std distances {std}")
+        return mean, std
 
     def play_one_episode(self, render=False, frame_history=4, fixed_spawn=None):
 
