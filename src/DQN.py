@@ -176,6 +176,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '--seed',
         help="Random seed for both training and evaluating. If none is provided, no seed will be set", type=int)
+    parser.add_argument(
+        '--fixed_spawn', nargs='*',  type=float,
+        help='Starting position of the agents during rollout. Randomised if not specified.',)
     args = parser.parse_args()
 
     agents = len(args.landmarks)
@@ -228,7 +231,7 @@ if __name__ == '__main__':
                                  logger=logger)
         evaluator = Evaluator(environment, model, logger, agents,
                               args.steps_per_episode)
-        evaluator.play_n_episodes()
+        evaluator.play_n_episodes(fixed_spawn=args.fixed_spawn)
     else:  # train model
         environment = get_player(task='train',
                                  files_list=args.files,

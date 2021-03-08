@@ -11,11 +11,22 @@ class Evaluator(object):
         self.agents = agents
         self.max_steps = max_steps
 
-    def play_n_episodes(self, render=False, ):
+    def play_n_episodes(self, render=False, fixed_spawn=None):
         """
         wraps play_one_episode, playing a single episode at a time and logs
         results used when playing demos.
         """
+        if fixed_spawn is None:
+            num_runs = 1 
+        else:
+            # fixed_spawn should be, for example, [0.5 , 0.5 , 0.5, 0, 0, 0] for 2 runs
+            # In the first run agents spawn in the middle and in the second they will spawn from the corner
+            fixed_spawn = np.array(fixed_spawn).reshape((-1, 3)) # 3 dimensions
+            num_runs = fixed_spawn.shape[0]
+            # Set all the agents to the same spawn point
+            fixed_spawn = np.stack([fixed_spawn for _ in range(self.agents)], axis=-1)
+
+        num_files = self.env.files.num_files
         self.model.train(False)
         headers = ["number"] + list(chain.from_iterable(zip(
             [f"Filename {i}" for i in range(self.agents)],
@@ -28,21 +39,22 @@ class Evaluator(object):
             [f"Distance {i}" for i in range(self.agents)])))
         self.logger.write_locations(headers)
         distances = []
-        fixed_spawn = [[0.5 for _ in range(self.agents)] for _ in range(3)] # 3 dimensions
-        for k in range(self.env.files.num_files):
-            score, start_dists, q_values, info = self.play_one_episode(render, fixed_spawn=fixed_spawn)
-            row = [k + 1] + list(chain.from_iterable(zip(
-                [info[f"filename_{i}"] for i in range(self.agents)],
-                [info[f"agent_xpos_{i}"] for i in range(self.agents)],
-                [info[f"agent_ypos_{i}"] for i in range(self.agents)],
-                [info[f"agent_zpos_{i}"] for i in range(self.agents)],
-                [info[f"landmark_xpos_{i}"] for i in range(self.agents)],
-                [info[f"landmark_ypos_{i}"] for i in range(self.agents)],
-                [info[f"landmark_zpos_{i}"] for i in range(self.agents)],
-                [info[f"distError_{i}"] for i in range(self.agents)])))
-            distances.append([info[f"distError_{i}"]
-                              for i in range(self.agents)])
-            self.logger.write_locations(row)
+        for j in range(num_runs):
+            for k in range(num_files):
+                score, start_dists, q_values, info = self.play_one_episode(render, fixed_spawn=fixed_spawn[j])
+                row = [j * num_files + k + 1] + list(chain.from_iterable(zip(
+                    [info[f"filename_{i}"] for i in range(self.agents)],
+                    [info[f"agent_xpos_{i}"] for i in range(self.agents)],
+                    [info[f"agent_ypos_{i}"] for i in range(self.agents)],
+                    [info[f"agent_zpos_{i}"] for i in range(self.agents)],
+                    [info[f"landmark_xpos_{i}"] for i in range(self.agents)],
+                    [info[f"landmark_ypos_{i}"] for i in range(self.agents)],
+                    [info[f"landmark_zpos_{i}"] for i in range(self.agents)],
+                    [info[f"distError_{i}"] for i in range(self.agents)])))
+                distances.append([info[f"distError_{i}"]
+                                for i in range(self.agents)])
+                self.logger.write_locations(row)
+        print("distances", distances)
         self.logger.log(f"mean distances {np.mean(distances, 0)}")
         self.logger.log(f"Std distances {np.std(distances, 0, ddof=1)}")
 
