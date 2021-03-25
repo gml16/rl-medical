@@ -28,7 +28,10 @@ class Trainer(object):
                  train_freq=1,
                  team_reward=False,
                  attention=False,
-                 ):
+                 lr=1e-3,
+                 scheduler_gamma=0.5,
+                 scheduler_step_size=100
+                ):
         self.env = env
         self.eval_env = eval_env
         self.agents = env.agents
@@ -58,7 +61,10 @@ class Trainer(object):
             logger=logger,
             type=model_name,
             collective_rewards=team_reward,
-            attention=attention)
+            attention=attention,
+            lr=lr,
+            scheduler_gamma=scheduler_gamma,
+            scheduler_step_size=scheduler_step_size)
         self.dqn.q_network.train(True)
         self.evaluator = Evaluator(eval_env,
                                    self.dqn.q_network,
@@ -162,7 +168,8 @@ class Trainer(object):
                            name="train", episode=0):
         epoch_dists = np.array(epoch_dists)
         if name == "train":
-            self.logger.write_to_board(name, {"eps": eps}, episode)
+            lr = self.dqn.scheduler.state_dict()["_last_lr"]
+            self.logger.write_to_board(name, {"eps": eps, "lr": lr}, episode)
             if len(losses) > 0:
                 loss_dict = {"loss": sum(losses) / len(losses)}
                 self.logger.write_to_board(name, loss_dict, episode)

@@ -33,13 +33,6 @@ IMAGE_SIZE = (45, 45, 45)
 # how many frames to keep
 # in other words, how many observations the network can see
 FRAME_HISTORY = 4
-# DISCOUNT FACTOR - NATURE (0.99) - MEDICAL (0.9)
-GAMMA = 0.9  # 0.99
-# num training epochs in between model evaluations
-EPOCHS_PER_EVAL = 2
-# the number of episodes to run during evaluation
-EVAL_EPISODE = 50
-
 ###############################################################################
 
 
@@ -132,6 +125,22 @@ if __name__ == '__main__':
         help='Number of transitions stored in exp replay before training',
         default=3e4, type=int)
     parser.add_argument(
+        '--discount',
+        help='Discount factor used in the Bellman equation',
+        default=0.9, type=float)
+    parser.add_argument(
+        '--lr',
+        help='Starting learning rate',
+        default=1e-3, type=float)
+    parser.add_argument(
+        '--scheduler_gamma',
+        help='Multiply the learning rate by this value every scheduler_step_size epochs',
+        default=0.5, type=float)
+    parser.add_argument(
+        '--scheduler_step_size',
+        help='Every scheduler_step_size epochs, the learning rate is multiplied by scheduler_gamma',
+        default=100, type=int)
+    parser.add_argument(
         '--max_episodes', help='"Number of episodes to train for"',
         default=1e5, type=int)
     parser.add_argument(
@@ -207,7 +216,7 @@ if __name__ == '__main__':
 
     if args.task != 'train':
         dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
-                  type=args.model_name, collective_rewards=args.team_reward)
+                  type=args.model_name, collective_rewards=args.team_reward, attention=args.attention)
         model = dqn.q_network
         model.load_state_dict(torch.load(args.load, map_location=model.device))
         environment = get_player(files_list=args.files,
@@ -247,7 +256,7 @@ if __name__ == '__main__':
                           update_frequency=args.target_update_freq,
                           replay_buffer_size=args.memory_size,
                           init_memory_size=init_memory_size,
-                          gamma=GAMMA,
+                          gamma=args.discount,
                           steps_per_episode=args.steps_per_episode,
                           max_episodes=args.max_episodes,
                           delta=args.delta,
@@ -255,5 +264,8 @@ if __name__ == '__main__':
                           model_name=args.model_name,
                           train_freq=args.train_freq,
                           team_reward=args.team_reward,
-                          attention=args.attention
-                          ).train()
+                          attention=args.attention,
+                          lr=args.lr,
+                          scheduler_gamma=args.scheduler_gamma,
+                          scheduler_step_size=args.scheduler_step_size
+                         ).train()
