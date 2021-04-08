@@ -32,7 +32,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 IMAGE_SIZE = (45, 45, 45)
 # how many frames to keep
 # in other words, how many observations the network can see
-FRAME_HISTORY = 4
+FRAME_HISTORY = 1
 # DISCOUNT FACTOR - NATURE (0.99) - MEDICAL (0.9)
 GAMMA = 0.9  # 0.99
 # num training epochs in between model evaluations
@@ -162,7 +162,7 @@ if __name__ == '__main__':
         action='store_true')
     parser.set_defaults(write=False)
     parser.add_argument(
-        '--team_reward', help='Refers to adding the (potentially weighted) average reward of all agents to their individiual rewards', 
+        '--team_reward', help='Refers to adding the (potentially weighted) average reward of all agents to their individiual rewards',
         choices=[None, 'mean', 'attention'], default=None)
     parser.add_argument(
         '--attention', help='Use attention for communication channel in C-MARL/CommNet', dest='attention',

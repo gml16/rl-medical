@@ -112,7 +112,7 @@ class RNNetwork3D(nn.Module):
             out_channels=32,
             kernel_size=(5, 5, 5),
             padding=1,
-            groups=4).to(
+            groups=frame_history).to(
             self.device)
         self.maxpool0 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
         self.prelu0 = nn.PReLU().to(self.device)
@@ -121,7 +121,7 @@ class RNNetwork3D(nn.Module):
             out_channels=32,
             kernel_size=(5, 5, 5),
             padding=1,
-            groups=4).to(
+            groups=frame_history).to(
             self.device)
         self.maxpool1 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
         self.prelu1 = nn.PReLU().to(self.device)
@@ -130,7 +130,7 @@ class RNNetwork3D(nn.Module):
             out_channels=64,
             kernel_size=(4, 4, 4),
             padding=1,
-            groups=4).to(
+            groups=frame_history).to(
             self.device)
         self.maxpool2 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
         self.prelu2 = nn.PReLU().to(self.device)
@@ -139,14 +139,14 @@ class RNNetwork3D(nn.Module):
             out_channels=64,
             kernel_size=(3, 3, 3),
             padding=0,
-            groups=4).to(
+            groups=frame_history).to(
             self.device)
         self.prelu3 = nn.PReLU().to(self.device)
 
         self.lstm = nn.LSTM(
-                input_size = 128, 
-                hidden_size = 256, 
-                bidirectional=True, 
+                input_size = 128,
+                hidden_size = 256,
+                bidirectional=True,
                 batch_first = True).to(self.device)
 
         self.fc1 = nn.ModuleList(
@@ -310,12 +310,12 @@ class CommNet(nn.Module):
             x = x.view(-1, 512)
             input2.append(x)
         input2 = torch.stack(input2, dim=1)
-         
+
         # Communication layers
         if self.attention:
             comm = torch.cat([torch.sum((input2.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att1[i])), axis=2).unsqueeze(0)
                               for i in range(self.agents)])
-            
+
         else:
             comm = torch.mean(input2, axis=1)
             comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
@@ -418,7 +418,7 @@ class DQN:
         # Define the optimiser which is used when updating the Q-network. The
         # learning rate determines how big each gradient step is during
         # backpropagation.
-        self.optimiser = torch.optim.Adam(self.q_network.parameters(), lr=1e-3)
+        self.optimiser = torch.optim.Adam(self.q_network.parameters(), lr=4e-4)
         self.scheduler = torch.optim.lr_scheduler.StepLR(
             self.optimiser, step_size=50, gamma=0.5)
         self.collective_rewards = collective_rewards
