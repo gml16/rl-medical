@@ -119,7 +119,7 @@ if __name__ == '__main__':
         type=int, default=[1])
     parser.add_argument(
         '--model_name', help='Models implemented are: Network3d, CommNet',
-        default="CommNet", choices=['CommNet', 'Network3d'], type=str)
+        default="CommNet", choices=['CommNet', 'Network3d', 'RNNetwork3d'], type=str)
     parser.add_argument(
         '--batch_size', help='Size of each batch', default=64, type=int)
     parser.add_argument(
