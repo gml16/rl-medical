@@ -80,6 +80,7 @@ class Trainer(object):
             terminal = [False for _ in range(self.agents)]
             losses = []
             score = [0] * self.agents
+            self.start_communication()
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
                 acts, q_values = self.get_next_actions(
@@ -87,6 +88,8 @@ class Trainer(object):
                 # Step the agent once, and get the transition tuple
                 obs, reward, terminal, info = self.env.step(
                     np.copy(acts), q_values, terminal)
+                if(self.env.xscale == 1 or self.env.yscale == 1 or self.env.zscale == 1):
+                    self.stop_communication()
                 score = [sum(x) for x in zip(score, reward)]
                 self.buffer.append((obs, acts, reward, terminal))
                 if acc_steps % self.train_freq == 0:
@@ -110,6 +113,14 @@ class Trainer(object):
                 self.dqn.scheduler.step()
                 epoch_distances = []
             episode += 1
+
+    def start_communication(self):
+        self.dqn.q_network.allow_communication = True
+        self.dqn.target_network.allow_communication = True
+
+    def stop_communication(self):
+        self.dqn.q_network.allow_communication = True
+        self.dqn.target_network.allow_communication = True
 
     def init_memory(self):
         self.logger.log("Initialising memory buffer...")

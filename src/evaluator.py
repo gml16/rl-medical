@@ -65,9 +65,12 @@ class Evaluator(object):
         isOver = [False] * self.agents
         start_dists = None
         steps = 0
+        self.start_communication()
         while steps < self.max_steps and not np.all(isOver):
             acts, q_values = predict(obs_stack)
             obs_stack, r, isOver, info = self.env.step(acts, q_values, isOver)
+            if(self.env.xscale == 1 or self.env.yscale == 1 or self.env.zscale == 1):
+                self.stop_communication()
             steps += 1
             if start_dists is None:
                 start_dists = [
@@ -78,3 +81,9 @@ class Evaluator(object):
                 if not isOver[i]:
                     sum_r[i] += r[i]
         return sum_r, start_dists, q_values, info
+
+    def start_communication(self):
+        self.model.allow_communication = True
+
+    def stop_communication(self):
+        self.model.allow_communication = True
