@@ -255,7 +255,10 @@ class DQN:
             number_actions=6,
             type="Network3d",
             collective_rewards=False,
-            attention=False):
+            attention=False,
+            lr=1e-3,
+            scheduler_gamma=0.9,
+            scheduler_step_size=100):
         self.agents = agents
         self.number_actions = number_actions
         self.frame_history = frame_history
@@ -297,9 +300,9 @@ class DQN:
         # Define the optimiser which is used when updating the Q-network. The
         # learning rate determines how big each gradient step is during
         # backpropagation.
-        self.optimiser = torch.optim.Adam(self.q_network.parameters(), lr=1e-3)
+        self.optimiser = torch.optim.Adam(self.q_network.parameters(), lr=lr)
         self.scheduler = torch.optim.lr_scheduler.StepLR(
-            self.optimiser, step_size=50, gamma=0.5)
+            self.optimiser, step_size=scheduler_step_size, gamma=scheduler_gamma)
         self.collective_rewards = collective_rewards
 
     def copy_to_target_network(self):
