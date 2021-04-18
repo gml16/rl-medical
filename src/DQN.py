@@ -32,7 +32,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 IMAGE_SIZE = (45, 45, 45)
 # how many frames to keep
 # in other words, how many observations the network can see
-FRAME_HISTORY = 1
+FRAME_HISTORY = 4
 # DISCOUNT FACTOR - NATURE (0.99) - MEDICAL (0.9)
 GAMMA = 0.9  # 0.99
 # num training epochs in between model evaluations
@@ -119,7 +119,7 @@ if __name__ == '__main__':
         type=int, default=[1])
     parser.add_argument(
         '--model_name', help='Models implemented are: Network3d, CommNet',
-        default="CommNet", choices=['CommNet', 'Network3d', 'RNNetwork3d'], type=str)
+        default="CommNet", choices=['CommNet', 'CommNetWithCommunicationCutoff', 'Network3d', 'RNNetwork3d'], type=str)
     parser.add_argument(
         '--batch_size', help='Size of each batch', default=64, type=int)
     parser.add_argument(

@@ -357,7 +357,7 @@ class CommNet(nn.Module):
 class CommNetWithCommunicationCutoff(nn.Module):
 
     def __init__(self, agents, frame_history, number_actions, xavier=True, attention=False, allow_communication = True):
-        super(CommNet, self).__init__()
+        super(CommNetWithCommunicationCutoff, self).__init__()
 
         self.allow_communication = allow_communication
         self.agents = agents
@@ -469,8 +469,8 @@ class CommNetWithCommunicationCutoff(nn.Module):
                 comm = torch.mean(input2, axis=1)
                 comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
         else:
-            comm = torch.zeros(input2.shape[0], input2.shape[2])
-                    .unsqueeze(0)
+            comm = torch.zeros(input2.shape[0], input2.shape[2])\
+                    .unsqueeze(0)\
                     .repeat(self.agents, *[1]*len(comm.shape))
         input3 = []
         for i in range(self.agents):
@@ -487,8 +487,8 @@ class CommNetWithCommunicationCutoff(nn.Module):
                 comm = torch.mean(input3, axis=1)
                 comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
         else:
-            comm = torch.zeros(input3.shape[0], input3.shape[2])
-                    .unsqueeze(0)
+            comm = torch.zeros(input3.shape[0], input3.shape[2])\
+                    .unsqueeze(0)\
                     .repeat(self.agents, *[1]*len(comm.shape))
         input4 = []
         for i in range(self.agents):
@@ -505,8 +505,8 @@ class CommNetWithCommunicationCutoff(nn.Module):
                 comm = torch.mean(input4, axis=1)
                 comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
         else:
-            comm = torch.zeros(input4.shape[0], input4.shape[2])
-                    .unsqueeze(0)
+            comm = torch.zeros(input4.shape[0], input4.shape[2])\
+                    .unsqueeze(0)\
                     .repeat(self.agents, *[1]*len(comm.shape))
 
         output = []
