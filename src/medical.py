@@ -51,7 +51,7 @@ class MedicalPlayer(gym.Env):
                  file_type="brain", landmark_ids=None,
                  screen_dims=(27, 27, 27), history_length=28, multiscale=True,
                  max_num_frames=0, saveGif=False, saveVideo=False, agents=1,
-                 oscillations_allowed=4, logger=None):
+                 oscillations_allowed=4, fixed_spawn=None, logger=None):
         """
         :param train_directory: environment or game name
         :param viz: visualization
@@ -145,15 +145,16 @@ class MedicalPlayer(gym.Env):
         # prepare file sampler
         self.filepath = None
         self.sampled_files = self.files.sample_circular(landmark_ids)
+        self.fixed_spawn = fixed_spawn
         # reset buffer, terminal, counters, and init new_random_game
-        self._restart_episode()
+        self._restart_episode(fixed_spawn=self.fixed_spawn)
 
-    def reset(self):
+    def reset(self, fixed_spawn=None):
         # with _ALE_LOCK:
-        self._restart_episode()
+        self._restart_episode(fixed_spawn)
         return self._current_state()
 
-    def _restart_episode(self):
+    def _restart_episode(self, fixed_spawn=None):
         """
         restart current episode
         """
@@ -169,9 +170,9 @@ class MedicalPlayer(gym.Env):
             [(0,) * self.actions for _ in range(self._history_length)]
             for _ in range(self.agents)]
         self.current_episode_score = [[]] * self.agents
-        self.new_random_game()
+        self.new_random_game(fixed_spawn)
 
-    def new_random_game(self):
+    def new_random_game(self, fixed_spawn=None):
         """
         load image,
         set dimensions,
@@ -211,32 +212,32 @@ class MedicalPlayer(gym.Env):
         # image volume size
         self._image_dims = self._image[0].dims
 
-        #######################################################################
-        # select random starting point
-        # add padding to avoid start right on the border of the image
-        if self.task == 'train':
-            skip_thickness = ((int)(self._image_dims[0] / 5),
-                              (int)(self._image_dims[1] / 5),
-                              (int)(self._image_dims[2] / 5))
+        if fixed_spawn is None:
+            # select random starting point
+            # add padding to avoid start right on the border of the image
+            if self.task == 'train':
+                skip_thickness = ((int)(self._image_dims[0] / 5),
+                                (int)(self._image_dims[1] / 5),
+                                (int)(self._image_dims[2] / 5))
+            else:
+                skip_thickness = (int(self._image_dims[0] / 4),
+                                int(self._image_dims[1] / 4),
+                                int(self._image_dims[2] / 4))
+
+            x = np.random.randint(
+                    skip_thickness[0],
+                    self._image_dims[0] - skip_thickness[0],
+                    self.agents)
+            y = np.random.randint(
+                    skip_thickness[1],
+                    self._image_dims[1] - skip_thickness[1],
+                    self.agents)
+            z = np.random.randint(
+                    skip_thickness[2],
+                    self._image_dims[2] - skip_thickness[2],
+                    self.agents)
         else:
-            skip_thickness = (int(self._image_dims[0] / 4),
-                              int(self._image_dims[1] / 4),
-                              int(self._image_dims[2] / 4))
-
-        x = np.random.randint(
-                skip_thickness[0],
-                self._image_dims[0] - skip_thickness[0],
-                self.agents)
-        y = np.random.randint(
-                skip_thickness[1],
-                self._image_dims[1] - skip_thickness[1],
-                self.agents)
-        z = np.random.randint(
-                skip_thickness[2],
-                self._image_dims[2] - skip_thickness[2],
-                self.agents)
-
-        #######################################################################
+            x, y, z = [[int(fixed_spawn[i][j]*(self._image_dims[i]-1)) for j in range(self.agents)] for i in range(len(fixed_spawn))]
 
         self._location = [(x[i], y[i], z[i]) for i in range(self.agents)]
         self._start_location = [(x[i], y[i], z[i]) for i in range(self.agents)]
@@ -854,9 +855,9 @@ class FrameStack(gym.Wrapper):
         self.observation_space = spaces.Box(low=0, high=255, shape=new_shape,
                                             dtype=np.uint8)
 
-    def reset(self):
+    def reset(self, fixed_spawn=None):
         """Clear buffer and re-fill by duplicating the first observation."""
-        ob = self.env.reset()
+        ob = self.env.reset(fixed_spawn)
         for _ in range(self.k - 1):
             self.frames.append(np.zeros_like(ob))
         self.frames.append(ob)
