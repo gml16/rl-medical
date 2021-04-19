@@ -11,7 +11,7 @@ class Evaluator(object):
         self.agents = agents
         self.max_steps = max_steps
 
-    def play_n_episodes(self, render=False, fixed_spawn=None, silent=False):
+    def play_n_episodes(self, render=False, fixed_spawn=None, silent=False, frame_history=4):
         """
         wraps play_one_episode, playing a single episode at a time and logs
         results used when playing demos.
@@ -41,7 +41,12 @@ class Evaluator(object):
         distances = []
         for j in range(num_runs):
             for k in range(num_files):
-                score, start_dists, q_values, info = self.play_one_episode(render, fixed_spawn=fixed_spawn[j])
+                score, start_dists, q_values, info = \
+                        self.play_one_episode( \
+                            render, \
+                            fixed_spawn=fixed_spawn[j], \
+                            frame_history=frame_history \
+                            )
                 row = [j * num_files + k + 1] + list(chain.from_iterable(zip(
                     [info[f"filename_{i}"] for i in range(self.agents)],
                     [info[f"agent_xpos_{i}"] for i in range(self.agents)],

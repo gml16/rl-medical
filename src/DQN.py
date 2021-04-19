@@ -33,16 +33,6 @@ IMAGE_SIZE = (45, 45, 45)
 # how many frames to keep
 # in other words, how many observations the network can see
 FRAME_HISTORY = 4
-<<<<<<< HEAD
-# DISCOUNT FACTOR - NATURE (0.99) - MEDICAL (0.9)
-GAMMA = 0.9  # 0.99
-# num training epochs in between model evaluations
-EPOCHS_PER_EVAL = 2
-# the number of episodes to run during evaluation
-EVAL_EPISODE = 50
-
-=======
->>>>>>> 17de9c384392d1c55fb14ed8b761daa0fad2be9d
 ###############################################################################
 
 

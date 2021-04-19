@@ -7,6 +7,7 @@ __pycache__/
 
 #script to submit job
 runDQN_cardiac_5_collab.sh
+evaluateDQN_cardiac_3_collab.sh
 
 # VS code
 .vscode
