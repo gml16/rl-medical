@@ -536,7 +536,7 @@ class GraphNet_v2(nn.Module):
                 self.device) for _ in range(
                 self.agents)])
 
-        
+
         self.graph_type = graph_type
         if graph_type == "GCNConv":
             self.gcn1 = GCNConv(512, 512).to(self.device)
@@ -617,7 +617,7 @@ class GraphNet_v2(nn.Module):
             x = x.view(-1, 512)
             input2.append(x)
         input2 = torch.stack(input2, dim=1)
-        
+
         # Communication layers
         comm = self.forward_graph(self.gcn1, input2)
         comm = self.prelu_gcn1(comm).view(len(input2), self.agents, 512)
@@ -665,8 +665,7 @@ class DQN:
             attention=False,
             lr=1e-3,
             scheduler_gamma=0.9,
-            scheduler_step_size=100):
-            type="Network3d",
+            scheduler_step_size=100,
             graph_type="GCNConv"):
         self.agents = agents
         self.number_actions = number_actions
