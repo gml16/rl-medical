@@ -476,7 +476,7 @@ class GraphNet(nn.Module):
 class SemGCN(nn.Module):
 
     def __init__(self, agents, frame_history, number_actions, xavier=True):
-        super(GraphNet, self).__init__()
+        super(SemGCN, self).__init__()
 
         self.agents = agents
         self.frame_history = frame_history
