@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
-from torch_geometric.nn import GCNConv, GatedGraphConv, GATConv, GENConv, GravNetConv
-from torch_geometric.data import Data, Batch
+#from torch_geometric.nn import GCNConv, GatedGraphConv, GATConv, GENConv, GravNetConv
+#from torch_geometric.data import Data, Batch
+from sem_ch_graph_conv import SemCHGraphConv
 
 class Network3D(nn.Module):
 
@@ -348,7 +349,7 @@ class CommNet(nn.Module):
 
         return output.cpu()
 
-
+'''
 class GraphNet(nn.Module):
 
     def __init__(self, agents, frame_history, number_actions, xavier=True):
@@ -469,6 +470,133 @@ class GraphNet(nn.Module):
         comm = comm.reshape(comm.shape[0], -1) # comm is now of shape (agents, frame_history*16)
         output = self.fc_last(comm)
         return output.view(*output.shape[:-1], self.agents, self.number_actions).cpu()
+'''
+
+
+class SemGCN(nn.Module):
+
+    def __init__(self, agents, frame_history, number_actions, xavier=True):
+        super(GraphNet, self).__init__()
+
+        self.agents = agents
+        self.frame_history = frame_history
+        self.number_actions = number_actions
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
+
+        self.conv0 = nn.Conv3d(
+            in_channels=frame_history,
+            out_channels=32,
+            kernel_size=(5, 5, 5),
+            padding=1).to(
+            self.device)
+        self.maxpool0 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
+        self.prelu0 = nn.PReLU().to(self.device)
+        self.conv1 = nn.Conv3d(
+            in_channels=32,
+            out_channels=32,
+            kernel_size=(5, 5, 5),
+            padding=1).to(
+            self.device)
+        self.maxpool1 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
+        self.prelu1 = nn.PReLU().to(self.device)
+        self.conv2 = nn.Conv3d(
+            in_channels=32,
+            out_channels=64,
+            kernel_size=(4, 4, 4),
+            padding=1).to(
+            self.device)
+        self.maxpool2 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
+        self.prelu2 = nn.PReLU().to(self.device)
+        self.conv3 = nn.Conv3d(
+            in_channels=64,
+            out_channels=64,
+            kernel_size=(3, 3, 3),
+            padding=0).to(
+            self.device)
+        self.prelu3 = nn.PReLU().to(self.device)
+
+        self.fc1 = nn.ModuleList(
+            [nn.Linear(
+                in_features=512 * 2,
+                out_features=256).to(
+                self.device) for _ in range(
+                self.agents)])
+        self.prelu4 = nn.PReLU().to(self.device)
+        self.fc2 = nn.ModuleList(
+            [nn.Linear(
+                in_features=256 * 2,
+                out_features=128).to(
+                self.device) for _ in range(
+                self.agents)])
+        self.prelu5 = nn.PReLU().to(self.device)
+        self.fc3 = nn.ModuleList(
+            [nn.Linear(
+                in_features=128 * 2,
+                out_features=number_actions).to(
+                self.device) for _ in range(
+                self.agents)])
+
+        self.edge_index = []
+        for i in range(self.agents):
+            for j in range(self.agents):
+                self.edge_index.append([i, j])
+        self.edge_index = torch.tensor(self.edge_index).t().contiguous().to(self.device)
+
+        self.gcn1 = SemCHGraphConv(512, 256, self.edge_index).to(self.device)
+        self.gcn2 = SemCHGraphConv(256, 128, self.edge_index).to(self.device)
+        self.gcn3 = SemCHGraphConv(128, number_actions, self.edge_index).to(self.device)
+
+        self.fc_last = nn.Linear(
+                in_features=16*agents,
+                out_features=number_actions*agents).to(
+                self.device)
+
+        if xavier:
+            for module in self.modules():
+                if type(module) in [nn.Conv3d, nn.Linear]:
+                    torch.nn.init.xavier_uniform(module.weight)
+
+    def forward(self, input):
+        """
+        # Input is a tensor of size
+        (batch_size, agents, frame_history, *image_size)
+        # Output is a tensor of size
+        (batch_size, agents, number_actions)
+        """
+        input1 = input[0].to(self.device) / 255.0
+
+        # Shared layers
+        input2 = []
+        for i in range(self.agents):
+            x = input1[:, i]
+            x = self.conv0(x)
+            x = self.prelu0(x)
+            x = self.maxpool0(x)
+            x = self.conv1(x)
+            x = self.prelu1(x)
+            x = self.maxpool1(x)
+            x = self.conv2(x)
+            x = self.prelu2(x)
+            x = self.maxpool2(x)
+            x = self.conv3(x)
+            x = self.prelu3(x)
+            x = x.view(-1, 512)
+            input2.append(x)
+        input2 = torch.stack(input2, dim=1)
+
+        # Communication layers
+        print(input2.shape)
+        comm = self.gcn1(input2, self.edge_index)
+        print(comm.shape)
+        comm = self.prelu4(comm)
+        comm = self.gcn2(comm, self.edge_index)
+        print(comm.shape)
+        comm = self.prelu5(comm)
+        comm = comm.reshape(comm.shape[0], -1) # comm is now of shape (agents, frame_history*16)
+        print(comm.shape)
+        output = self.fc_last(comm)
+        return output.view(*output.shape[:-1], self.agents, self.number_actions).cpu()
 
 
 class GraphNet_v2(nn.Module):
@@ -558,6 +686,7 @@ class GraphNet_v2(nn.Module):
             self.gcn1 = GravNetConv(512, 512, 4, 8, 2).to(self.device)
             self.gcn2 = GravNetConv(256, 256, 4, 8, 2).to(self.device)
             self.gcn3 = GravNetConv(128, 128, 4, 8, 2).to(self.device)
+
 
         self.prelu_gcn1 = nn.PReLU().to(self.device)
         self.prelu_gcn2 = nn.PReLU().to(self.device)
@@ -709,6 +838,17 @@ class DQN:
                 frame_history,
                 number_actions,
                 attention=attention).to(
+                self.device)
+        elif type == "SemGCN":
+            self.q_network = SemGCN(
+                agents,
+                frame_history,
+                number_actions).to(
+                self.device)
+            self.target_network = SemGCN(
+                agents,
+                frame_history,
+                number_actions).to(
                 self.device)
         if collective_rewards == "attention":
             self.q_network.rew_att = nn.Parameter(torch.randn(agents, agents))
