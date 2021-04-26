@@ -34,11 +34,15 @@ class SemCHGraphConv(nn.Module):
         h1 = torch.matmul(input, self.W[1]).unsqueeze(1).transpose(1, 3)  # B * C * J * 1
 
         adj = -9e15 * torch.ones_like(self.adj).to(input.device)  # C * J * J
+        
         adj[self.m] = self.e.view(-1)
+        
         adj = F.softmax(adj, dim=2)
+        
 
         E = torch.eye(adj.size(1), dtype=torch.float).to(input.device)
         E = E.unsqueeze(0).repeat(self.out_features, 1, 1)  # C * J * J
+
         output = torch.matmul(adj * E, h0) + torch.matmul(adj * (1 - E), h1)
         output = output.transpose(1, 3).squeeze(1)
 

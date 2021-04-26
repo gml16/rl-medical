@@ -476,7 +476,7 @@ class GraphNet(nn.Module):
 class SemGCN(nn.Module):
 
     def __init__(self, agents, frame_history, number_actions, xavier=True):
-        super(GraphNet, self).__init__()
+        super(SemGCN, self).__init__()
 
         self.agents = agents
         self.frame_history = frame_history
@@ -521,15 +521,18 @@ class SemGCN(nn.Module):
         self.prelu5 = nn.PReLU().to(self.device)
         self.prelu6 = nn.PReLU().to(self.device)
 
+        '''
         self.edge_index = []
         for i in range(self.agents):
             for j in range(self.agents):
                 self.edge_index.append([i, j])
         self.edge_index = torch.tensor(self.edge_index).t().contiguous().to(self.device)
+        '''
 
-        self.gcn1 = SemCHGraphConv(512, 256, self.edge_index).to(self.device)
-        self.gcn2 = SemCHGraphConv(256, 128, self.edge_index).to(self.device)
-        self.gcn3 = SemCHGraphConv(128, number_actions, self.edge_index).to(self.device)
+        self.adj = torch.ones(3,3)
+        self.gcn1 = SemCHGraphConv(512, 256, self.adj).to(self.device)
+        self.gcn2 = SemCHGraphConv(256, 128, self.adj).to(self.device)
+        self.gcn3 = SemCHGraphConv(128, number_actions, self.adj).to(self.device)
 
         self.fc_last = nn.Linear(
                 in_features=16*agents,
@@ -570,20 +573,17 @@ class SemGCN(nn.Module):
         input2 = torch.stack(input2, dim=1)
 
         # Communication layers
-        print(input2.shape)
+
         comm = self.gcn1(input2)
-        print(comm.shape)
         comm = self.prelu4(comm)
+        
         comm = self.gcn2(comm)
-        print(comm.shape)
         comm = self.prelu5(comm)
+        
         comm = self.gcn3(comm)
-        print(comm.shape)
         comm = self.prelu6(comm)
-        comm = comm.reshape(comm.shape[0], -1) # comm is now of shape (agents, frame_history*16)
-        print(comm.shape)
-        output = self.fc_last(comm)
-        return output.view(*output.shape[:-1], self.agents, self.number_actions).cpu()
+
+        return comm.cpu()
 
 
 class GraphNet_v2(nn.Module):
