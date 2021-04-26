@@ -476,7 +476,7 @@ class GraphNet(nn.Module):
 class SemGCN(nn.Module):
 
     def __init__(self, agents, frame_history, number_actions, xavier=True):
-        super(SemGCN, self).__init__()
+        super(GraphNet, self).__init__()
 
         self.agents = agents
         self.frame_history = frame_history
@@ -516,26 +516,10 @@ class SemGCN(nn.Module):
             self.device)
         self.prelu3 = nn.PReLU().to(self.device)
 
-        self.fc1 = nn.ModuleList(
-            [nn.Linear(
-                in_features=512 * 2,
-                out_features=256).to(
-                self.device) for _ in range(
-                self.agents)])
+
         self.prelu4 = nn.PReLU().to(self.device)
-        self.fc2 = nn.ModuleList(
-            [nn.Linear(
-                in_features=256 * 2,
-                out_features=128).to(
-                self.device) for _ in range(
-                self.agents)])
         self.prelu5 = nn.PReLU().to(self.device)
-        self.fc3 = nn.ModuleList(
-            [nn.Linear(
-                in_features=128 * 2,
-                out_features=number_actions).to(
-                self.device) for _ in range(
-                self.agents)])
+        self.prelu6 = nn.PReLU().to(self.device)
 
         self.edge_index = []
         for i in range(self.agents):
@@ -587,12 +571,15 @@ class SemGCN(nn.Module):
 
         # Communication layers
         print(input2.shape)
-        comm = self.gcn1(input2, self.edge_index)
+        comm = self.gcn1(input2)
         print(comm.shape)
         comm = self.prelu4(comm)
-        comm = self.gcn2(comm, self.edge_index)
+        comm = self.gcn2(comm)
         print(comm.shape)
         comm = self.prelu5(comm)
+        comm = self.gcn3(comm)
+        print(comm.shape)
+        comm = self.prelu6(comm)
         comm = comm.reshape(comm.shape[0], -1) # comm is now of shape (agents, frame_history*16)
         print(comm.shape)
         output = self.fc_last(comm)
