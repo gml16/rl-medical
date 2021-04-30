@@ -44,6 +44,10 @@ if __name__ == "__main__":
             model_name = "CommNet"
         elif "Network3d" in name:
             model_name = "Network3d"
+        elif "SemGCN" in name:
+            model_name = "SemGCN"
+        elif "GraphNet" in name:
+            model_name = "GraphNet"
 
         if "3" in name:
             agents = 3
