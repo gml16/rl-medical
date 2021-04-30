@@ -51,7 +51,8 @@ class MedicalPlayer(gym.Env):
                  file_type="brain", landmark_ids=None,
                  screen_dims=(27, 27, 27), history_length=28, multiscale=True,
                  max_num_frames=0, saveGif=False, saveVideo=False, agents=1,
-                 oscillations_allowed=4, fixed_spawn=None, logger=None):
+                 oscillations_allowed=4, fixed_spawn=None, logger=None,
+                 adj=None, beta=2, physical_reward=False):
         """
         :param train_directory: environment or game name
         :param viz: visualization
@@ -88,6 +89,10 @@ class MedicalPlayer(gym.Env):
         self.dims = len(self.screen_dims)
         # multi-scale agent
         self.multiscale = multiscale
+        #Incrorporate phsyical reward
+        self.adj = adj
+        self.physical_reward = physical_reward
+        self.beta = beta
 
         # init env dimensions
         if self.dims == 2:
@@ -260,6 +265,13 @@ class MedicalPlayer(gym.Env):
         points1 = spacing * np.array(points1)
         points2 = spacing * np.array(points2)
         return np.linalg.norm(points1 - points2)
+
+    def calcVector(self, points1, points2, spacing=(1, 1, 1)):
+        """ calculate vector for two points in mm"""
+        spacing = np.array(spacing)
+        points1 = spacing * np.array(points1)
+        points2 = spacing * np.array(points2)
+        return points1 - points2
 
     def step(self, act, q_values, isOver):
         """The environment's step function returns exactly what we need.
@@ -605,7 +617,52 @@ class MedicalPlayer(gym.Env):
                                       self.spacing)
         next_dist = self.calcDistance(next_loc, self._target_loc[agent],
                                       self.spacing)
-        return curr_dist - next_dist
+        reward = curr_dist - next_dist
+
+        # Incorporates physical reward from paper "Enhanced detection of fetal
+        # pose in 3D MRI by Deep Reinforcement Learning"
+        if self.physical_reward:
+            neigbors = self.adj[agent].nonzero(as_tuple=True)[0]
+
+            for neigbor in neighbors:
+                a_km = self.calcVector(self._target_loc[agent],
+                                       self._target_loc[neigbor],
+                                       self.spacing)
+
+                Db_cur = _calcDb(current_loc, agent, neighbor, a_km)
+                Db_next = _calcDb(next_loc, agent, neighbor, a_km)
+                neigbor_reward = Db_cur - Db_next
+                reward += self.beta * neigbor_reward
+
+        return reward
+
+
+    def _calcDb(loc, agent, neighbor, a_km):
+
+        agent_landmark_vec =
+            self.calcVector(loc,
+            self._target_loc[agent],
+            self.spacing)
+
+        agent_neighbors_landmark_vec =
+            self.calcVector(loc,
+            self._target_loc[neighbor],
+            self.spacing)
+
+        if(agent_landmark_vec.dot(a_km) > 0):
+            Db = self.calcDistance(loc,
+                                     self._target_loc[agent],
+                                     self.spacing)
+        elif(agent_neighbors_landmark_vec.dot(a_km) < 0):
+            Db = self.calcDistance(loc,
+                                     self._target_loc[neigbor],
+                                     self.spacing)
+        else:
+            Db = np.linalg.norm(
+                np.cross(agent_neighbors_landmark_vec, a_km_)
+                )/np.linalg.norm(a_km)
+
+    return Db
 
     # TODO: return oscillate for each agent independently
     @property

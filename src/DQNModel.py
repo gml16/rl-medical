@@ -474,9 +474,10 @@ class GraphNet(nn.Module):
 
 class SemGCN(nn.Module):
 
-    def __init__(self, agents, frame_history, number_actions, xavier=True):
+    def __init__(self, agents, frame_history, number_actions, adj, xavier=True):
         super(SemGCN, self).__init__()
 
+        self.adj = adj
         self.agents = agents
         self.frame_history = frame_history
         self.number_actions = number_actions
@@ -528,7 +529,6 @@ class SemGCN(nn.Module):
         self.edge_index = torch.tensor(self.edge_index).t().contiguous().to(self.device)
         '''
 
-        self.adj = torch.ones(3,3)
         self.gcn1 = SemCHGraphConv(512, 256, self.adj).to(self.device)
         self.gcn2 = SemCHGraphConv(256, 128, self.adj).to(self.device)
         self.gcn3 = SemCHGraphConv(128, number_actions, self.adj).to(self.device)
@@ -575,10 +575,10 @@ class SemGCN(nn.Module):
 
         comm = self.gcn1(input2)
         comm = self.prelu4(comm)
-        
+
         comm = self.gcn2(comm)
         comm = self.prelu5(comm)
-        
+
         comm = self.gcn3(comm)
         comm = self.prelu6(comm)
 
@@ -781,7 +781,8 @@ class DQN:
             lr=1e-3,
             scheduler_gamma=0.9,
             scheduler_step_size=100,
-            graph_type="GCNConv"):
+            graph_type="GCNConv",
+            adj=None):
         self.agents = agents
         self.number_actions = number_actions
         self.frame_history = frame_history
@@ -829,16 +830,17 @@ class DQN:
             self.q_network = SemGCN(
                 agents,
                 frame_history,
-                number_actions).to(
-                self.device)
+                number_actions,
+                adj).to(self.device)
             self.target_network = SemGCN(
                 agents,
                 frame_history,
-                number_actions).to(
-                self.device)
+                number_actions,
+                adj).to(self.device)
         if collective_rewards == "attention":
             self.q_network.rew_att = nn.Parameter(torch.randn(agents, agents))
             self.target_network.rew_att = nn.Parameter(torch.randn(agents, agents))
+
         self.copy_to_target_network()
         # Freezes target network
         self.target_network.train(False)
@@ -892,6 +894,8 @@ class DQN:
             rewards += torch.mean(rewards, axis=1).unsqueeze(1).repeat(1, rewards.shape[1])
         elif self.collective_rewards == "attention":
             rewards = rewards + torch.matmul(rewards, nn.Softmax(dim=0)(self.q_network.rew_att))
+
+
 
         y = self.target_network.forward(next_state)
         # dim (batch_size, agents, number_actions)

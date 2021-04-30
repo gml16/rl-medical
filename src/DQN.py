@@ -38,7 +38,8 @@ FRAME_HISTORY = 4
 
 def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
                task="play", file_type="brain", saveGif=False, saveVideo=False,
-               multiscale=True, history_length=20, agents=1, logger=None):
+               multiscale=True, history_length=20, agents=1, logger=None,
+               adj=None, beta=2, physical_reward=False):
     env = MedicalPlayer(
         directory=directory,
         screen_dims=IMAGE_SIZE,
@@ -52,7 +53,10 @@ def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
         history_length=history_length,
         multiscale=multiscale,
         agents=agents,
-        logger=logger)
+        logger=logger,
+        adj=adj,
+        beta=beta,
+        physical_reward=physical_reward)
     if task != "train":
         # in training, env will be decorated by ExpReplay, and history
         # is taken care of in expreplay buffer
@@ -191,6 +195,13 @@ if __name__ == '__main__':
     parser.add_argument(
         '--fixed_spawn', nargs='*',  type=float,
         help='Starting position of the agents during rollout. Randomised if not specified.',)
+    parser.add_argument(
+        '--physical_reward', help='Incorporates physical reward', dest='physical_reward',
+        action='store_true')
+    parser.set_defaults(physical_reward=False)
+    parser.add_argument(
+        '--beta', help='Physical reward scaling',
+        default=2, type=int)
     args = parser.parse_args()
 
     agents = len(args.landmarks)
@@ -217,6 +228,10 @@ if __name__ == '__main__':
 
     logger = Logger(args.log_dir, args.write, args.save_freq, comment=args.log_comment)
 
+    adj = None
+    if args.physical_reward:
+        adj = torch.ones((agents, agents))
+
     if args.task != 'train':
         dqn = DQN(agents,
                   frame_history=FRAME_HISTORY,
@@ -224,7 +239,8 @@ if __name__ == '__main__':
                   type=args.model_name,
                   collective_rewards=args.team_reward,
                   attention=args.attention,
-                  graph_type=args.graph_type)
+                  graph_type=args.graph_type,
+                  adj=adj)
         model = dqn.q_network
         model.load_state_dict(torch.load(args.load, map_location=model.device))
         environment = get_player(files_list=args.files,
@@ -235,7 +251,10 @@ if __name__ == '__main__':
                                  task=args.task,
                                  agents=agents,
                                  viz=args.viz,
-                                 logger=logger)
+                                 logger=logger,
+                                 adj=adj,
+                                 beta=args.beta,
+                                 physical_reward=args.physical_reward)
         evaluator = Evaluator(environment, model, logger, agents,
                               args.steps_per_episode)
         evaluator.play_n_episodes(fixed_spawn=args.fixed_spawn)
@@ -247,7 +266,10 @@ if __name__ == '__main__':
                                  agents=agents,
                                  viz=args.viz,
                                  multiscale=args.multiscale,
-                                 logger=logger)
+                                 logger=logger,
+                                 adj=adj,
+                                 beta=args.beta,
+                                 physical_reward=args.physical_reward)
         eval_env = None
         if args.val_files is not None:
             eval_env = get_player(task='eval',
@@ -255,7 +277,10 @@ if __name__ == '__main__':
                                   file_type=args.file_type,
                                   landmark_ids=args.landmarks,
                                   agents=agents,
-                                  logger=logger)
+                                  logger=logger,
+                                  adj=adj,
+                                  beta=args.beta,
+                                  physical_reward=args.physical_reward)
         trainer = Trainer(environment,
                           eval_env=eval_env,
                           batch_size=args.batch_size,
