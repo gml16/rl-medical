@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-#from torch_geometric.nn import GCNConv, GatedGraphConv, GATConv, GENConv, GravNetConv
-#from torch_geometric.data import Data, Batch
+from torch_geometric.nn import GCNConv, GatedGraphConv, GATConv, GENConv, GravNetConv
+from torch_geometric.data import Data, Batch
 from sem_ch_graph_conv import SemCHGraphConv
 
 class Network3D(nn.Module):
@@ -349,7 +349,7 @@ class CommNet(nn.Module):
 
         return output.cpu()
 
-'''
+
 class GraphNet(nn.Module):
 
     def __init__(self, agents, frame_history, number_actions, xavier=True):
@@ -470,7 +470,6 @@ class GraphNet(nn.Module):
         comm = comm.reshape(comm.shape[0], -1) # comm is now of shape (agents, frame_history*16)
         output = self.fc_last(comm)
         return output.view(*output.shape[:-1], self.agents, self.number_actions).cpu()
-'''
 
 
 class SemGCN(nn.Module):

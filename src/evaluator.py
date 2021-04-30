@@ -68,6 +68,7 @@ class Evaluator(object):
             Run a full episode, mapping observation to action,
             using greedy policy.
             """
+        
             inputs = torch.tensor(inputs[0]).permute(
                 0, 4, 1, 2, 3).unsqueeze(0), torch.tensor(inputs[1]).unsqueeze(0)
             q_vals = self.model.forward(inputs).detach().squeeze(0)
@@ -76,6 +77,9 @@ class Evaluator(object):
             return greedy_steps, q_vals.data.numpy()
 
         obs_stack = self.env.reset(fixed_spawn)
+        prev_acts = torch.rand(48,3,4)
+        inputs = obs_stack, prev_acts
+
         # Here obs have shape (agent, *image_size, frame_history)
         sum_r = np.zeros((self.agents))
         isOver = [False] * self.agents
@@ -85,7 +89,8 @@ class Evaluator(object):
             acts, q_values = predict(inputs)
             obs_stack, r, isOver, info = self.env.step(acts, q_values, isOver)
             # Keeps tracks of previous actions
-            prev_acts = [a[1:] + [acts[i]] for i, a in enumerate(prev_acts)]
+            #prev_acts = [a[1:] + [acts[i]] for i, a in enumerate(prev_acts)]
+            prev_acts = torch.rand(48,3,4)
             inputs = obs_stack, prev_acts
             steps += 1
             if start_dists is None:
