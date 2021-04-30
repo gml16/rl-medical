@@ -50,6 +50,10 @@ if __name__ == "__main__":
             model_name = "CommNet"
         elif "Network3d" in name:
             model_name = "Network3d"
+        elif "SemGCN" in name:
+            model_name = "SemGCN"
+        elif "GraphNet" in name:
+            model_name = "GraphNet"
 
         if "3" in name:
             agents = 3
@@ -98,5 +102,5 @@ if __name__ == "__main__":
                                  logger=logger)
         evaluator = Evaluator(environment, model, logger,
                                 agents, 200)
-        mean, std = evaluator.play_n_episodes(fixed_spawn=fixed_spawn, silent=True, frame_history=FRAME_HISTORY)
+        mean, std = evaluator.play_n_episodes(fixed_spawn=fixed_spawn, silent=True)
         logger.log(f"{fullName}: mean {mean}, std {std}")
