@@ -618,34 +618,35 @@ class MedicalPlayer(gym.Env):
         next_dist = self.calcDistance(next_loc, self._target_loc[agent],
                                       self.spacing)
         reward = curr_dist - next_dist
+        
 
         # Incorporates physical reward from paper "Enhanced detection of fetal
         # pose in 3D MRI by Deep Reinforcement Learning"
         if self.physical_reward:
-            neigbors = self.adj[agent].nonzero(as_tuple=True)[0]
+            neighbors = self.adj[agent].nonzero(as_tuple=True)[0]
 
-            for neigbor in neighbors:
-                a_km = self.calcVector(self._target_loc[agent],
-                                       self._target_loc[neigbor],
-                                       self.spacing)
-
-                Db_cur = _calcDb(current_loc, agent, neighbor, a_km)
-                Db_next = _calcDb(next_loc, agent, neighbor, a_km)
-                neigbor_reward = Db_cur - Db_next
-                reward += self.beta * neigbor_reward
+            for neighbor in neighbors:
+                if(neighbor!=agent):
+                    a_km = self.calcVector(self._target_loc[agent],
+                                           self._target_loc[neighbor],
+                                           self.spacing)
+                    Db_cur = self._calcDb(current_loc, agent, neighbor, a_km)
+                    Db_next = self._calcDb(next_loc, agent, neighbor, a_km)
+                    neighbor_reward = Db_cur - Db_next
+                    reward += self.beta * neighbor_reward
 
         return reward
 
 
-    def _calcDb(loc, agent, neighbor, a_km):
+    def _calcDb(self, loc, agent, neighbor, a_km):
 
-        agent_landmark_vec =
-            self.calcVector(loc,
+        agent_landmark_vec = self.calcVector(
+            loc,
             self._target_loc[agent],
             self.spacing)
 
-        agent_neighbors_landmark_vec =
-            self.calcVector(loc,
+        agent_neighbors_landmark_vec = self.calcVector(
+            loc,
             self._target_loc[neighbor],
             self.spacing)
 
@@ -655,14 +656,13 @@ class MedicalPlayer(gym.Env):
                                      self.spacing)
         elif(agent_neighbors_landmark_vec.dot(a_km) < 0):
             Db = self.calcDistance(loc,
-                                     self._target_loc[neigbor],
+                                     self._target_loc[neighbor],
                                      self.spacing)
         else:
             Db = np.linalg.norm(
-                np.cross(agent_neighbors_landmark_vec, a_km_)
+                np.cross(agent_neighbors_landmark_vec, a_km)
                 )/np.linalg.norm(a_km)
-
-    return Db
+        return Db
 
     # TODO: return oscillate for each agent independently
     @property

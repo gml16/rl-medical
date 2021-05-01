@@ -31,7 +31,8 @@ class Trainer(object):
                  attention=False,
                  lr=1e-3,
                  scheduler_gamma=0.5,
-                 scheduler_step_size=100
+                 scheduler_step_size=100,
+                 adj=None
                 ):
         self.env = env
         self.eval_env = eval_env
@@ -66,7 +67,8 @@ class Trainer(object):
             lr=lr,
             scheduler_gamma=scheduler_gamma,
             scheduler_step_size=scheduler_step_size,
-            graph_type=graph_type)
+            graph_type=graph_type,
+            adj=adj)
         self.dqn.q_network.train(True)
         self.evaluator = Evaluator(eval_env,
                                    self.dqn.q_network,
