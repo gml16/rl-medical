@@ -52,7 +52,7 @@ class MedicalPlayer(gym.Env):
                  screen_dims=(27, 27, 27), history_length=28, multiscale=True,
                  max_num_frames=0, saveGif=False, saveVideo=False, agents=1,
                  oscillations_allowed=4, fixed_spawn=None, logger=None,
-                 adj=None, beta=2, physical_reward=False):
+                 adj=None, beta=2, physical_reward=False, reward_limiter=None):
         """
         :param train_directory: environment or game name
         :param viz: visualization
@@ -93,6 +93,7 @@ class MedicalPlayer(gym.Env):
         self.adj = adj
         self.physical_reward = physical_reward
         self.beta = beta
+        self.reward_limiter = reward_limiter
 
         # init env dimensions
         if self.dims == 2:
@@ -618,12 +619,21 @@ class MedicalPlayer(gym.Env):
         next_dist = self.calcDistance(next_loc, self._target_loc[agent],
                                       self.spacing)
         reward = curr_dist - next_dist
-        
 
         # Incorporates physical reward from paper "Enhanced detection of fetal
         # pose in 3D MRI by Deep Reinforcement Learning"
         if self.physical_reward:
+            self.logger.log(f"Calculating reward for agent : {agent}")
             neighbors = self.adj[agent].nonzero(as_tuple=True)[0]
+
+            if self.reward_limiter=="clipping":
+                self.logger.log(f"Reward before clipping {reward}")
+                reward = torch.clamp(reward, -1, 1)
+                self.logger.log(f"Reward after clipping {reward}")
+            elif self.reward_limiter=="scaling":
+                self.logger.log(f"Reward before scaling {reward}")
+                reward /= len(neighbors)
+                self.logger.log(f"Reward after scaling {reward}")
 
             for neighbor in neighbors:
                 if(neighbor!=agent):
@@ -633,7 +643,19 @@ class MedicalPlayer(gym.Env):
                     Db_cur = self._calcDb(current_loc, agent, neighbor, a_km)
                     Db_next = self._calcDb(next_loc, agent, neighbor, a_km)
                     neighbor_reward = Db_cur - Db_next
+
+                    if self.reward_limiter=="clipping":
+                        self.logger.log(f"Neighbor reward before clipping {neighbor_reward}")
+                        neighbor_reward = torch.clamp(neighbor_reward, -1, 1)
+                        self.logger.log(f"Neighbor reward after clipping {neighbor_reward}")
+                    elif self.reward_limiter=="scaling":
+                        self.logger.log(f"Neighbor reward before scaling {neighbor_reward}")
+                        neighbor_reward = torch.clamp(neighbor_reward, -1, 1)
+                        self.logger.log(f"Neighbor reward after scaling {neighbor_reward}")
+
                     reward += self.beta * neighbor_reward
+
+            self.logger.log(f"Agent : {agent} -> Total reward : {reward}")
 
         return reward
 

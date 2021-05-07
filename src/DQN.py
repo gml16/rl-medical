@@ -39,7 +39,7 @@ FRAME_HISTORY = 4
 def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
                task="play", file_type="brain", saveGif=False, saveVideo=False,
                multiscale=True, history_length=20, agents=1, logger=None,
-               adj=None, beta=2, physical_reward=False):
+               adj=None, beta=2, physical_reward=False, reward_limiter=None):
     env = MedicalPlayer(
         directory=directory,
         screen_dims=IMAGE_SIZE,
@@ -56,7 +56,8 @@ def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
         logger=logger,
         adj=adj,
         beta=beta,
-        physical_reward=physical_reward)
+        physical_reward=physical_reward,
+        reward_limiter=reward_limiter)
     if task != "train":
         # in training, env will be decorated by ExpReplay, and history
         # is taken care of in expreplay buffer
@@ -202,6 +203,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '--beta', help='Physical reward scaling',
         default=2, type=int)
+    parser.add_argument(
+        '--reward_limiter', help='Scale or clip the agent rewards before adding them. Only applies to physical reward',
+        choices=[None, 'clipping', 'scaling'], default=None)
     args = parser.parse_args()
 
     agents = len(args.landmarks)
@@ -254,7 +258,8 @@ if __name__ == '__main__':
                                  logger=logger,
                                  adj=adj,
                                  beta=args.beta,
-                                 physical_reward=args.physical_reward)
+                                 physical_reward=args.physical_reward,
+                                 reward_limiter=args.reward_limiter)
         evaluator = Evaluator(environment, model, logger, agents,
                               args.steps_per_episode)
         evaluator.play_n_episodes(fixed_spawn=args.fixed_spawn)
@@ -269,7 +274,8 @@ if __name__ == '__main__':
                                  logger=logger,
                                  adj=adj,
                                  beta=args.beta,
-                                 physical_reward=args.physical_reward)
+                                 physical_reward=args.physical_reward,
+                                 reward_limiter=args.reward_limiter)
         eval_env = None
         if args.val_files is not None:
             eval_env = get_player(task='eval',
@@ -280,7 +286,8 @@ if __name__ == '__main__':
                                   logger=logger,
                                   adj=adj,
                                   beta=args.beta,
-                                  physical_reward=args.physical_reward)
+                                  physical_reward=args.physical_reward,
+                                  reward_limiter=args.reward_limiter)
         trainer = Trainer(environment,
                           eval_env=eval_env,
                           batch_size=args.batch_size,

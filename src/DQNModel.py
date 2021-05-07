@@ -783,7 +783,7 @@ class DQN:
             scheduler_step_size=100,
             graph_type="GCNConv",
             adj=None):
-    
+
         self.agents = agents
         self.number_actions = number_actions
         self.frame_history = frame_history
@@ -887,16 +887,21 @@ class DQN:
         next_state = torch.tensor(transitions[3][0]), torch.tensor(transitions[3][1])
         terminal = torch.tensor(transitions[4]).type(torch.int)
 
-        rewards = torch.clamp(
-            torch.tensor(
-                transitions[2], dtype=torch.float32), -1, 1)
+        if self.collective_rewards != "physical":
+            self.logger.log("Clipped rewards!")
+            rewards = torch.clamp(
+                torch.tensor(
+                    transitions[2], dtype=torch.float32), -1, 1)
+        else:
+            self.logger.log("Rewards already clipped so didnt clip them!")
+
         # Collective rewards here refers to adding the (potentially weighted) average reward of all agents
         if self.collective_rewards == "mean":
             rewards += torch.mean(rewards, axis=1).unsqueeze(1).repeat(1, rewards.shape[1])
         elif self.collective_rewards == "attention":
             rewards = rewards + torch.matmul(rewards, nn.Softmax(dim=0)(self.q_network.rew_att))
 
-
+        self.logger.log(f"Rewards in the end : {rewards}")
 
         y = self.target_network.forward(next_state)
         # dim (batch_size, agents, number_actions)
