@@ -229,7 +229,7 @@ if __name__ == '__main__':
     logger = Logger(args.log_dir, args.write, args.save_freq, comment=args.log_comment)
 
     adj = None
-    if args.physical_reward:
+    if args.model_name == "SemGCN" or args.physical_reward:
         adj = torch.ones((agents, agents))
 
     if args.task != 'train':

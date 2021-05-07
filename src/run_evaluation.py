@@ -46,14 +46,18 @@ if __name__ == "__main__":
         # python DQN.py --task eval --load runs/Mar01_04-16-35_monal03.doc.ic.ac.ukbrain10DefaultNetwork3d/best_dqn.pt --files /vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/brain_test_files.txt /vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/brain_test_landmarks.txt --file_type brain --landmarks 13 14 0 1 2 3 4 5 6 7 --model_name Network3d --viz 0
         fullName = f.name.split("/")[-2] # e.g. Mar01_04-16-35_monal03.doc.ic.ac.ukbrain10DefaultNetwork3d
         name = fullName.split("doc.ic.ac.uk")[-1]
+        graph_type = None
         if "CommNet" in name:
             model_name = "CommNet"
         elif "Network3d" in name:
             model_name = "Network3d"
         elif "SemGCN" in name:
             model_name = "SemGCN"
-        elif "GraphNet" in name:
+        elif "GCN" in name:
             model_name = "GraphNet"
+        elif "GAT" in name:
+            model_name = "GraphNet_v2"
+            graph_type = "GATConv"
 
         if "3" in name:
             agents = 3
@@ -61,6 +65,10 @@ if __name__ == "__main__":
             agents = 5
         elif "10" in name:
             agents = 10
+        
+        adj = None
+        if "SemGCN" or "PR" in name:
+            adj = torch.ones((agents, agents))
 
         if "brain" in name:
             file_type = "brain"
@@ -80,13 +88,19 @@ if __name__ == "__main__":
         #        f"/vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/{file_type2}_test_landmarks.txt"]
         files = args.files
         
-        if "team" in name:
+        if "AR" in name:
             collective_rewards = "attention"
         else:
             collective_rewards = False
         
-        dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
-                  type=model_name, collective_rewards=collective_rewards)
+        dqn = DQN(
+            agents,
+            frame_history=FRAME_HISTORY,
+            logger=logger,
+            type=model_name,
+            collective_rewards=collective_rewards,
+            graph_type=graph_type,
+            adj=adj)
         #dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger, type=model_name)
 
         model = dqn.q_network
