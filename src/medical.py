@@ -166,6 +166,7 @@ class MedicalPlayer(gym.Env):
         self.terminal = [False] * self.agents
         self.reward = np.zeros((self.agents,))
         self.agent_reward = np.zeros((self.agents,))
+        self.neighbors_reward = np.zeros((self.agents,))
         self.cnt = 0  # counter to limit number of steps per episodes
         self.num_games+=1
         self._loc_history = [
@@ -387,12 +388,18 @@ class MedicalPlayer(gym.Env):
                     if not self.physical_reward:
                         self.reward[i] = -1
                         self.agent_reward[i] = -1
+                        self.neighbors_reward[i] = 0
                     else:
                         self.reward[i] = -1 -(self.agents-1)*self.beta
-                        self.agent_reward[i] = -1 -(self.agents-1)*self.beta
+                        self.agent_reward[i] = -1
+                        self.neighbors_reward[i] = -(self.agents-1)*self.beta
                 else:
-                    self.reward[i], self.agent_reward[i]  = self._calc_reward(
-                        current_loc[i], next_location[i], agent=i)
+                    self.reward[i],
+                    self.agent_reward[i],
+                    self.neighbors_reward[i] =
+                        self._calc_reward(current_loc[i],
+                                          next_location[i],
+                                          agent=i)
             self.append_step_board(self.task)
 
         # update screen, reward ,location, terminal
@@ -643,6 +650,8 @@ class MedicalPlayer(gym.Env):
                 reward /= len(neighbors)
                 #self.logger.log(f"Reward after scaling {reward}")
 
+            agent_reward = reward.copy()
+
             for neighbor in neighbors:
                 if(neighbor!=agent):
                     a_km = self.calcVector(self._target_loc[agent],
@@ -665,7 +674,7 @@ class MedicalPlayer(gym.Env):
 
             #self.logger.log(f"Agent : {agent} -> Total reward : {reward}")
 
-        return reward, agent_reward
+        return reward, agent_reward, reward-agent_reward
 
 
     def _calcDb(self, loc, agent, neighbor, a_km):
@@ -699,6 +708,12 @@ class MedicalPlayer(gym.Env):
         self.logger.write_to_board(f"{name}/agent_reward",
                                     agent_rewards,
                                     self.num_games * self.max_num_frames + self.cnt)
+
+        neighbors_rewards = {str(i): self.neighbors_reward[i] for i in range(self.agents)}
+        self.logger.write_to_board(f"{name}/neighbors_reward",
+                                    neighbors_rewards,
+                                    self.num_games * self.max_num_frames + self.cnt)
+
         total_rewards = {str(i): self.reward[i] for i in range(self.agents)}
         self.logger.write_to_board(f"{name}/total_reward",
                                     total_rewards,
