@@ -49,7 +49,7 @@ class MedicalPlayer(gym.Env):
     def __init__(self, directory=None, viz=False, task=False, files_list=None,
                  file_type="brain", landmark_ids=None,
                  screen_dims=(27, 27, 27), history_length=28, multiscale=True,
-                 max_num_frames=0, saveGif=False, saveVideo=False, agents=1,
+                 max_num_frames=200, saveGif=False, saveVideo=False, agents=1,
                  oscillations_allowed=4, fixed_spawn=None, logger=None,
                  adj=None, beta=2, physical_reward=False, reward_limiter=None):
         """
@@ -165,6 +165,7 @@ class MedicalPlayer(gym.Env):
         """
         self.terminal = [False] * self.agents
         self.reward = np.zeros((self.agents,))
+        self.agent_reward = np.zeros((self.agents,))
         self.cnt = 0  # counter to limit number of steps per episodes
         self.num_games+=1
         self._loc_history = [
@@ -383,10 +384,16 @@ class MedicalPlayer(gym.Env):
         if self.task != 'play':
             for i in range(self.agents):
                 if go_out[i]:
-                    self.reward[i] = -1
+                    if not self.physical_reward:
+                        self.reward[i] = -1
+                        self.agent_reward[i] = -1
+                    else:
+                        self.reward[i] = -1 -(self.agents-1)*self.beta
+                        self.agent_reward[i] = -1 -(self.agents-1)*self.beta
                 else:
-                    self.reward[i] = self._calc_reward(
+                    self.reward[i], self.agent_reward[i]  = self._calc_reward(
                         current_loc[i], next_location[i], agent=i)
+            self.append_step_board(self.task)
 
         # update screen, reward ,location, terminal
         self._location = next_location
@@ -400,6 +407,7 @@ class MedicalPlayer(gym.Env):
                     self.terminal[i] = True
                     self.num_success[i] += 1
 
+        self.cnt += 1
         """
         # terminate if maximum number of steps is reached
         self.cnt += 1
@@ -618,6 +626,7 @@ class MedicalPlayer(gym.Env):
         next_dist = self.calcDistance(next_loc, self._target_loc[agent],
                                       self.spacing)
         reward = curr_dist - next_dist
+        agent_reward = reward.copy()
 
         # Incorporates physical reward from paper "Enhanced detection of fetal
         # pose in 3D MRI by Deep Reinforcement Learning"
@@ -656,7 +665,7 @@ class MedicalPlayer(gym.Env):
 
             #self.logger.log(f"Agent : {agent} -> Total reward : {reward}")
 
-        return reward
+        return reward, agent_reward
 
 
     def _calcDb(self, loc, agent, neighbor, a_km):
@@ -684,6 +693,16 @@ class MedicalPlayer(gym.Env):
                 np.cross(agent_neighbors_landmark_vec, a_km)
                 )/np.linalg.norm(a_km)
         return Db
+
+    def append_step_board(self, name="train"):
+        agent_rewards = {str(i): self.agent_reward[i] for i in range(self.agents)}
+        self.logger.write_to_board(f"{name}/agent_reward",
+                                    agent_rewards,
+                                    self.num_games * self.max_num_frames + self.cnt)
+        total_rewards = {str(i): self.reward[i] for i in range(self.agents)}
+        self.logger.write_to_board(f"{name}/total_reward",
+                                    total_rewards,
+                                    self.num_games * self.max_num_frames + self.cnt)
 
     # TODO: return oscillate for each agent independently
     @property
