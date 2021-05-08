@@ -180,7 +180,7 @@ if __name__ == '__main__':
     parser.set_defaults(write=False)
     parser.add_argument(
         '--team_reward', help='Refers to adding the (potentially weighted) average reward of all agents to their individiual rewards',
-        choices=[None, 'mean', 'attention'], default=None)
+        choices=[None, 'mean', 'attention', 'physical'], default=None)
     parser.add_argument(
         '--attention', help='Use attention for communication channel in C-MARL/CommNet', dest='attention',
         action='store_true')

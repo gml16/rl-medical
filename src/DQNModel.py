@@ -893,6 +893,7 @@ class DQN:
                 torch.tensor(
                     transitions[2], dtype=torch.float32), -1, 1)
         else:
+            rewards = torch.tensor(transitions[2], dtype=torch.float32)
             self.logger.log("Rewards already clipped so didnt clip them!")
 
         # Collective rewards here refers to adding the (potentially weighted) average reward of all agents
@@ -901,7 +902,7 @@ class DQN:
         elif self.collective_rewards == "attention":
             rewards = rewards + torch.matmul(rewards, nn.Softmax(dim=0)(self.q_network.rew_att))
 
-        self.logger.log(f"Rewards in the end : {rewards}")
+        #self.logger.log(f"Rewards in the end : {rewards}")
 
         y = self.target_network.forward(next_state)
         # dim (batch_size, agents, number_actions)

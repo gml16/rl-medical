@@ -21,7 +21,6 @@ import os
 import warnings
 import pyglet
 
-
 def warn(*args, **kwargs):
     pass
 
@@ -623,17 +622,17 @@ class MedicalPlayer(gym.Env):
         # Incorporates physical reward from paper "Enhanced detection of fetal
         # pose in 3D MRI by Deep Reinforcement Learning"
         if self.physical_reward:
-            self.logger.log(f"Calculating reward for agent : {agent}")
+            #self.logger.log(f"Calculating reward for agent : {agent}")
             neighbors = self.adj[agent].nonzero(as_tuple=True)[0]
 
             if self.reward_limiter=="clipping":
-                self.logger.log(f"Reward before clipping {reward}")
-                reward = torch.clamp(reward, -1, 1)
-                self.logger.log(f"Reward after clipping {reward}")
+                #self.logger.log(f"Reward before clipping {reward}")
+                reward = np.clip(reward, -1, 1)
+                #self.logger.log(f"Reward after clipping {reward}")
             elif self.reward_limiter=="scaling":
-                self.logger.log(f"Reward before scaling {reward}")
+                #self.logger.log(f"Reward before scaling {reward}")
                 reward /= len(neighbors)
-                self.logger.log(f"Reward after scaling {reward}")
+                #self.logger.log(f"Reward after scaling {reward}")
 
             for neighbor in neighbors:
                 if(neighbor!=agent):
@@ -645,17 +644,17 @@ class MedicalPlayer(gym.Env):
                     neighbor_reward = Db_cur - Db_next
 
                     if self.reward_limiter=="clipping":
-                        self.logger.log(f"Neighbor reward before clipping {neighbor_reward}")
-                        neighbor_reward = torch.clamp(neighbor_reward, -1, 1)
-                        self.logger.log(f"Neighbor reward after clipping {neighbor_reward}")
+                        #self.logger.log(f"Neighbor reward before clipping {neighbor_reward}")
+                        neighbor_reward = np.clip(neighbor_reward, -1, 1)
+                        #self.logger.log(f"Neighbor reward after clipping {neighbor_reward}")
                     elif self.reward_limiter=="scaling":
-                        self.logger.log(f"Neighbor reward before scaling {neighbor_reward}")
-                        neighbor_reward = torch.clamp(neighbor_reward, -1, 1)
-                        self.logger.log(f"Neighbor reward after scaling {neighbor_reward}")
+                        #self.logger.log(f"Neighbor reward before scaling {neighbor_reward}")
+                        neighbor_reward /= len(neighbors)
+                        #self.logger.log(f"Neighbor reward after scaling {neighbor_reward}")
 
                     reward += self.beta * neighbor_reward
 
-            self.logger.log(f"Agent : {agent} -> Total reward : {reward}")
+            #self.logger.log(f"Agent : {agent} -> Total reward : {reward}")
 
         return reward
 
