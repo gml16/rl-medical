@@ -394,12 +394,11 @@ class MedicalPlayer(gym.Env):
                         self.agent_reward[i] = -1
                         self.neighbors_reward[i] = -(self.agents-1)*self.beta
                 else:
-                    self.reward[i],
-                    self.agent_reward[i],
-                    self.neighbors_reward[i] =
-                        self._calc_reward(current_loc[i],
-                                          next_location[i],
-                                          agent=i)
+                    self.reward[i], self.agent_reward[i], self.neighbors_reward[i] = self._calc_reward(
+                                                                                        current_loc[i],
+                                                                                        next_location[i],
+                                                                                        agent=i
+                                                                                        )
             self.append_step_board(self.task)
 
         # update screen, reward ,location, terminal
@@ -647,7 +646,7 @@ class MedicalPlayer(gym.Env):
                 #self.logger.log(f"Reward after clipping {reward}")
             elif self.reward_limiter=="scaling":
                 #self.logger.log(f"Reward before scaling {reward}")
-                reward /= len(neighbors)
+                reward /= (self.xscale * len(neighbors))
                 #self.logger.log(f"Reward after scaling {reward}")
 
             agent_reward = reward.copy()
@@ -667,7 +666,7 @@ class MedicalPlayer(gym.Env):
                         #self.logger.log(f"Neighbor reward after clipping {neighbor_reward}")
                     elif self.reward_limiter=="scaling":
                         #self.logger.log(f"Neighbor reward before scaling {neighbor_reward}")
-                        neighbor_reward /= len(neighbors)
+                        neighbor_reward /= (self.xscale * len(neighbors))
                         #self.logger.log(f"Neighbor reward after scaling {neighbor_reward}")
 
                     reward += self.beta * neighbor_reward

@@ -888,13 +888,13 @@ class DQN:
         terminal = torch.tensor(transitions[4]).type(torch.int)
 
         if self.collective_rewards != "physical":
-            self.logger.log("Clipped rewards!")
+            #self.logger.log("Clipped rewards!")
             rewards = torch.clamp(
                 torch.tensor(
                     transitions[2], dtype=torch.float32), -1, 1)
         else:
             rewards = torch.tensor(transitions[2], dtype=torch.float32)
-            self.logger.log("Rewards already clipped so didnt clip them!")
+            #self.logger.log("Rewards already clipped so didnt clip them!")
 
         # Collective rewards here refers to adding the (potentially weighted) average reward of all agents
         if self.collective_rewards == "mean":
