@@ -113,6 +113,8 @@ class MedicalPlayer(gym.Env):
                 self.gif_buffer = []
         # stat counter to store current score or accumlated reward
         self.current_episode_score = [[]] * self.agents
+        self.current_episode_agent_score = [[]] * self.agents
+        self.current_episode_neighbor_score = [[]] * self.agents
         # get action space and minimal action set
         self.action_space = spaces.Discrete(6)  # change number actions here
         self.actions = self.action_space.n
@@ -177,6 +179,8 @@ class MedicalPlayer(gym.Env):
             [(0,) * self.actions for _ in range(self._history_length)]
             for _ in range(self.agents)]
         self.current_episode_score = [[]] * self.agents
+        self.current_episode_agent_score = [[]] * self.agents
+        self.current_episode_neighbor_score = [[]] * self.agents
         self.new_random_game(fixed_spawn)
 
     def new_random_game(self, fixed_spawn=None):
@@ -399,7 +403,8 @@ class MedicalPlayer(gym.Env):
                                                                                         next_location[i],
                                                                                         agent=i
                                                                                         )
-            self.append_step_board(self.task)
+            #Uncomment to log reward infor for every step
+            #self.append_step_board(self.task)
 
         # update screen, reward ,location, terminal
         self._location = next_location
@@ -470,10 +475,15 @@ class MedicalPlayer(gym.Env):
         distance_error = self.cur_dist
         for i in range(self.agents):
             self.current_episode_score[i].append(self.reward[i])
+            self.current_episode_agent_score[i].append(self.agent_reward[i])
+            self.current_episode_neighbor_score[i].append(self.neighbors_reward[i])
+
 
         info = {}
         for i in range(self.agents):
             info[f"score_{i}"] = np.sum(self.current_episode_score[i])
+            info[f"agent_score_{i}"] = np.sum(self.current_episode_agent_score[i])
+            info[f"neighbor_score_{i}"] = np.sum(self.current_episode_neighbor_score[i])
             info[f"gameOver_{i}"] = self.terminal[i]
             info[f"distError_{i}"] = distance_error[i]
             info[f"filename_{i}"] = self.filename[i]

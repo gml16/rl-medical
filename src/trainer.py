@@ -168,6 +168,13 @@ class Trainer(object):
         self.logger.write_to_board(f"{name}/dist", dists, episode)
         scores = {str(i): score[i] for i in range(self.agents)}
         self.logger.write_to_board(f"{name}/score", scores, episode)
+        agent_scores = {str(i):
+                        info['agent_score_' + str(i)] for i in range(self.agents)}
+        self.logger.write_to_board(f"{name}/agent_score", agent_scores, episode)
+        neighbor_scores = {str(i):
+                        info['neighbor_score_' + str(i)] for i in range(self.agents)}
+        self.logger.write_to_board(f"{name}/neighbor_score", neighbor_scores, episode)
+
 
     def append_epoch_board(self, epoch_dists, eps=0, losses=[],
                            name="train", episode=0):
