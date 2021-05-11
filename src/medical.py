@@ -112,9 +112,9 @@ class MedicalPlayer(gym.Env):
                 self.viewer = None
                 self.gif_buffer = []
         # stat counter to store current score or accumlated reward
-        self.current_episode_score = [[]] * self.agents
-        self.current_episode_agent_score = [[]] * self.agents
-        self.current_episode_neighbor_score = [[]] * self.agents
+        self.current_episode_score = [[] for _ in range(self.agents)]
+        self.current_episode_agent_score = [[] for _ in range(self.agents)]
+        self.current_episode_neighbor_score = [[] for _ in range(self.agents)]
         # get action space and minimal action set
         self.action_space = spaces.Discrete(6)  # change number actions here
         self.actions = self.action_space.n
@@ -178,9 +178,9 @@ class MedicalPlayer(gym.Env):
         self._qvalues_history = [
             [(0,) * self.actions for _ in range(self._history_length)]
             for _ in range(self.agents)]
-        self.current_episode_score = [[]] * self.agents
-        self.current_episode_agent_score = [[]] * self.agents
-        self.current_episode_neighbor_score = [[]] * self.agents
+        self.current_episode_score = [[] for _ in range(self.agents)]
+        self.current_episode_agent_score = [[] for _ in range(self.agents)]
+        self.current_episode_neighbor_score = [[] for _ in range(self.agents)]
         self.new_random_game(fixed_spawn)
 
     def new_random_game(self, fixed_spawn=None):
@@ -403,6 +403,7 @@ class MedicalPlayer(gym.Env):
                                                                                         next_location[i],
                                                                                         agent=i
                                                                                         )
+
             #Uncomment to log reward infor for every step
             #self.append_step_board(self.task)
 
@@ -493,6 +494,7 @@ class MedicalPlayer(gym.Env):
             info[f"landmark_xpos_{i}"] = self._target_loc[i][0]
             info[f"landmark_ypos_{i}"] = self._target_loc[i][1]
             info[f"landmark_zpos_{i}"] = self._target_loc[i][2]
+
         return self._current_state(), self.reward, self.terminal, info
 
     def getBestLocation(self):

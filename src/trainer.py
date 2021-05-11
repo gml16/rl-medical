@@ -107,6 +107,7 @@ class Trainer(object):
                     break
             epoch_distances.append([info['distError_' + str(i)]
                                     for i in range(self.agents)])
+            
             self.append_episode_board(info, score, "train", episode)
             if (episode * self.epoch_length) % self.update_frequency == 0:
                 self.dqn.copy_to_target_network()
