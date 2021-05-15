@@ -1,0 +1,37 @@
+language:
+  python
+
+python: 3.7
+dist: xenial
+sudo: true
+
+install:
+  - pip install -r requirements.txt
+
+
+script:
+  - export PYTHONPATH="$PYTHONPATH:$PWD"
+  - export PYTHONPATH=""$PYTHONPATH:$PWD/agents""
+  - export PYTHONPATH=""$PYTHONPATH:$PWD/agents/DQN_agents""
+  - export PYTHONPATH=""$PYTHONPATH:$PWD/agents/hierarchical_agents""
+  - export PYTHONPATH=""$PYTHONPATH:$PWD/agents/actor_critic_agents""
+  - export PYTHONPATH=""$PYTHONPATH:$PWD/agents/policy_gradient_agents""
+  - export PYTHONPATH=""$PYTHONPATH:$PWD/utilities/data_structures""
+  - export PYTHONPATH=""$PYTHONPATH:$PWD/environments""
+  - export PYTHONPATH=""$PYTHONPATH:$PWD/utilities""
+  - export PYTHONPATH=""$PYTHONPATH:$PWD/exploration_strategies""
+  - export PYTHONPATH=""$PYTHONPATH:$PWD/utilities/*""
+  - export PYTHONPATH=""$PYTHONPATH:$PWD/*""
+  - export PYTHONPATH=""$PYTHONPATH:$PWD/results""
+  - pytest tests/*.py
+
+
+
+
+
+
+
+
+
+
+
