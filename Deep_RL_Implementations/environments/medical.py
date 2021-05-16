@@ -151,6 +151,16 @@ class MedicalPlayer(gym.Env):
         # reset buffer, terminal, counters, and init new_random_game
         #self._restart_episode(fixed_spawn=self.fixed_spawn)
 
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if(k != 'sampled_files'):
+                print("Attribute : " + k)
+                setattr(result, k, deepcopy(v, memo))
+        return result
+
     def reset(self, fixed_spawn=None):
         # with _ALE_LOCK:
         self._restart_episode(fixed_spawn)
