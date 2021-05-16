@@ -68,6 +68,7 @@ class MedicalPlayer(gym.Env):
         super(MedicalPlayer, self).__init__()
         self.agents = agents
         self.oscillations_allowed = oscillations_allowed
+        #TODO problem with copy.deepcopy
         self.logger = logger
         # inits stat counters
         self.reset_stat()
@@ -144,10 +145,11 @@ class MedicalPlayer(gym.Env):
 
         # prepare file sampler
         self.filepath = None
+        #TODO has problem with copy.deepcopy because of yield at the end
         self.sampled_files = self.files.sample_circular(landmark_ids)
         self.fixed_spawn = fixed_spawn
         # reset buffer, terminal, counters, and init new_random_game
-        self._restart_episode(fixed_spawn=self.fixed_spawn)
+        #self._restart_episode(fixed_spawn=self.fixed_spawn)
 
     def reset(self, fixed_spawn=None):
         # with _ALE_LOCK:

@@ -4,6 +4,31 @@ from agents.Trainer import Trainer
 from utilities.data_structures.Config import Config
 from logger import Logger
 
+import argparse
+
+parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+
+#parser.add_argument('--load', help='Path to the model to load')
+#parser.add_argument(
+#    '--task',
+#    help='''task to perform,
+#            must load a pretrained model if task is "play" or "eval"''',
+#    choices=['play', 'eval', 'train'], default='train')
+#parser.add_argument(
+#    '--file_type', help='Type of the training and validation files',
+#    choices=['brain', 'cardiac', 'fetal'], default='train')
+
+parser.add_argument(
+    '--files', type=argparse.FileType('r'), nargs='+',
+    help="""Filepath to the text file that contains list of images.
+            Each line of this file is a full path to an image scan.
+            For (task == train or eval) there should be two input files
+            ['images', 'landmarks']""")
+
+args = parser.parse_args()
+
 config = Config()
 config.seed = 1
 IMAGE_SIZE = (45, 45, 45)
@@ -19,13 +44,12 @@ viz = False
 saveGif = False
 saveVideo = False
 task = 'train'
-files_list = ['/vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/cardiac_train_files.txt',
-                '/vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/cardiac_train_landmarks.txt']
+files_list = args.files
 file_type = 'cardiac'
 landmark_ids = [4]
 history_length = 20
 multiscale = True
-agents = 1
+agents = len(landmark_ids)
 
 log_dir = 'runs'
 write = True
@@ -46,7 +70,7 @@ config.environment = MedicalPlayer(
     history_length=history_length,
     multiscale=multiscale,
     agents=agents,
-    logger=logger)
+    logger=None)
 
 config.num_episodes_to_run = 1000
 config.file_to_save_data_results = "Data_and_Graphs/medical.pkl"
