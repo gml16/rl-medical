@@ -14,6 +14,7 @@ from PIL import Image
 import cv2
 import copy
 from collections import (Counter, defaultdict, deque, namedtuple)
+from copy import deepcopy
 import numpy as np
 import threading
 import six
@@ -89,6 +90,8 @@ class MedicalPlayer(gym.Env):
         self.dims = len(self.screen_dims)
         # multi-scale agent
         self.multiscale = multiscale
+        # landmark_ids
+        self.landmarks = landmark_ids
 
         # init env dimensions
         if self.dims == 2:
@@ -149,7 +152,11 @@ class MedicalPlayer(gym.Env):
         self.sampled_files = self.files.sample_circular(landmark_ids)
         self.fixed_spawn = fixed_spawn
         # reset buffer, terminal, counters, and init new_random_game
-        #self._restart_episode(fixed_spawn=self.fixed_spawn)
+        self._restart_episode(fixed_spawn=self.fixed_spawn)
+        #Title
+        self.id = "Medical"
+        self.trials = 100
+        self.reward_threshold = float("inf")
 
     def __deepcopy__(self, memo):
         cls = self.__class__
@@ -157,7 +164,6 @@ class MedicalPlayer(gym.Env):
         memo[id(self)] = result
         for k, v in self.__dict__.items():
             if(k != 'sampled_files'):
-                print("Attribute : " + k)
                 setattr(result, k, deepcopy(v, memo))
         return result
 

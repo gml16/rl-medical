@@ -165,8 +165,8 @@ config.hyperparameters = {
         "discount_rate": 0.99,
         "epsilon_decay_rate_denominator": 50.0,
         "normalise_rewards": True,
-        "clip_rewards": False
-
+        "clip_rewards": False,
+        "exploration_worker_difference": 2.0
     },
 
 

@@ -35,7 +35,11 @@ class A3C(Base_Agent):
         optimizer_worker.start()
 
         for process_num in range(self.worker_processes):
-            worker = Actor_Critic_Worker(process_num, copy.deepcopy(self.environment), self.actor_critic, episode_number, self.optimizer_lock,
+
+            environment_copy = copy.deepcopy(self.environment)
+            environment_copy.sampled_files = environment_copy.files.sample_circular(environment_copy.landmarks)
+
+            worker = Actor_Critic_Worker(process_num, environment_copy, self.actor_critic, episode_number, self.optimizer_lock,
                                     self.actor_critic_optimizer, self.config, episodes_per_process,
                                     self.hyperparameters["epsilon_decay_rate_denominator"],
                                     self.action_size, self.action_types,

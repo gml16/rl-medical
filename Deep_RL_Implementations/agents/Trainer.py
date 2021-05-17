@@ -100,6 +100,10 @@ class Trainer(object):
         agent_round = 1
         for run in range(self.config.runs_per_agent):
             agent_config = copy.deepcopy(self.config)
+            agent_config.environment.sampled_files = agent_config \
+                .environment \
+                .files \
+                .sample_circular(agent_config.environment.landmarks)
 
             if self.environment_has_changeable_goals(agent_config.environment) and self.agent_cant_handle_changeable_goals_without_flattening(agent_name):
                 print("Flattening changeable-goal environment for agent {}".format(agent_name))

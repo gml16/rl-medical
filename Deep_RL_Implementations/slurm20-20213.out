@@ -1,0 +1,148 @@
+Sun May 16 16:13:24 2021       
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 460.73.01    Driver Version: 460.73.01    CUDA Version: 11.2     |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|                               |                      |               MIG M. |
+|===============================+======================+======================|
+|   0  Tesla T4            On   | 00000000:00:08.0 Off |                    0 |
+| N/A   41C    P8     9W /  70W |      0MiB / 15109MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+                                                                               
++-----------------------------------------------------------------------------+
+| Processes:                                                                  |
+|  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
+|        ID   ID                                                   Usage      |
+|=============================================================================|
+|  No running processes found                                                 |
++-----------------------------------------------------------------------------+
+Python 3.8.5
+ 16:13:24 up 10 days,  9:52,  2 users,  load average: 1,16, 1,68, 2,94
+2021-05-16 16:13:29.042075: W tensorflow/stream_executor/platform/default/dso_loader.cc:60] Could not load dynamic library 'libcudart.so.11.0'; dlerror: libcudart.so.11.0: cannot open shared object file: No such file or directory; LD_LIBRARY_PATH: /vol/cuda/10.2.89-cudnn7.6.4.38/lib64:/vol/cuda/10.2.89-cudnn7.6.4.38/lib:/vol/cuda/10.2.89-cudnn7.6.4.38/x86_64-linux-gnu
+2021-05-16 16:13:29.042427: I tensorflow/stream_executor/cuda/cudart_stub.cc:29] Ignore above cudart dlerror if you do not have a GPU set up on your machine.
+Logs from runs/May16_16-13-28_cloud-vm-41-149.doc.ic.ac.ukcardiacA3C
+medical.py --files /vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/cardiac_train_files.txt /vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/cardiac_train_landmarks.txt
+
+Attribute : agents
+Attribute : oscillations_allowed
+Attribute : logger
+Attribute : stats
+Attribute : num_games
+Attribute : num_success
+Attribute : cnt
+Attribute : max_num_frames
+Attribute : info
+Attribute : saveGif
+Attribute : saveVideo
+Attribute : task
+Attribute : screen_dims
+Attribute : dims
+Attribute : multiscale
+Attribute : landmarks
+Attribute : width
+Attribute : height
+Attribute : depth
+Attribute : viz
+Attribute : current_episode_score
+Attribute : action_space
+Attribute : actions
+Attribute : observation_space
+Attribute : _history_length
+Attribute : _loc_history
+Attribute : _qvalues_history
+Attribute : rectangle
+Attribute : files
+Attribute : filepath
+Attribute : fixed_spawn
+Attribute : terminal
+Attribute : reward
+Attribute : viewer
+Attribute : _image
+Attribute : _target_loc
+Attribute : spacing
+Attribute : filename
+Attribute : action_step
+Attribute : xscale
+Attribute : yscale
+Attribute : zscale
+Attribute : _image_dims
+Attribute : _location
+Attribute : _start_location
+Attribute : _qvalues
+Attribute : _screen
+Attribute : cur_dist
+Attribute : id
+Attribute : trials
+Attribute : reward_threshold
+AGENT NAME: A3C
+[1m1.1: A3C[0m
+TITLE  Medical
+layer info  [20, 10, [6, 1]]
+layer info  [20, 10, [6, 1]]
+{'learning_rate': 0.005, 'linear_hidden_units': [20, 10], 'columns_of_data_to_be_embedded': [0], 'final_layer_activation': ['SOFTMAX', None], 'gradient_clipping_norm': 5.0, 'discount_rate': 0.99, 'epsilon_decay_rate_denominator': 50.0, 'normalise_rewards': True, 'clip_rewards': False, 'output_activation': None, 'hidden_activations': 'relu', 'dropout': 0.0, 'initialiser': 'default', 'batch_norm': False, 'embedding_dimensions': [], 'y_range': ()}
+RANDOM SEED  2741609030
+Attribute : agents
+Attribute : oscillations_allowed
+Attribute : logger
+Attribute : stats
+Attribute : num_games
+Attribute : num_success
+Attribute : cnt
+Attribute : max_num_frames
+Attribute : info
+Attribute : saveGif
+Attribute : saveVideo
+Attribute : task
+Attribute : screen_dims
+Attribute : dims
+Attribute : multiscale
+Attribute : landmarks
+Attribute : width
+Attribute : height
+Attribute : depth
+Attribute : viz
+Attribute : current_episode_score
+Attribute : action_space
+Attribute : actions
+Attribute : observation_space
+Attribute : _history_length
+Attribute : _loc_history
+Attribute : _qvalues_history
+Attribute : rectangle
+Attribute : files
+Attribute : filepath
+Attribute : fixed_spawn
+Attribute : terminal
+Attribute : reward
+Attribute : viewer
+Attribute : _image
+Attribute : _target_loc
+Attribute : spacing
+Attribute : filename
+Attribute : action_step
+Attribute : xscale
+Attribute : yscale
+Attribute : zscale
+Attribute : _image_dims
+Attribute : _location
+Attribute : _start_location
+Attribute : _qvalues
+Attribute : _screen
+Attribute : cur_dist
+Attribute : id
+Attribute : trials
+Attribute : reward_threshold
+Traceback (most recent call last):
+  File "medical.py", line 216, in <module>
+    trainer.run_games_for_agents()
+  File "/vol/bitbucket/nb420/rl-medical/Deep_RL_Implementations/agents/Trainer.py", line 79, in run_games_for_agents
+    self.run_games_for_agent(agent_number + 1, agent_class)
+  File "/vol/bitbucket/nb420/rl-medical/Deep_RL_Implementations/agents/Trainer.py", line 121, in run_games_for_agent
+    game_scores, rolling_scores, time_taken = agent.run_n_episodes()
+  File "/vol/bitbucket/nb420/rl-medical/Deep_RL_Implementations/agents/actor_critic_agents/A3C.py", line 38, in run_n_episodes
+    worker = Actor_Critic_Worker(process_num, copy.deepcopy(self.environment), self.actor_critic, episode_number, self.optimizer_lock,
+  File "/vol/bitbucket/nb420/rl-medical/Deep_RL_Implementations/agents/actor_critic_agents/A3C.py", line 98, in __init__
+    self.exploration_worker_difference = self.config.hyperparameters["exploration_worker_difference"]
+KeyError: 'exploration_worker_difference'
