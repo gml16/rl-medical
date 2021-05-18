@@ -89,6 +89,8 @@ class MedicalPlayer(gym.Env):
         # multi-scale agent
         self.multiscale = multiscale
 
+        self.landmarks = landmark_ids
+
         # init env dimensions
         if self.dims == 2:
             self.width, self.height = screen_dims
@@ -148,6 +150,15 @@ class MedicalPlayer(gym.Env):
         self.fixed_spawn = fixed_spawn
         # reset buffer, terminal, counters, and init new_random_game
         self._restart_episode(fixed_spawn=self.fixed_spawn)
+
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if(k != 'sampled_files'):
+                setattr(result, k, deepcopy(v, memo))
+        return result
 
     def reset(self, fixed_spawn=None):
         # with _ALE_LOCK:
@@ -261,7 +272,7 @@ class MedicalPlayer(gym.Env):
         points2 = spacing * np.array(points2)
         return np.linalg.norm(points1 - points2)
 
-    def step(self, act, q_values, isOver):
+    def step(self, act, isOver):
         """The environment's step function returns exactly what we need.
         Args:
           act:
@@ -287,7 +298,6 @@ class MedicalPlayer(gym.Env):
             official evaluations of your agent are not allowed to use this for
             learning.
         """
-        self._qvalues = q_values
         current_loc = self._location
         next_location = copy.deepcopy(current_loc)
 
@@ -863,12 +873,12 @@ class FrameStack(gym.Wrapper):
         self.frames.append(ob)
         return self._observation()
 
-    def step(self, acts, q_values, isOver):
+    def step(self, acts, isOver):
         for i in range(self.agents):
             if isOver[i]:
                 acts[i] = 15
         current_st, reward, terminal, info = self.env.step(
-            acts, q_values, isOver)
+            acts, isOver)
         current_st = tuple(current_st)
         self.frames.append(current_st)
         return self._observation(), reward, terminal, info

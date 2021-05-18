@@ -6,8 +6,8 @@
 import warnings
 from evaluator import Evaluator
 from logger import Logger
-from trainer import Trainer
-from DQNModel import DQN
+from actorCriticTrainer import Trainer
+from ActorCriticModel import A3C
 from medical import MedicalPlayer, FrameStack
 import argparse
 import os
@@ -121,10 +121,6 @@ if __name__ == '__main__':
                 If too much is allocated training may abruptly stop.""",
         default=1e5, type=int)
     parser.add_argument(
-        '--init_memory_size',
-        help='Number of transitions stored in exp replay before training',
-        default=3e4, type=int)
-    parser.add_argument(
         '--discount',
         help='Discount factor used in the Bellman equation',
         default=0.9, type=float)
@@ -188,16 +184,30 @@ if __name__ == '__main__':
     parser.add_argument(
         '--fixed_spawn', nargs='*',  type=float,
         help='Starting position of the agents during rollout. Randomised if not specified.',)
-
+    parser.add_argument(
+        '--no-shared', default=False,
+        help='use an optimizer without shared momentum for A3C.')
+    parser.add_argument(
+        '--num-processes', type=int, default=4,
+        help='how many training processes to use for A3C (default: 4)')
+    parser.add_argument(
+        '--gae-lamda', type=float, default=1.00,
+        help='lamda parameter for GAE (default: 1.00)')
+    parser.add_argument(
+        '--entropy-coef', type=float, default=0.01,
+        help='entropy term coefficient (default: 0.01)')
+    parser.add_argument(
+        '--value-loss-coef', type=float, default=0.5,
+        help='value loss coefficient (default: 0.5)')
+    parser.add_argument(
+        '--max-grad-norm', type=float, default=50,
+        help='value loss coefficient (default: 50)')
     args = parser.parse_args()
 
     agents = len(args.landmarks)
 
     # check valid number of agents:
     assert agents > 0
-
-    # initial memory size must be less or equal than memory size
-    init_memory_size = min(args.init_memory_size, args.memory_size)
 
     # check input files
     if args.task == 'play':
@@ -216,9 +226,9 @@ if __name__ == '__main__':
     logger = Logger(args.log_dir, args.write, args.save_freq, comment=args.log_comment)
 
     if args.task != 'train':
-        dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
-                  type=args.model_name, collective_rewards=args.team_reward, attention=args.attention)
-        model = dqn.q_network
+        # dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
+        #           type=args.model_name, collective_rewards=args.team_reward, attention=args.attention)
+        model = A3C(FRAME_HISTORY, 6)
         model.load_state_dict(torch.load(args.load, map_location=model.device))
         environment = get_player(files_list=args.files,
                                  file_type=args.file_type,
@@ -240,7 +250,7 @@ if __name__ == '__main__':
                                  agents=agents,
                                  viz=args.viz,
                                  multiscale=args.multiscale,
-                                 logger=logger)
+                                 logger=None)
         eval_env = None
         if args.val_files is not None:
             eval_env = get_player(task='eval',
@@ -248,15 +258,12 @@ if __name__ == '__main__':
                                   file_type=args.file_type,
                                   landmark_ids=args.landmarks,
                                   agents=agents,
-                                  logger=logger)
+                                  logger=None)
         trainer = Trainer(environment,
                           eval_env=eval_env,
                           batch_size=args.batch_size,
                           image_size=IMAGE_SIZE,
                           frame_history=FRAME_HISTORY,
-                          update_frequency=args.target_update_freq,
-                          replay_buffer_size=args.memory_size,
-                          init_memory_size=init_memory_size,
                           gamma=args.discount,
                           steps_per_episode=args.steps_per_episode,
                           max_episodes=args.max_episodes,
@@ -264,9 +271,9 @@ if __name__ == '__main__':
                           logger=logger,
                           model_name=args.model_name,
                           train_freq=args.train_freq,
-                          team_reward=args.team_reward,
-                          attention=args.attention,
                           lr=args.lr,
-                          scheduler_gamma=args.scheduler_gamma,
-                          scheduler_step_size=args.scheduler_step_size
-                         ).train()
+                          gae_lamda=args.gae_lambda,
+                          max_grad_norm=args.max_grad_norm,
+                          value_loss_coef=args.value_loss_coef,
+                          entropy_coef=args.entropy_coef
+                         )
