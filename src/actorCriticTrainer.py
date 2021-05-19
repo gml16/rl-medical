@@ -1,10 +1,22 @@
 import torch
 import numpy as np
+from torchsummary import summary
+import torch.multiprocessing as mp
+import copy
+import sys
+
 from DQNModel import DQN
 from evaluator import Evaluator
 from tqdm import tqdm
 from ActorCriticModel import A3C
-from torchsummary import summary
+import shared_adam
+
+def set_reproducible(seed):
+    torch.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
+
 
 class Trainer(object):
     def __init__(self,
@@ -28,8 +40,10 @@ class Trainer(object):
                  gae_lamda=1.00,
                  max_grad_norm=50,
                  value_loss_coef=0.5,
-                 entropy_coef=0.01
+                 entropy_coef=0.01,
+                 seed=None
                 ):
+        self.seed = seed
         self.env = env
         self.eval_env = eval_env
         self.agents = env.agents
@@ -49,11 +63,11 @@ class Trainer(object):
         self.max_grad_norm = max_grad_norm
         self.value_loss_coef = value_loss_coef
         self.entropy_coef = entropy_coef
+        
+        #has a weirde effect
+        #mp.set_start_method('spawn')
 
-        print("ActorCritic")
-        print(f"Environment observation space: {self.env.observation_space.shape}")
-        shared_model = A3C(
-            self.env.observation_space.shape[0], self.env.action_space)
+        shared_model = A3C(self.frame_history, self.env.action_space)
         shared_model.share_memory()
 
         if no_shared:
@@ -61,18 +75,19 @@ class Trainer(object):
         else:
             optimizer = shared_adam.SharedAdam(shared_model.parameters(), lr=self.lr)
             optimizer.share_memory()
-
+        
         processes = []
 
         counter = mp.Value('i', 0)
+    
         lock = mp.Lock()
-
+        
         # p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter))
         # p.start()
         # processes.append(p)
 
         for rank in range(0, num_processes):
-            p = mp.Process(target=train, args=(rank, args, shared_model, counter, lock, optimizer))
+            p = mp.Process(target=self.train, args=(rank, shared_model, counter, lock, optimizer))
             p.start()
             processes.append(p)
         for p in processes:
@@ -93,28 +108,38 @@ class Trainer(object):
                 return
             shared_param._grad = param.grad
 
-    def train(self, rank, args, shared_model, counter, lock, optimizer=None):
+    def train(self, rank, shared_model, counter, lock, optimizer=None):
+        #if(self.seed):
+        #    set_reproducible(self.seed+rank)
         #self.logger.log(self.dqn.q_network)
         #self.init_memory()
-        model = A3C(self.env.observation_space.shape[0], self.env.action_space)
-
+        
+        #shared_model = A3C(self.frame_history, self.env.action_space)
+        model = A3C(self.frame_history, self.env.action_space)
+        
         env= copy.deepcopy(self.env)
         env.sampled_files = env.files.sample_circular(env.landmarks)
-
+        
         episode = 1
         acc_steps = 0
         epoch_distances = []
         if optimizer is None:
             optimizer = optim.Adam(shared_model.parameters(), lr=self.lr)
-
+    
         model.train()
-
         while episode <= self.max_episodes:
             # Reset the environment for the start of the episode.
-            obs = self.env.reset()
+            print("5")
+            sys.stdout.flush()
+            obs = env.reset()
+            print("5.5")
+            sys.stdout.flush()
             terminal = [False for _ in range(self.agents)]
             losses = []
             score = [0] * self.agents
+            print("6")
+            sys.stdout.flush()
+
 
             cx = torch.zeros(1, 256)
             hx = torch.zeros(1, 256)
@@ -127,6 +152,9 @@ class Trainer(object):
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
                 print(f"Obs shape: {obs.shape}")
+
+                sys.stdout.flush()
+
                 summary(model, obs)
 
                 value, logit, (hx, cx) = model((obs.unsqueeze(0),(hx, cx)))
@@ -138,7 +166,7 @@ class Trainer(object):
                 action = prob.multinomial(num_samples=1).detach()
                 log_prob = log_prob.gather(1, action)
 
-                obs, reward, terminal, info = self.env.step(
+                obs, reward, terminal, info = env.step(
                     np.copy(action.numpy()), terminal)
 
                 score = [sum(x) for x in zip(score, reward)]
@@ -155,10 +183,10 @@ class Trainer(object):
                 if all(t for t in terminal):
                     break
 
-             R = torch.zeros(1, 1)
-             if not done:
-                 value, _, _ = model((state.unsqueeze(0), (hx, cx)))
-                 R = value.detach()
+            R = torch.zeros(1, 1)
+            if not done:
+                value, _, _ = model((state.unsqueeze(0), (hx, cx)))
+                R = value.detach()
 
             values.append(R)
 

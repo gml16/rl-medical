@@ -9,26 +9,15 @@ def normalized_columns_initializer(weights, std=1.0):
 
 
 def weights_init(m):
-    classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
-        weight_shape = list(m.weight.data.size())
-        fan_in = np.prod(weight_shape[1:4])
-        fan_out = np.prod(weight_shape[2:4]) * weight_shape[0]
-        w_bound = np.sqrt(6. / (fan_in + fan_out))
-        m.weight.data.uniform_(-w_bound, w_bound)
-        m.bias.data.fill_(0)
-    elif classname.find('Linear') != -1:
-        weight_shape = list(m.weight.data.size())
-        fan_in = weight_shape[1]
-        fan_out = weight_shape[0]
-        w_bound = np.sqrt(6. / (fan_in + fan_out))
-        m.weight.data.uniform_(-w_bound, w_bound)
-        m.bias.data.fill_(0)
-
+    if type(m) == nn.Linear or type(m)== nn.Conv3d:
+        print(type(m))
+        nn.init.xavier_uniform(m.weight)
+        m.bias.data.fill_(0.01)
 
 class A3C(torch.nn.Module):
     def __init__(self, num_inputs, action_space):
         super(A3C, self).__init__()
+        print("at the start of A3C")
         self.conv1 = nn.Conv3d(num_inputs, 32, 3, stride=2, padding=1)
         self.conv2 = nn.Conv3d(32, 32, 3, stride=2, padding=1)
         self.conv3 = nn.Conv3d(32, 32, 3, stride=2, padding=1)
@@ -52,6 +41,7 @@ class A3C(torch.nn.Module):
         self.lstm.bias_hh.data.fill_(0)
 
         self.train()
+        print("At the end of A3c")
 
     def forward(self, inputs):
         inputs, (hx, cx) = inputs

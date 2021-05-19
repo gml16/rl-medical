@@ -181,6 +181,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--seed',
         help="Random seed for both training and evaluating. If none is provided, no seed will be set", type=int)
+
     parser.add_argument(
         '--fixed_spawn', nargs='*',  type=float,
         help='Starting position of the agents during rollout. Randomised if not specified.',)
@@ -188,7 +189,7 @@ if __name__ == '__main__':
         '--no-shared', default=False,
         help='use an optimizer without shared momentum for A3C.')
     parser.add_argument(
-        '--num-processes', type=int, default=4,
+        '--num-processes', type=int, default=1,
         help='how many training processes to use for A3C (default: 4)')
     parser.add_argument(
         '--gae-lamda', type=float, default=1.00,
@@ -243,6 +244,7 @@ if __name__ == '__main__':
                               args.steps_per_episode)
         evaluator.play_n_episodes(fixed_spawn=args.fixed_spawn)
     else:  # train model
+        print("creating train env")
         environment = get_player(task='train',
                                  files_list=args.files,
                                  file_type=args.file_type,
@@ -253,6 +255,7 @@ if __name__ == '__main__':
                                  logger=None)
         eval_env = None
         if args.val_files is not None:
+            print("creating val env")
             eval_env = get_player(task='eval',
                                   files_list=args.val_files,
                                   file_type=args.file_type,
@@ -269,11 +272,11 @@ if __name__ == '__main__':
                           max_episodes=args.max_episodes,
                           delta=args.delta,
                           logger=logger,
-                          model_name=args.model_name,
                           train_freq=args.train_freq,
                           lr=args.lr,
-                          gae_lamda=args.gae_lambda,
+                          gae_lamda=args.gae_lamda,
                           max_grad_norm=args.max_grad_norm,
                           value_loss_coef=args.value_loss_coef,
-                          entropy_coef=args.entropy_coef
+                          entropy_coef=args.entropy_coef,
+                          num_processes=args.num_processes
                          )
