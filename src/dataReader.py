@@ -18,6 +18,7 @@ __all__ = [
     'filesListFetalUSLandmark',
     'NiftiImage']
 
+sitk.ProcessObject_SetGlobalDefaultThreader('PLATFORM')
 
 def getLandmarksFromTXTFile(file, split=','):
     """
