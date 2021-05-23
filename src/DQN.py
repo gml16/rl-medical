@@ -117,7 +117,7 @@ if __name__ == '__main__':
         type=int, default=[1])
     parser.add_argument(
         '--model_name', help='Models implemented are: Network3d, CommNet',
-        default="CommNet", choices=['CommNet', 'Network3d', 'Network3d_stacked', 'GraphNet', 'GraphNet_v2', 'SemGCN'], type=str)
+        default="CommNet", choices=['CommNet', 'Network3d', 'Network3d_stacked', 'GraphNet', 'GraphNet_v2', 'SemGCN', 'SemGCN_v2'], type=str)
     parser.add_argument(
         '--graph_type', help='Types of graph layers, only used for GraphNet_v2',
         default="GCNConv", type=str)
