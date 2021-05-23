@@ -163,8 +163,6 @@ class filesListCardioLandmark(object):
         """
         #maybe set this here to limit the multiprocesses inside multiprocesses
         #torch.set_num_threads(1)
-        print("Sample_1")
-        sys.stdout.flush()
         if shuffle:
             # indexes = rng.choice(x, len(x), replace=False)
             pass
@@ -172,14 +170,8 @@ class filesListCardioLandmark(object):
             indexes = np.arange(self.num_files)
 
         while True:
-            print("Sample_2")
-            sys.stdout.flush()
             for idx in indexes:
-                print("Sample_3")
-                sys.stdout.flush()
                 sitk_image, image = NiftiImage().decode(self.image_files[idx])
-                print("Sample_4")
-                sys.stdout.flush()
                 if self.returnLandmarks:
                     landmark_file = self.landmark_files[idx]
                     all_landmarks = getLandmarksFromVTKFile(landmark_file)
@@ -199,17 +191,13 @@ class filesListCardioLandmark(object):
                     # for i in range(self.agents)] # LV + MV
                 else:
                     landmarks = None
-                print("Sample_5")
-                sys.stdout.flush()
+
                 # extract filename from path, remove .nii.gz extension
                 image_filenames = [self.image_files[idx][:-7]] * self.agents
                 images = [image] * self.agents
-                print("Sample_6")
-                sys.stdout.flush()
+
                 yield (images, landmarks, image_filenames,
                        sitk_image.GetSpacing())
-                print("Sample_7")
-                sys.stdout.flush()
 ###############################################################################
 
 
@@ -315,43 +303,30 @@ class NiftiImage(object):
         if label:
             sitk_image = sitk.ReadImage(image.name, sitk.sitkInt8)
         else:
-            print("Before actually reading image")
-            sys.stdout.flush()
             sitk_image = sitk.ReadImage(image.name, sitk.sitkFloat32)
-            print("After actually reading image")
-            sys.stdout.flush()
             np_image = sitk.GetArrayFromImage(sitk_image)
             # threshold image between p10 and p98 then re-scale [0-255]
             p0 = np_image.min().astype('float')
             p10 = np.percentile(np_image, 10)
             p99 = np.percentile(np_image, 99)
             p100 = np_image.max().astype('float')
-            print("Here_1")
-            sys.stdout.flush()
-            #sitk_image = sitk.Threshold(sitk_image,
-            #                            lower=p10,
-            #                            upper=p100,
-            #                            outsideValue=p10)
-            print("1")
-            sys.stdout.flush()
-            #sitk_image = sitk.Threshold(sitk_image,
-            #                            lower=p0,
-            #                            upper=p99,
-            #                            outsideValue=p99)
-            print("2")
-            sys.stdout.flush()
+            sitk_image = sitk.Threshold(sitk_image,
+                                       lower=p10,
+                                       upper=p100,
+                                       outsideValue=p10)
+
+            sitk_image = sitk.Threshold(sitk_image,
+                                       lower=p0,
+                                       upper=p99,
+                                       outsideValue=p99)
+
             sitk_image = sitk.RescaleIntensity(sitk_image,
                                                outputMinimum=0,
                                                outputMaximum=255)
-            print("Here")
-            sys.stdout.flush()
 
         # Convert from [depth, width, height] to [width, height, depth]
         image.data = sitk.GetArrayFromImage(
             sitk_image).transpose(2, 1, 0)  # .astype('uint8')
         image.dims = np.shape(image.data)
-
-        print("At the end of datareader decode")
-        sys.stdout.flush()
 
         return sitk_image, image

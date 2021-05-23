@@ -63,7 +63,7 @@ class Trainer(object):
         self.max_grad_norm = max_grad_norm
         self.value_loss_coef = value_loss_coef
         self.entropy_coef = entropy_coef
-        
+
         #has a weirde effect
         #mp.set_start_method('spawn')
 
@@ -75,13 +75,13 @@ class Trainer(object):
         else:
             optimizer = shared_adam.SharedAdam(shared_model.parameters(), lr=self.lr)
             optimizer.share_memory()
-        
+
         processes = []
 
         counter = mp.Value('i', 0)
-    
+
         lock = mp.Lock()
-        
+
         # p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter))
         # p.start()
         # processes.append(p)
@@ -113,32 +113,27 @@ class Trainer(object):
         #    set_reproducible(self.seed+rank)
         #self.logger.log(self.dqn.q_network)
         #self.init_memory()
-        
+
         #shared_model = A3C(self.frame_history, self.env.action_space)
         model = A3C(self.frame_history, self.env.action_space)
-        
+
         env= copy.deepcopy(self.env)
         env.sampled_files = env.files.sample_circular(env.landmarks)
-        
+
         episode = 1
         acc_steps = 0
         epoch_distances = []
         if optimizer is None:
             optimizer = optim.Adam(shared_model.parameters(), lr=self.lr)
-    
+
         model.train()
         while episode <= self.max_episodes:
             # Reset the environment for the start of the episode.
-            print("5")
-            sys.stdout.flush()
             obs = env.reset()
-            print("5.5")
-            sys.stdout.flush()
             terminal = [False for _ in range(self.agents)]
             losses = []
             score = [0] * self.agents
-            print("6")
-            sys.stdout.flush()
+
 
 
             cx = torch.zeros(1, 256)
@@ -168,6 +163,10 @@ class Trainer(object):
 
                 obs, reward, terminal, info = env.step(
                     np.copy(action.numpy()), terminal)
+
+                reward = torch.clamp(
+                    torch.tensor(
+                        reward, dtype=torch.float32), -1, 1)
 
                 score = [sum(x) for x in zip(score, reward)]
                 #self.buffer.append((obs, acts, reward, terminal))

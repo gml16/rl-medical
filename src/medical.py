@@ -163,11 +163,7 @@ class MedicalPlayer(gym.Env):
 
     def reset(self, fixed_spawn=None):
         # with _ALE_LOCK:
-        print("Before reset")
-        sys.stdout.flush()
         self._restart_episode(fixed_spawn)
-        print("After reset")
-        sys.stdout.flush()
         return self._current_state()
 
     def _restart_episode(self, fixed_spawn=None):
@@ -186,8 +182,6 @@ class MedicalPlayer(gym.Env):
             [(0,) * self.actions for _ in range(self._history_length)]
             for _ in range(self.agents)]
         self.current_episode_score = [[]] * self.agents
-        print("Before new random game")
-        sys.stdout.flush()
         self.new_random_game(fixed_spawn)
 
     def new_random_game(self, fixed_spawn=None):
@@ -200,14 +194,12 @@ class MedicalPlayer(gym.Env):
         """
         self.terminal = [False] * self.agents
         self.viewer = None
-        print("Before getting a file")
-        sys.stdout.flush()
+
 
         # sample a new image
         self._image, self._target_loc, self.filepath, self.spacing = next(
             self.sampled_files)
-        print("After getting a file")
-        sys.stdout.flush()
+
         self.filename = [
             os.path.basename(
                 self.filepath[i]) for i in range(
