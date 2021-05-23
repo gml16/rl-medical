@@ -587,7 +587,7 @@ class SemGCN(nn.Module):
 class SemGCN_v2(nn.Module):
 
     def __init__(self, agents, frame_history, number_actions, adj, xavier=True):
-        super(SemGCN, self).__init__()
+        super(SemGCN_v2, self).__init__()
 
         self.adj = adj
         self.agents = agents
