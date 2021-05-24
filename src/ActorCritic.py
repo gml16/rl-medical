@@ -13,6 +13,8 @@ import argparse
 import os
 import torch
 import numpy as np
+import torch.multiprocessing as mp
+
 
 
 def warn(*args, **kwargs):
@@ -72,6 +74,11 @@ def set_reproducible(seed):
 
 
 if __name__ == '__main__':
+
+    mp.set_start_method("spawn")
+
+    os.environ["OMP_NUM_THREADS"] = "1" # make sure numpy uses only one thread for each process
+    os.environ["CUDA_VISABLE_DEVICES"] = "" # make sure not to use gpu
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -224,8 +231,8 @@ if __name__ == '__main__':
     if args.seed is not None:
         set_reproducible(args.seed)
 
-    logger = Logger(args.log_dir, args.write, args.save_freq, comment=args.log_comment)
-
+    #logger = Logger(args.log_dir, args.write, args.save_freq, comment=args.log_comment)
+    logger = None
     if args.task != 'train':
         # dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
         #           type=args.model_name, collective_rewards=args.team_reward, attention=args.attention)
@@ -245,6 +252,7 @@ if __name__ == '__main__':
         evaluator.play_n_episodes(fixed_spawn=args.fixed_spawn)
     else:  # train model
         print("creating train env")
+        
         environment = get_player(task='train',
                                  files_list=args.files,
                                  file_type=args.file_type,
@@ -253,7 +261,8 @@ if __name__ == '__main__':
                                  viz=args.viz,
                                  multiscale=args.multiscale,
                                  logger=None)
-        eval_env = None
+        environment.sampled_files = None
+        
         if args.val_files is not None:
             print("creating val env")
             eval_env = get_player(task='eval',
@@ -262,6 +271,9 @@ if __name__ == '__main__':
                                   landmark_ids=args.landmarks,
                                   agents=agents,
                                   logger=None)
+            eval_env = None
+            print("Created val env")
+
         trainer = Trainer(environment,
                           eval_env=eval_env,
                           batch_size=args.batch_size,

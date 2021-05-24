@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from torchsummary import summary
 import torch.multiprocessing as mp
+import torch.nn.functional as F
 import copy
 import sys
 
@@ -47,6 +48,7 @@ class Trainer(object):
         self.env = env
         self.eval_env = eval_env
         self.agents = env.agents
+        self.agents = 1
         self.image_size = image_size
         self.max_episodes = max_episodes
         self.steps_per_episode = steps_per_episode
@@ -57,17 +59,16 @@ class Trainer(object):
         self.gae_lambda = gae_lamda
         self.number_actions = number_actions
         self.frame_history = frame_history
-        self.epoch_length = self.env.files.num_files
+        self.epoch_length = env.files.num_files
         self.best_val_distance = float('inf')
         self.lr = lr
         self.max_grad_norm = max_grad_norm
         self.value_loss_coef = value_loss_coef
         self.entropy_coef = entropy_coef
 
-        #has a weirde effect
-        #mp.set_start_method('spawn')
-
-        shared_model = A3C(self.frame_history, self.env.action_space)
+        #TODO change to accept 4 frames
+        shared_model = A3C(1, self.env.action_space)
+        #shared_model = A3C(self.frame_history, self.env.action_space)
         shared_model.share_memory()
 
         if no_shared:
@@ -82,24 +83,36 @@ class Trainer(object):
 
         lock = mp.Lock()
 
+        self.logger = logger
+        self.train_freq = train_freq
+
         # p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter))
         # p.start()
         # processes.append(p)
-
+        
         for rank in range(0, num_processes):
             p = mp.Process(target=self.train, args=(rank, shared_model, counter, lock, optimizer))
+            #p = mp.Process(target=self.nothing, args=(1, ))
             p.start()
             processes.append(p)
         for p in processes:
-            p.join()
+            exit_code = p.join()
+            print(f"Exit code {exit_code}")
+        
+
+        print("Main process")
+        sys.stdout.flush()
 
         # self.evaluator = Evaluator(eval_env,
         #                            self.dqn.q_network,
         #                            logger,
         #                            self.agents,
         #                            steps_per_episode)
-        self.logger = logger
-        self.train_freq = train_freq
+        
+
+    def nothing(self, simple_arg):
+        print("Now I work")
+        sys.stdout.flush()
 
     def ensure_shared_grads(model, shared_model):
         for param, shared_param in zip(model.parameters(),
@@ -115,7 +128,9 @@ class Trainer(object):
         #self.init_memory()
 
         #shared_model = A3C(self.frame_history, self.env.action_space)
-        model = A3C(self.frame_history, self.env.action_space)
+        #TODO Change to accept 4 frames
+        model = A3C(1, self.env.action_space)
+        #model = A3C(self.frame_history, self.env.action_space)
 
         env= copy.deepcopy(self.env)
         env.sampled_files = env.files.sample_circular(env.landmarks)
@@ -134,8 +149,6 @@ class Trainer(object):
             losses = []
             score = [0] * self.agents
 
-
-
             cx = torch.zeros(1, 256)
             hx = torch.zeros(1, 256)
 
@@ -147,12 +160,12 @@ class Trainer(object):
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
                 print(f"Obs shape: {obs.shape}")
-
+                sys.stdout.flush()
+                       
+                value, logit, (hx, cx) = model((torch.tensor(obs).unsqueeze(0),(hx, cx)))
+                print("After forward")
                 sys.stdout.flush()
 
-                summary(model, obs)
-
-                value, logit, (hx, cx) = model((obs.unsqueeze(0),(hx, cx)))
                 prob = F.softmax(logit, dim=-1)
                 log_prob = F.log_softmax(logit, dim=-1)
                 entropy = -(log_prob * prob).sum(1, keepdim=True)
@@ -163,6 +176,7 @@ class Trainer(object):
 
                 obs, reward, terminal, info = env.step(
                     np.copy(action.numpy()), terminal)
+
 
                 reward = torch.clamp(
                     torch.tensor(
@@ -181,6 +195,7 @@ class Trainer(object):
 
                 if all(t for t in terminal):
                     break
+    
 
             R = torch.zeros(1, 1)
             if not done:
