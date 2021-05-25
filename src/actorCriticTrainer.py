@@ -8,7 +8,8 @@ import sys
 from torch.utils.tensorboard import SummaryWriter
 
 from DQNModel import DQN
-from evaluator import Evaluator
+#from evaluator import Evaluator
+from A3C_evaluator import Evaluator
 from tqdm import tqdm
 from ActorCriticModel import A3C
 import shared_adam
@@ -137,6 +138,12 @@ class Trainer(object):
         eval_env = copy.deepcopy(self.eval_env)
         eval_env.env.sampled_files = eval_env.env.files.sample_circular(eval_env.env.landmarks)
 
+        evaluator = Evaluator(eval_env,
+                              model,
+                              self.logger,
+                              self.agents,
+                              self.steps_per_episode)
+
         episode = 1
         acc_steps = 0
         epoch_distances = []
@@ -233,13 +240,12 @@ class Trainer(object):
 
             self.eps = max(self.min_eps, self.eps - self.delta)
             # Every epoch
-            #if episode % self.epoch_length == 0:
-            if episode % 2 == 0:
+            if episode % self.epoch_length == 0:
                 lr = self.get_lr(optimizer)
                 self.append_epoch_board(epoch_distances, self.eps, losses,
                                         "train", episode, rank, lr)
-                self.validation_epoch(episode, model)
-                #self.dqn.save_model(name="latest_dqn.pt", forced=True)
+                self.validation_epoch(episode, model, evaluator, rank)
+                self.save_model(model, name=f"latest_A3C_sub_agent_{rank}.pt", forced=True)
                 #self.dqn.scheduler.step()
                 epoch_distances = []
 
@@ -249,25 +255,27 @@ class Trainer(object):
         for param_group in optimizer.param_groups:
             return param_group['lr']
 
-    def validation_epoch(self, episode, model):
+    def validation_epoch(self, episode, model, evaluator, rank = 0):
         if self.eval_env is None:
             return
         model.train(False)
         epoch_distances = []
         for k in range(self.eval_env.files.num_files):
             self.logger.log(f"eval episode {k}")
-            (score, start_dists, q_values,
-                info) = self.evaluator.play_one_episode()
+            (score, start_dists, info) = evaluator.play_one_episode()
             epoch_distances.append([info['distError_' + str(i)]
                                     for i in range(self.agents)])
 
         val_dists = self.append_epoch_board(epoch_distances, name="eval",
-                                            episode=episode)
+                                            episode=episode, rank = rank)
         if (val_dists < self.best_val_distance):
             self.logger.log("Improved new best mean validation distances")
             self.best_val_distance = val_dists
-            self.dqn.save_model(name="best_dqn.pt", forced=True)
-        self.dqn.q_network.train(True)
+            self.save_model(model, name=f"best_A3C_sub_agent_{rank}.pt", forced=True)
+        model.train(True)
+
+    def save_model(self, model, name="A3C.pt", forced=False):
+        self.logger.save_model(model, name, forced)
 
     def append_episode_board(self, info, score, name="train", episode=0, rank=0):
         print(f"I am in process {rank}")

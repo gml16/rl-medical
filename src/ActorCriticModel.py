@@ -12,7 +12,6 @@ def normalized_columns_initializer(weights, std=1.0):
 
 def weights_init(m):
     if type(m) == nn.Linear or type(m)== nn.Conv3d:
-        print(type(m))
         nn.init.xavier_uniform(m.weight)
         m.bias.data.fill_(0.01)
 

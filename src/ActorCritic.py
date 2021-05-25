@@ -33,7 +33,8 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 IMAGE_SIZE = (45, 45, 45)
 # how many frames to keep
 # in other words, how many observations the network can see
-FRAME_HISTORY = 4
+#TODO change this
+FRAME_HISTORY = 1
 ###############################################################################
 
 
