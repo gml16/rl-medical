@@ -9,13 +9,12 @@ from logger import Logger
 from actorCriticTrainer import Trainer
 from ActorCriticModel import A3C
 from medical import MedicalPlayer, FrameStack
+
 import argparse
 import os
 import torch
 import numpy as np
 import torch.multiprocessing as mp
-
-
 
 def warn(*args, **kwargs):
     pass
@@ -196,7 +195,7 @@ if __name__ == '__main__':
         '--no-shared', default=False,
         help='use an optimizer without shared momentum for A3C.')
     parser.add_argument(
-        '--num-processes', type=int, default=1,
+        '--num-processes', type=int, default=4,
         help='how many training processes to use for A3C (default: 4)')
     parser.add_argument(
         '--gae-lamda', type=float, default=1.00,
@@ -231,8 +230,9 @@ if __name__ == '__main__':
     if args.seed is not None:
         set_reproducible(args.seed)
 
-    #logger = Logger(args.log_dir, args.write, args.save_freq, comment=args.log_comment)
-    logger = None
+    logger = Logger(args.log_dir, args.write, args.save_freq, comment=args.log_comment)
+    logger.boardWriter = None
+    #logger = None
     if args.task != 'train':
         # dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
         #           type=args.model_name, collective_rewards=args.team_reward, attention=args.attention)
@@ -271,7 +271,7 @@ if __name__ == '__main__':
                                   landmark_ids=args.landmarks,
                                   agents=agents,
                                   logger=None)
-            eval_env = None
+            eval_env.env.sampled_files = None
             print("Created val env")
 
         trainer = Trainer(environment,
@@ -290,5 +290,6 @@ if __name__ == '__main__':
                           max_grad_norm=args.max_grad_norm,
                           value_loss_coef=args.value_loss_coef,
                           entropy_coef=args.entropy_coef,
-                          num_processes=args.num_processes
+                          num_processes=args.num_processes,
+                          comment=args.log_comment
                          )

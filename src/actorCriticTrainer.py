@@ -5,6 +5,7 @@ import torch.multiprocessing as mp
 import torch.nn.functional as F
 import copy
 import sys
+from torch.utils.tensorboard import SummaryWriter
 
 from DQNModel import DQN
 from evaluator import Evaluator
@@ -42,7 +43,8 @@ class Trainer(object):
                  max_grad_norm=50,
                  value_loss_coef=0.5,
                  entropy_coef=0.01,
-                 seed=None
+                 seed=None,
+                 comment='A3C'
                 ):
         self.seed = seed
         self.env = env
@@ -65,6 +67,7 @@ class Trainer(object):
         self.max_grad_norm = max_grad_norm
         self.value_loss_coef = value_loss_coef
         self.entropy_coef = entropy_coef
+        self.logger_comment = comment
 
         #TODO change to accept 4 frames
         shared_model = A3C(1, self.env.action_space)
@@ -89,7 +92,7 @@ class Trainer(object):
         # p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter))
         # p.start()
         # processes.append(p)
-        
+    
         for rank in range(0, num_processes):
             p = mp.Process(target=self.train, args=(rank, shared_model, counter, lock, optimizer))
             #p = mp.Process(target=self.nothing, args=(1, ))
@@ -98,7 +101,6 @@ class Trainer(object):
         for p in processes:
             exit_code = p.join()
             print(f"Exit code {exit_code}")
-        
 
         print("Main process")
         sys.stdout.flush()
@@ -110,11 +112,7 @@ class Trainer(object):
         #                            steps_per_episode)
         
 
-    def nothing(self, simple_arg):
-        print("Now I work")
-        sys.stdout.flush()
-
-    def ensure_shared_grads(model, shared_model):
+    def ensure_shared_grads(self, model, shared_model):
         for param, shared_param in zip(model.parameters(),
                                     shared_model.parameters()):
             if shared_param.grad is not None:
@@ -126,6 +124,7 @@ class Trainer(object):
         #    set_reproducible(self.seed+rank)
         #self.logger.log(self.dqn.q_network)
         #self.init_memory()
+        self.logger.boardWriter = SummaryWriter(comment=self.logger_comment)
 
         #shared_model = A3C(self.frame_history, self.env.action_space)
         #TODO Change to accept 4 frames
@@ -135,6 +134,9 @@ class Trainer(object):
         env= copy.deepcopy(self.env)
         env.sampled_files = env.files.sample_circular(env.landmarks)
 
+        eval_env = copy.deepcopy(self.eval_env)
+        eval_env.env.sampled_files = eval_env.env.files.sample_circular(eval_env.env.landmarks)
+
         episode = 1
         acc_steps = 0
         epoch_distances = []
@@ -142,6 +144,7 @@ class Trainer(object):
             optimizer = optim.Adam(shared_model.parameters(), lr=self.lr)
 
         model.train()
+
         while episode <= self.max_episodes:
             # Reset the environment for the start of the episode.
             obs = env.reset()
@@ -157,15 +160,11 @@ class Trainer(object):
             rewards = []
             entropies = []
 
-            for step_num in range(self.steps_per_episode):
-                acc_steps += 1
-                print(f"Obs shape: {obs.shape}")
-                sys.stdout.flush()
-                       
-                value, logit, (hx, cx) = model((torch.tensor(obs).unsqueeze(0),(hx, cx)))
-                print("After forward")
-                sys.stdout.flush()
 
+            for step_num in range(self.steps_per_episode):
+                acc_steps += 1                   
+                value, logit, (hx, cx) = model((torch.tensor(obs).unsqueeze(0),(hx, cx)))
+                
                 prob = F.softmax(logit, dim=-1)
                 log_prob = F.log_softmax(logit, dim=-1)
                 entropy = -(log_prob * prob).sum(1, keepdim=True)
@@ -196,16 +195,16 @@ class Trainer(object):
                 if all(t for t in terminal):
                     break
     
-
-            R = torch.zeros(1, 1)
-            if not done:
-                value, _, _ = model((state.unsqueeze(0), (hx, cx)))
+            R = torch.zeros(1,1)
+            
+            if not all(t for t in terminal):
+                value, _, _ = model((torch.tensor(obs).unsqueeze(0), (hx, cx)))
                 R = value.detach()
 
             values.append(R)
 
             gae = torch.zeros(1, 1)
-            value_loss, policy = 0, 0
+            value_loss, policy_loss = 0, 0
 
             for i in reversed(range(len(rewards))):
                 R = self.gamma * R + rewards[i]
@@ -225,29 +224,35 @@ class Trainer(object):
             (policy_loss + self.value_loss_coef * value_loss).backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
 
-            ensure_shared_grads(model, shared_model)
+            self.ensure_shared_grads(model, shared_model)
             optimizer.step()
 
             epoch_distances.append([info['distError_' + str(i)]
                                     for i in range(self.agents)])
-            self.append_episode_board(info, score, "train", episode)
+            self.append_episode_board(info, score, "train", episode, rank)
 
             self.eps = max(self.min_eps, self.eps - self.delta)
             # Every epoch
-            if episode % self.epoch_length == 0:
+            #if episode % self.epoch_length == 0:
+            if episode % 2 == 0:
+                lr = self.get_lr(optimizer)
                 self.append_epoch_board(epoch_distances, self.eps, losses,
-                                        "train", episode)
-                # self.validation_epoch(episode)
+                                        "train", episode, rank, lr)
+                self.validation_epoch(episode, model)
                 #self.dqn.save_model(name="latest_dqn.pt", forced=True)
                 #self.dqn.scheduler.step()
                 epoch_distances = []
 
             episode += 1
 
-    def validation_epoch(self, episode):
+    def get_lr(self, optimizer):
+        for param_group in optimizer.param_groups:
+            return param_group['lr']
+
+    def validation_epoch(self, episode, model):
         if self.eval_env is None:
             return
-        self.dqn.q_network.train(False)
+        model.train(False)
         epoch_distances = []
         for k in range(self.eval_env.files.num_files):
             self.logger.log(f"eval episode {k}")
@@ -264,31 +269,33 @@ class Trainer(object):
             self.dqn.save_model(name="best_dqn.pt", forced=True)
         self.dqn.q_network.train(True)
 
-    def append_episode_board(self, info, score, name="train", episode=0):
+    def append_episode_board(self, info, score, name="train", episode=0, rank=0):
+        print(f"I am in process {rank}")
+        sys.stdout.flush()
         dists = {str(i):
                  info['distError_' + str(i)] for i in range(self.agents)}
-        self.logger.write_to_board(f"{name}/dist", dists, episode)
+        self.logger.write_to_board(f"{name}/sub_agent_{rank}/dist", dists, episode)
         scores = {str(i): score[i] for i in range(self.agents)}
-        self.logger.write_to_board(f"{name}/score", scores, episode)
+        self.logger.write_to_board(f"{name}/sub_agent_{rank}/score", scores, episode)
 
     def append_epoch_board(self, epoch_dists, eps=0, losses=[],
-                           name="train", episode=0):
+                           name="train", episode=0, rank = 0, lr = 0):
+        print(f"I am in append epoch for process {rank}")
         epoch_dists = np.array(epoch_dists)
         if name == "train":
-            lr = self.dqn.scheduler.state_dict()["_last_lr"]
-            self.logger.write_to_board(name, {"eps": eps, "lr": lr}, episode)
+            self.logger.write_to_board(name, {"eps_sub_agent_{rank}": eps, "lr_sub_agent_{rank}": lr}, episode)
             if len(losses) > 0:
-                loss_dict = {"loss": sum(losses) / len(losses)}
+                loss_dict = {"loss_sub_agent_{rank}": sum(losses) / len(losses)}
                 self.logger.write_to_board(name, loss_dict, episode)
         for i in range(self.agents):
             mean_dist = sum(epoch_dists[:, i]) / len(epoch_dists[:, i])
             mean_dist_dict = {str(i): mean_dist}
             self.logger.write_to_board(
-                f"{name}/mean_dist", mean_dist_dict, episode)
+                f"{name}/mean_dist_sub_agent_{rank}", mean_dist_dict, episode)
             min_dist_dict = {str(i): min(epoch_dists[:, i])}
             self.logger.write_to_board(
-                f"{name}/min_dist", min_dist_dict, episode)
+                f"{name}/min_dist_sub_agent_{rank}", min_dist_dict, episode)
             max_dist_dict = {str(i): max(epoch_dists[:, i])}
             self.logger.write_to_board(
-                f"{name}/max_dist", max_dist_dict, episode)
+                f"{name}/max_dist_sub_agent_{rank}", max_dist_dict, episode)
         return np.array(list(mean_dist_dict.values())).mean()
