@@ -278,8 +278,6 @@ class Trainer(object):
         self.logger.save_model(model, name, forced)
 
     def append_episode_board(self, info, score, name="train", episode=0, rank=0):
-        print(f"I am in process {rank}")
-        sys.stdout.flush()
         dists = {str(i):
                  info['distError_' + str(i)] for i in range(self.agents)}
         self.logger.write_to_board(f"{name}/sub_agent_{rank}/dist", dists, episode)
@@ -288,7 +286,6 @@ class Trainer(object):
 
     def append_epoch_board(self, epoch_dists, eps=0, losses=[],
                            name="train", episode=0, rank = 0, lr = 0):
-        print(f"I am in append epoch for process {rank}")
         epoch_dists = np.array(epoch_dists)
         if name == "train":
             self.logger.write_to_board(name, {"eps_sub_agent_{rank}": eps, "lr_sub_agent_{rank}": lr}, episode)
