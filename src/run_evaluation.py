@@ -51,6 +51,8 @@ if __name__ == "__main__":
             model_name = "CommNet"
         elif "Network3d" in name:
             model_name = "Network3d"
+        elif "SemGCNV2" in name:
+            model_name = "SemGCN_v2"
         elif "SemGCN" in name:
             model_name = "SemGCN"
         elif "GCN" in name:
@@ -90,6 +92,8 @@ if __name__ == "__main__":
         
         if "AR" in name:
             collective_rewards = "attention"
+        elif "MR" in name:
+            collective_rewards = "mean"
         else:
             collective_rewards = False
         
