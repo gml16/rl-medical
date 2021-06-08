@@ -93,7 +93,7 @@ class Trainer(object):
         # p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter))
         # p.start()
         # processes.append(p)
-    
+
         for rank in range(0, num_processes):
             p = mp.Process(target=self.train, args=(rank, shared_model, counter, lock, optimizer))
             #p = mp.Process(target=self.nothing, args=(1, ))
@@ -111,7 +111,7 @@ class Trainer(object):
         #                            logger,
         #                            self.agents,
         #                            steps_per_episode)
-        
+
 
     def ensure_shared_grads(self, model, shared_model):
         for param, shared_param in zip(model.parameters(),
@@ -169,9 +169,9 @@ class Trainer(object):
 
 
             for step_num in range(self.steps_per_episode):
-                acc_steps += 1                   
+                acc_steps += 1
                 value, logit, (hx, cx) = model((torch.tensor(obs).unsqueeze(0),(hx, cx)))
-                
+
                 prob = F.softmax(logit, dim=-1)
                 log_prob = F.log_softmax(logit, dim=-1)
                 entropy = -(log_prob * prob).sum(1, keepdim=True)
@@ -201,9 +201,9 @@ class Trainer(object):
 
                 if all(t for t in terminal):
                     break
-    
+
             R = torch.zeros(1,1)
-            
+
             if not all(t for t in terminal):
                 value, _, _ = model((torch.tensor(obs).unsqueeze(0), (hx, cx)))
                 R = value.detach()
@@ -288,7 +288,7 @@ class Trainer(object):
                            name="train", episode=0, rank = 0, lr = 0):
         epoch_dists = np.array(epoch_dists)
         if name == "train":
-            self.logger.write_to_board(name, {"eps_sub_agent_{rank}": eps, "lr_sub_agent_{rank}": lr}, episode)
+            self.logger.write_to_board(name, {f"eps_sub_agent_{rank}": eps, f"lr_sub_agent_{rank}": lr}, episode)
             if len(losses) > 0:
                 loss_dict = {"loss_sub_agent_{rank}": sum(losses) / len(losses)}
                 self.logger.write_to_board(name, loss_dict, episode)
