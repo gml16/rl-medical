@@ -169,6 +169,8 @@ class Trainer(object):
         epoch_dists = np.array(epoch_dists)
         if name == "train":
             lr = self.dqn.scheduler.state_dict()["_last_lr"]
+            if isinstance(lr, list):
+                lr = lr[0]
             self.logger.write_to_board(name, {"eps": eps, "lr": lr}, episode)
             if len(losses) > 0:
                 loss_dict = {"loss": sum(losses) / len(losses)}
