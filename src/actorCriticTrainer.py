@@ -94,8 +94,11 @@ class Trainer(object):
         # p.start()
         # processes.append(p)
 
+        ready_processes = torch.zeros(num_processes)
+        ready_processes.share_memory_()
+
         for rank in range(0, num_processes):
-            p = mp.Process(target=self.train, args=(rank, shared_model, counter, lock, optimizer))
+            p = mp.Process(target=self.train, args=(rank, shared_model, counter, lock, ready_processes, optimizer))
             #p = mp.Process(target=self.nothing, args=(1, ))
             p.start()
             processes.append(p)
@@ -120,7 +123,7 @@ class Trainer(object):
                 return
             shared_param._grad = param.grad
 
-    def train(self, rank, shared_model, counter, lock, optimizer=None):
+    def train(self, rank, shared_model, counter, lock, ready_processes, optimizer=None):
         #if(self.seed):
         #    set_reproducible(self.seed+rank)
         #self.logger.log(self.dqn.q_network)
@@ -156,7 +159,19 @@ class Trainer(object):
 
         model.train()
 
+        ready_processes[rank] = 1
+
         while episode <= self.max_episodes:
+
+            #while(not torch.all(ready_processes.byte()).item()):
+            #    pass
+            while(ready_processes.unique().shape[0]!=1):
+                pass
+
+            #ready_processes[rank] = 0
+
+            #self.logger.log(f"Subagent {rank} episode {episode}")
+
             # Reset the environment for the start of the episode.
             obs = env.reset()
             terminal = [False for _ in range(self.agents)]
@@ -254,6 +269,7 @@ class Trainer(object):
                 epoch_distances = []
 
             episode += 1
+            ready_processes[rank] += 1
 
     def get_lr(self, optimizer):
         for param_group in optimizer.param_groups:
