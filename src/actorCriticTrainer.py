@@ -135,10 +135,12 @@ class Trainer(object):
         env= copy.deepcopy(self.env)
         env.sampled_files = env.files.sample_circular(env.landmarks)
         env.sub_agent = rank
+        env.logger = self.logger
 
         eval_env = copy.deepcopy(self.eval_env)
         eval_env.env.sampled_files = eval_env.env.files.sample_circular(eval_env.env.landmarks)
         eval_env.env.sub_agent = rank
+        eval_env.env.logger = self.logger
 
         evaluator = Evaluator(eval_env,
                               model,
