@@ -160,17 +160,28 @@ class Trainer(object):
         model.train()
 
         ready_processes[rank] = 1
+        terminal = [False for _ in range(self.agents)]
 
         while episode <= self.max_episodes:
-
+            
             #while(not torch.all(ready_processes.byte()).item()):
             #    pass
             while(ready_processes.unique().shape[0]!=1):
                 pass
 
+            model.load_state_dict(shared_model.state_dict())
+
+
             #ready_processes[rank] = 0
 
             self.logger.log(f"Subagent {rank} episode {episode}")
+
+            if all(t for t in terminal):
+                cx = cx.detach()
+                hx = hx.detach()
+            else:
+                cx = torch.zeros(1, 256)
+                hx = torch.zeros(1, 256)
 
             # Reset the environment for the start of the episode.
             obs = env.reset()
@@ -178,8 +189,8 @@ class Trainer(object):
             losses = []
             score = [0] * self.agents
 
-            cx = torch.zeros(1, 256)
-            hx = torch.zeros(1, 256)
+            #cx = torch.zeros(1, 256)
+            #hx = torch.zeros(1, 256)
 
             values = []
             log_probs = []
@@ -193,27 +204,27 @@ class Trainer(object):
 
                 prob = F.softmax(logit, dim=-1)
                 log_prob = F.log_softmax(logit, dim=-1)
-                self.logger.log(f"Subagent {rank} prob {prob}")
-                self.logger.log(f"Subagent {rank} log_prob {log_prob}")
+                #self.logger.log(f"Subagent {rank} prob {prob}")
+                #self.logger.log(f"Subagent {rank} log_prob {log_prob}")
                 entropy = -(log_prob * prob).sum(1, keepdim=True)
                 entropies.append(entropy)
 
                 action = prob.multinomial(num_samples=1).detach()
-                self.logger.log(f"Subagent {rank} action {action}")
+                #self.logger.log(f"Subagent {rank} action {action}")
                 log_prob = log_prob.gather(1, action)
-                self.logger.log(f"Subagent {rank} log_prob {log_prob}")
+                #self.logger.log(f"Subagent {rank} log_prob {log_prob}")
 
                 obs, reward, terminal, info = env.step(
                     np.copy(action.numpy()), terminal)
 
-                self.logger.log(f"Subagent {rank} reward {reward}")
-                self.logger.log(f"Subagent {rank} terminal {terminal}")
+                #self.logger.log(f"Subagent {rank} reward {reward}")
+                #self.logger.log(f"Subagent {rank} terminal {terminal}")
 
                 reward = torch.clamp(
                     torch.tensor(
                         reward, dtype=torch.float32), -1, 1)
 
-                self.logger.log(f"Subagent {rank} clipped reward {reward}")
+                #self.logger.log(f"Subagent {rank} clipped reward {reward}")
 
                 score = [sum(x) for x in zip(score, reward)]
                 #self.buffer.append((obs, acts, reward, terminal))
@@ -235,13 +246,13 @@ class Trainer(object):
                 value, _, _ = model((torch.tensor(obs).unsqueeze(0), (hx, cx)))
                 R = value.detach()
 
-            self.logger.log(f"Subagent {rank} final reward {R}")
+            #self.logger.log(f"Subagent {rank} final reward {R}")
 
             R = torch.clamp(
                 torch.tensor(
                     R, dtype=torch.float32), -1, 1)
 
-            self.logger.log(f"Subagent {rank} final clipped reward {R}")
+            #self.logger.log(f"Subagent {rank} final clipped reward {R}")
 
             values.append(R)
 
@@ -265,19 +276,27 @@ class Trainer(object):
 
             (policy_loss + self.value_loss_coef * value_loss).backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
-
+            
+            '''
             for name, param in model.named_parameters():
                 if param.requires_grad:
                     self.logger.log(f"Subagent {rank}, Layer {name}, \
                                         value before optimizer step {param}")
+                    break
+        
+            '''
 
             self.ensure_shared_grads(model, shared_model)
             optimizer.step()
-
+            
+            '''
             for name, param in model.named_parameters():
                 if param.requires_grad:
                     self.logger.log(f"Subagent {rank}, Layer {name}, \
                                         value after optimizer step {param}")
+                    break
+            '''
+            
 
             epoch_distances.append([info['distError_' + str(i)]
                                     for i in range(self.agents)])
