@@ -130,11 +130,11 @@ if __name__ == '__main__':
     parser.add_argument(
         '--discount',
         help='Discount factor used in the Bellman equation',
-        default=0.9, type=float)
+        default=0.99, type=float)
     parser.add_argument(
         '--lr',
         help='Starting learning rate',
-        default=1e-3, type=float)
+        default=1e-4, type=float)
     parser.add_argument(
         '--scheduler_gamma',
         help='Multiply the learning rate by this value every scheduler_step_size epochs',
@@ -253,7 +253,7 @@ if __name__ == '__main__':
         evaluator.play_n_episodes(fixed_spawn=args.fixed_spawn)
     else:  # train model
         print("creating train env")
-        
+
         environment = get_player(task='train',
                                  files_list=args.files,
                                  file_type=args.file_type,
@@ -263,7 +263,7 @@ if __name__ == '__main__':
                                  multiscale=args.multiscale,
                                  logger=None)
         environment.sampled_files = None
-        
+
         if args.val_files is not None:
             print("creating val env")
             eval_env = get_player(task='eval',

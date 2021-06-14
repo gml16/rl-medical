@@ -34,12 +34,12 @@ class Trainer(object):
                  min_eps=0.1,
                  delta=0.001,
                  batch_size=4,
-                 gamma=0.9,
+                 gamma=0.99,
                  number_actions=6,
                  frame_history=4,
                  logger=None,
                  train_freq=1,
-                 lr=1e-3,
+                 lr=1e-4,
                  gae_lamda=1.00,
                  max_grad_norm=50,
                  value_loss_coef=0.5,
@@ -163,7 +163,7 @@ class Trainer(object):
         terminal = [False for _ in range(self.agents)]
 
         while episode <= self.max_episodes:
-            
+
             #while(not torch.all(ready_processes.byte()).item()):
             #    pass
             while(ready_processes.unique().shape[0]!=1):
@@ -276,19 +276,19 @@ class Trainer(object):
 
             (policy_loss + self.value_loss_coef * value_loss).backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
-            
+
             '''
             for name, param in model.named_parameters():
                 if param.requires_grad:
                     self.logger.log(f"Subagent {rank}, Layer {name}, \
                                         value before optimizer step {param}")
                     break
-        
+
             '''
 
             self.ensure_shared_grads(model, shared_model)
             optimizer.step()
-            
+
             '''
             for name, param in model.named_parameters():
                 if param.requires_grad:
@@ -296,7 +296,7 @@ class Trainer(object):
                                         value after optimizer step {param}")
                     break
             '''
-            
+
 
             epoch_distances.append([info['distError_' + str(i)]
                                     for i in range(self.agents)])
