@@ -17,7 +17,7 @@ class Evaluator(object):
         results used when playing demos.
         """
         if fixed_spawn is None:
-            num_runs = 1 
+            num_runs = 1
         else:
             # fixed_spawn should be, for example, [0.5 , 0.5 , 0.5, 0, 0, 0] for 2 runs
             # In the first run agents spawn in the middle and in the second they will spawn from the corner
@@ -41,7 +41,7 @@ class Evaluator(object):
         distances = []
         for j in range(num_runs):
             for k in range(num_files):
-                score, start_dists, q_values, info = self.play_one_episode(render, fixed_spawn=fixed_spawn[j])
+                (score, start_dists, info)  = self.play_one_episode(render, fixed_spawn=fixed_spawn[j])
                 row = [j * num_files + k + 1] + list(chain.from_iterable(zip(
                     [info[f"filename_{i}"] for i in range(self.agents)],
                     [info[f"agent_xpos_{i}"] for i in range(self.agents)],
@@ -71,7 +71,7 @@ class Evaluator(object):
             obs_stack, (hx, cx) = inputs
             inputs = torch.tensor(obs_stack).permute(
                 0, 4, 1, 2, 3)
-            
+
             value, logit, (hx, cx) = self.model.forward((inputs, (hx, cx)))
             value = value.detach()
             logit = logit.detach()

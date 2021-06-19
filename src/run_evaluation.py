@@ -12,7 +12,9 @@ import torch
 from DQNModel import DQN
 from DQN import get_player
 from logger import Logger
-from evaluator import Evaluator
+import evaluator
+import A3C_evaluator
+from ActorCriticModel import A3C
 
 FRAME_HISTORY = 4
 
@@ -21,8 +23,14 @@ if __name__ == "__main__":
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument(
-        '--files', type=argparse.FileType('r'), nargs='+',
+        '--model_files', type=argparse.FileType('r'), nargs='+',
         help="Filepath to the models that must be evaluated")
+    parser.add_argument(
+        '--files', type=argparse.FileType('r'), nargs='+',
+        help="""Filepath to the text file that contains list of images.
+                Each line of this file is a full path to an image scan.
+                For (task == train or eval) there should be two input files
+                ['images', 'landmarks']""")
     # parser.add_argument(
     #     '--fixed_spawn', nargs='*',  type=float,
     #     help='Starting position of the agents during rollout. Randomised if not specified.',)
@@ -34,7 +42,7 @@ if __name__ == "__main__":
     z = [0.5,0.25,0.75]
     fixed_spawn = list(np.array(list(itertools.product(x, y, z))).flatten())
 
-    for f in args.files:
+    for f in args.model_files:
         # mypath = os.path.normpath(f)
 
         # python DQN.py --task eval --load runs/Mar01_04-16-35_monal03.doc.ic.ac.ukbrain10DefaultNetwork3d/best_dqn.pt --files /vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/brain_test_files.txt /vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/brain_test_landmarks.txt --file_type brain --landmarks 13 14 0 1 2 3 4 5 6 7 --model_name Network3d --viz 0
@@ -44,13 +52,19 @@ if __name__ == "__main__":
             model_name = "CommNet"
         elif "Network3d" in name:
             model_name = "Network3d"
+        elif "A3C" in name:
+            model_name = "A3C"
 
-        if "3" in name:
-            agents = 3
-        elif "5" in name:
-            agents = 5
-        elif "10" in name:
-            agents = 10
+        if not "A3C" in name:
+            if "3" in name:
+                agents = 3
+            elif "5" in name:
+                agents = 5
+            elif "10" in name:
+                agents = 10
+        else:
+            if "1" in name:
+                agents = 1
 
         if "brain" in name:
             file_type = "brain"
@@ -65,18 +79,17 @@ if __name__ == "__main__":
             file_type2 = "fetalUS"
             landmarks = [10, 11, 12, 1, 2, 3, 4, 5, 6, 7]
         landmarks = landmarks[:agents]
-        
-        files = [f"/vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/{file_type2}_test_files.txt", 
-                 f"/vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/{file_type2}_test_landmarks.txt"]
-    
-        if "team" in name:
-            collective_rewards = "attention"
 
-        
-        dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
-                  type=model_name, collective_rewards=collective_rewards)
-        model = dqn.q_network
-        model.load_state_dict(torch.load(f, map_location=model.device))
+        files = args.files
+
+        if "AR" in name:
+            collective_rewards = "attention"
+        elif "MR" in name:
+            collective_rewards = "mean"
+        else:
+            collective_rewards = False
+
+
         environment = get_player(files_list=files,
                                  file_type=file_type,
                                  landmark_ids=landmarks,
@@ -86,7 +99,22 @@ if __name__ == "__main__":
                                  agents=agents,
                                  viz=0,
                                  logger=logger)
-        evaluator = Evaluator(environment, model, logger,
-                                agents, 200)
+
+        if not "A3C" in name:
+            dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
+                      type=model_name, collective_rewards=collective_rewards)
+            model = dqn.q_network
+        else:
+            model = A3C(1, self.env.action_space)
+
+        model.load_state_dict(torch.load(f, map_location=model.device))
+
+        if not "A3C" in name:
+            evaluator = evaluator.Evaluator(environment, model, logger,
+                                    agents, 200)
+        else:
+            evaluator = A3C_evaluator.Evaluator(environment, model, logger,
+                                    agents, 200)
+                                    
         mean, std = evaluator.play_n_episodes(fixed_spawn=fixed_spawn, silent=True)
         logger.log(f"{fullName}: mean {mean}, std {std}")
