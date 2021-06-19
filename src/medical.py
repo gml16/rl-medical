@@ -206,9 +206,9 @@ class MedicalPlayer(gym.Env):
             #                    {self._image[0].data[50:62:3, 50:62:3, 50:62:3]}")
             #self.logger.log(f"Number of images is {len(self._image)}")
             #self.logger.log(f"Subagent's {self.sub_agent} target Loc is {self._target_loc}")
-            self.logger.log(f"Subagent's {self.sub_agent} filepath is {self.filepath}")
+            #self.logger.log(f"Subagent's {self.sub_agent} filepath is {self.filepath}")
             #self.logger.log(f"Subagent's {self.sub_agent} spacing is {self.spacing}")
-
+            pass
 
         self.filename = [
             os.path.basename(
@@ -614,6 +614,7 @@ class MedicalPlayer(gym.Env):
             self.rectangle[i] = Rectangle(xmin, xmax,
                                           ymin, ymax,
                                           zmin, zmax)
+        
         return screen
 
     # Should the argument agent not be renamed to image rather?

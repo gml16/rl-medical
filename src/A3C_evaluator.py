@@ -81,6 +81,7 @@ class Evaluator(object):
             return prob.multinomial(num_samples=1).detach(), (hx, cx)
 
         obs_stack = self.env.reset(fixed_spawn)
+        print(obs_stack.shape)
 
         cx = torch.zeros(1, 256)
         hx = torch.zeros(1, 256)

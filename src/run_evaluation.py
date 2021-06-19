@@ -41,12 +41,12 @@ if __name__ == "__main__":
     y = [0.5,0.25,0.75]
     z = [0.5,0.25,0.75]
     fixed_spawn = list(np.array(list(itertools.product(x, y, z))).flatten())
-
+    
     for f in args.model_files:
         # mypath = os.path.normpath(f)
 
         # python DQN.py --task eval --load runs/Mar01_04-16-35_monal03.doc.ic.ac.ukbrain10DefaultNetwork3d/best_dqn.pt --files /vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/brain_test_files.txt /vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/brain_test_landmarks.txt --file_type brain --landmarks 13 14 0 1 2 3 4 5 6 7 --model_name Network3d --viz 0
-        fullName = f.split("/")[-2] # e.g. Mar01_04-16-35_monal03.doc.ic.ac.ukbrain10DefaultNetwork3d
+        fullName = f.name.split("/")[-2] # e.g. Mar01_04-16-35_monal03.doc.ic.ac.ukbrain10DefaultNetwork3d
         name = fullName.split("doc.ic.ac.uk")[-1]
         if "CommNet" in name:
             model_name = "CommNet"
@@ -105,9 +105,12 @@ if __name__ == "__main__":
                       type=model_name, collective_rewards=collective_rewards)
             model = dqn.q_network
         else:
-            model = A3C(1, self.env.action_space)
+            model = A3C(1, environment.action_space)
 
-        model.load_state_dict(torch.load(f, map_location=model.device))
+        #model.load_state_dict(torch.load(f, map_location=model.device))
+        print(f)
+        model = torch.load(f.name)
+        model.eval()
 
         if not "A3C" in name:
             evaluator = evaluator.Evaluator(environment, model, logger,
