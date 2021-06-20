@@ -85,7 +85,7 @@ class Evaluator(object):
                 prob = F.softmax(logit, dim=-1)
                 action = prob.multinomial(num_samples=1).detach()
             else:
-                value, mean, sigma, (hx, cx) = model((inputs,(hx, cx)))
+                value, mean, sigma, (hx, cx) = self.model((inputs,(hx, cx)))
                 value = value.detach()
                 mean = mean.detach()
                 sigma = sigma.detach()

@@ -243,7 +243,7 @@ if __name__ == '__main__':
         if not args.continuous:
             model = A3C_discrete(FRAME_HISTORY, 6)
         else:
-            model = A3C_continuous(FRAME_HISTORY, 6)
+            model = A3C_continuous(FRAME_HISTORY, 3)
         model.load_state_dict(torch.load(args.load, map_location=model.device))
         environment = get_player(files_list=args.files,
                                  file_type=args.file_type,

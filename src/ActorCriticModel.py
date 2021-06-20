@@ -73,7 +73,8 @@ class A3C_continuous(torch.nn.Module):
         self.lstm = nn.LSTMCell(32 * 3 * 3 * 3, 256)
 
         #num_outputs = action_space
-        num_outputs = action_space.n
+        num_outputs = (action_space.n)//2
+        print(num_outputs)
         self.critic_linear = nn.Linear(256, 1)
         self.actor_mu = nn.Linear(256, num_outputs)
         self.actor_sigma = nn.Linear(256, num_outputs)

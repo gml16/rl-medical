@@ -227,6 +227,7 @@ class Trainer(object):
                     log_prob = (-(action - mean).pow(2) / (2 * sigma.pow(2)) -\
                                sigma.log() -\
                                0.5 * (torch.Tensor([2 * pi])).log().expand_as(sigma)).sum()
+                    #self.logger.log(f"Subagent {rank} action {action}")
 
                     #self.logger.log(f"Subagent {rank} log_prob shape {log_prob.shape}")
 
@@ -235,7 +236,7 @@ class Trainer(object):
                                0.5 * (torch.Tensor([2 * pi])).log().expand_as(sigma)).sum()
 
                 obs, reward, terminal, info = env.step(
-                    np.copy(action.numpy()), terminal, continuous = self.continuous)
+                    np.copy(action.numpy()), terminal, continuous = self.continuous, rank = rank)
 
                 reward = torch.clamp(
                     torch.tensor(

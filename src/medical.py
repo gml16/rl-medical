@@ -285,7 +285,7 @@ class MedicalPlayer(gym.Env):
         points2 = spacing * np.array(points2)
         return np.linalg.norm(points1 - points2)
 
-    def step(self, act, isOver, continuous = False):
+    def step(self, act, isOver, continuous = False, rank = 0):
         """The environment's step function returns exactly what we need.
         Args:
           act:
@@ -390,9 +390,14 @@ class MedicalPlayer(gym.Env):
                         go_out[i] = True
                 # -----------------------------------------------------------------
             else:
+                #self.logger.log(f"All acts {act}")
+                #self.logger.log(f"Current action of agent {i} is {act[i]}")
+
                 act_x = round(act[i][0])
                 act_y = round(act[i][1])
                 act_z = round(act[i][2])
+
+                #self.logger.log(f"Actions rounded {act_x},{act_y},{act_z}")
                 next_location[i] = (
                     round(current_loc[i][0] + act_x),
                     round(current_loc[i][1] + act_y),
@@ -406,8 +411,8 @@ class MedicalPlayer(gym.Env):
                     next_location[i][2] >= self._image_dims[2]):
                     next_location[i] = current_loc[i]
                     go_out[i] = True
-                    self.logger.log(f"Current location of agent {i} is {current_loc}")
-                    self.logger.log(f"Action of agent {i} would be {act[i]}")
+                    self.logger.log(f"Current location of sub-agent {rank} is {current_loc}")
+                    self.logger.log(f"Action of sub-agent {rank} would be {act[i]}")
 
         #######################################################################
 
@@ -908,12 +913,12 @@ class FrameStack(gym.Wrapper):
         self.frames.append(ob)
         return self._observation()
 
-    def step(self, acts, isOver):
+    def step(self, acts, isOver, continuous=False):
         for i in range(self.agents):
             if isOver[i]:
                 acts[i] = 15
         current_st, reward, terminal, info = self.env.step(
-            acts, isOver)
+            np.copy(acts.detach().numpy()), isOver, continuous)
         current_st = tuple(current_st)
         self.frames.append(current_st)
         return self._observation(), reward, terminal, info
