@@ -80,10 +80,10 @@ class A3C_continuous(torch.nn.Module):
 
         self.apply(weights_init)
         self.actor_mu.weight.data = normalized_columns_initializer(
-            self.actor_linear.weight.data, 0.01)
+            self.actor_mu.weight.data, 0.01)
         self.actor_mu.bias.data.fill_(0)
         self.actor_sigma.weight.data = normalized_columns_initializer(
-            self.actor_linear.weight.data, 0.01)
+            self.actor_sigma.weight.data, 0.01)
         self.actor_sigma.bias.data.fill_(0)
         self.critic_linear.weight.data = normalized_columns_initializer(
             self.critic_linear.weight.data, 1.0)

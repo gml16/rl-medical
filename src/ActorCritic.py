@@ -7,7 +7,7 @@ import warnings
 from evaluator import Evaluator
 from logger import Logger
 from actorCriticTrainer import Trainer
-from ActorCriticModel import A3C
+from ActorCriticModel import A3C_discrete, A3C_continuous
 from medical import MedicalPlayer, FrameStack
 
 import argparse
@@ -240,7 +240,10 @@ if __name__ == '__main__':
     if args.task != 'train':
         # dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
         #           type=args.model_name, collective_rewards=args.team_reward, attention=args.attention)
-        model = A3C(FRAME_HISTORY, 6)
+        if not args.continuous:
+            model = A3C_discrete(FRAME_HISTORY, 6)
+        else:
+            model = A3C_continuous(FRAME_HISTORY, 6)
         model.load_state_dict(torch.load(args.load, map_location=model.device))
         environment = get_player(files_list=args.files,
                                  file_type=args.file_type,

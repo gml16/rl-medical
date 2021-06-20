@@ -220,18 +220,19 @@ class Trainer(object):
                     action = prob.multinomial(num_samples=1).detach()
                     log_prob = log_prob.gather(1, action)
                 else:
-                    value, mean, sigma, (hx, cx) =
+                    value, mean, sigma, (hx, cx) = \
                             model((torch.tensor(obs).unsqueeze(0),(hx, cx)))
                     sigma = F.softplus(sigma) + 1e-5
-                    action = mean + sigma * torch.randn(*mean.shape)
-                    log_prob = -(action - mean).pow(2) / (2 * std.pow(2)) -\
-                               std.log() - 0.5 * (2 * pi).log().expand_as(sigma).sum()
+                    action = (mean + sigma * torch.randn(*mean.shape)).detach()
+                    log_prob = (-(action - mean).pow(2) / (2 * sigma.pow(2)) -\
+                               sigma.log() -\
+                               0.5 * (torch.Tensor([2 * pi])).log().expand_as(sigma)).sum()
 
-                    self.logger.log(f"Subagent {rank} log_prob shape {log_prob.shape}")
+                    #self.logger.log(f"Subagent {rank} log_prob shape {log_prob.shape}")
 
                     entropy = (0.5 +
                                sigma.log() +
-                               0.5 * (2 * pi).log().expand_as(sigma)).sum()
+                               0.5 * (torch.Tensor([2 * pi])).log().expand_as(sigma)).sum()
 
                 obs, reward, terminal, info = env.step(
                     np.copy(action.numpy()), terminal, continuous = self.continuous)
@@ -253,7 +254,10 @@ class Trainer(object):
             R = torch.zeros(1,1)
 
             if not all(t for t in terminal):
-                value, _, _ = model((torch.tensor(obs).unsqueeze(0), (hx, cx)))
+                if not  self.continuous:
+                    value, _, _ = model((torch.tensor(obs).unsqueeze(0), (hx, cx)))
+                else:
+                    value, _, _, _ = model((torch.tensor(obs).unsqueeze(0), (hx, cx)))
                 R = value.detach()
 
             #self.logger.log(f"Subagent {rank} final reward {R}")
