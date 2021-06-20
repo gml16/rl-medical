@@ -285,7 +285,7 @@ class MedicalPlayer(gym.Env):
         points2 = spacing * np.array(points2)
         return np.linalg.norm(points1 - points2)
 
-    def step(self, act, isOver):
+    def step(self, act, isOver, continuous = False):
         """The environment's step function returns exactly what we need.
         Args:
           act:
@@ -320,74 +320,94 @@ class MedicalPlayer(gym.Env):
 
         # agent i movement
         for i in range(self.agents):
-            # UP Z+ -----------------------------------------------------------
-            if (act[i] == 0):
-                next_location[i] = (
-                    current_loc[i][0], current_loc[i][1], round(
-                        current_loc[i][2] + self.action_step))
-                if (next_location[i][2] >= self._image_dims[2]):
-                    # print(' trying to go out the image Z+ ',)
-                    next_location[i] = current_loc[i]
-                    go_out[i] = True
+            if not continuous:
+                # UP Z+ -----------------------------------------------------------
+                if (act[i] == 0):
+                    next_location[i] = (
+                        current_loc[i][0], current_loc[i][1], round(
+                            current_loc[i][2] + self.action_step))
+                    if (next_location[i][2] >= self._image_dims[2]):
+                        # print(' trying to go out the image Z+ ',)
+                        next_location[i] = current_loc[i]
+                        go_out[i] = True
 
-            # FORWARD Y+ ------------------------------------------------------
-            if (act[i] == 1):
+                # FORWARD Y+ ------------------------------------------------------
+                if (act[i] == 1):
+                    next_location[i] = (
+                        current_loc[i][0],
+                        round(
+                            current_loc[i][1] +
+                            self.action_step),
+                        current_loc[i][2])
+                    if (next_location[i][1] >= self._image_dims[1]):
+                        # print(' trying to go out the image Y+ ',)
+                        next_location[i] = current_loc[i]
+                        go_out[i] = True
+                # RIGHT X+ --------------------------------------------------------
+                if (act[i] == 2):
+                    next_location[i] = (
+                        round(
+                            current_loc[i][0] +
+                            self.action_step),
+                        current_loc[i][1],
+                        current_loc[i][2])
+                    if next_location[i][0] >= self._image_dims[0]:
+                        # print(' trying to go out the image X+ ',)
+                        next_location[i] = current_loc[i]
+                        go_out[i] = True
+                # LEFT X- ---------------------------------------------------------
+                if act[i] == 3:
+                    next_location[i] = (
+                        round(
+                            current_loc[i][0] -
+                            self.action_step),
+                        current_loc[i][1],
+                        current_loc[i][2])
+                    if next_location[i][0] <= 0:
+                        # print(' trying to go out the image X- ',)
+                        next_location[i] = current_loc[i]
+                        go_out[i] = True
+                # BACKWARD Y- -----------------------------------------------------
+                if act[i] == 4:
+                    next_location[i] = (
+                        current_loc[i][0],
+                        round(
+                            current_loc[i][1] -
+                            self.action_step),
+                        current_loc[i][2])
+                    if next_location[i][1] <= 0:
+                        # print(' trying to go out the image Y- ',)
+                        next_location[i] = current_loc[i]
+                        go_out[i] = True
+                # DOWN Z- ---------------------------------------------------------
+                if act[i] == 5:
+                    next_location[i] = (
+                        current_loc[i][0], current_loc[i][1], round(
+                            current_loc[i][2] - self.action_step))
+                    if next_location[i][2] <= 0:
+                        # print(' trying to go out the image Z- ',)
+                        next_location[i] = current_loc[i]
+                        go_out[i] = True
+                # -----------------------------------------------------------------
+            else:
+                act_x = round(act[i][0])
+                act_y = round(act[i][1])
+                act_z = round(act[i][2])
                 next_location[i] = (
-                    current_loc[i][0],
-                    round(
-                        current_loc[i][1] +
-                        self.action_step),
-                    current_loc[i][2])
-                if (next_location[i][1] >= self._image_dims[1]):
-                    # print(' trying to go out the image Y+ ',)
+                    round(current_loc[i][0] + act_x),
+                    round(current_loc[i][1] + act_y),
+                    round(current_loc[i][2] + act_z)
+                )
+                if (next_location[i][0] <= 0 or
+                    next_location[i][0] >= self._image_dims[0] or
+                    next_location[i][1] <= 0 or
+                    next_location[i][1] >= self._image_dims[1] or
+                    next_location[i][2] <= 0 or
+                    next_location[i][2] >= self._image_dims[2]):
                     next_location[i] = current_loc[i]
                     go_out[i] = True
-            # RIGHT X+ --------------------------------------------------------
-            if (act[i] == 2):
-                next_location[i] = (
-                    round(
-                        current_loc[i][0] +
-                        self.action_step),
-                    current_loc[i][1],
-                    current_loc[i][2])
-                if next_location[i][0] >= self._image_dims[0]:
-                    # print(' trying to go out the image X+ ',)
-                    next_location[i] = current_loc[i]
-                    go_out[i] = True
-            # LEFT X- ---------------------------------------------------------
-            if act[i] == 3:
-                next_location[i] = (
-                    round(
-                        current_loc[i][0] -
-                        self.action_step),
-                    current_loc[i][1],
-                    current_loc[i][2])
-                if next_location[i][0] <= 0:
-                    # print(' trying to go out the image X- ',)
-                    next_location[i] = current_loc[i]
-                    go_out[i] = True
-            # BACKWARD Y- -----------------------------------------------------
-            if act[i] == 4:
-                next_location[i] = (
-                    current_loc[i][0],
-                    round(
-                        current_loc[i][1] -
-                        self.action_step),
-                    current_loc[i][2])
-                if next_location[i][1] <= 0:
-                    # print(' trying to go out the image Y- ',)
-                    next_location[i] = current_loc[i]
-                    go_out[i] = True
-            # DOWN Z- ---------------------------------------------------------
-            if act[i] == 5:
-                next_location[i] = (
-                    current_loc[i][0], current_loc[i][1], round(
-                        current_loc[i][2] - self.action_step))
-                if next_location[i][2] <= 0:
-                    # print(' trying to go out the image Z- ',)
-                    next_location[i] = current_loc[i]
-                    go_out[i] = True
-            # -----------------------------------------------------------------
+                    self.logger.log(f"Current location of agent {i} is {current_loc}")
+                    self.logger.log(f"Action of agent {i} would be {act[i]}")
 
         #######################################################################
 
@@ -614,7 +634,7 @@ class MedicalPlayer(gym.Env):
             self.rectangle[i] = Rectangle(xmin, xmax,
                                           ymin, ymax,
                                           zmin, zmax)
-        
+
         return screen
 
     # Should the argument agent not be renamed to image rather?

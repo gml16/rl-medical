@@ -61,9 +61,13 @@ class Evaluator(object):
             self.logger.log(f"Std distances {std}")
         return mean, std
 
-    def play_one_episode(self, render=False, frame_history=4, fixed_spawn=None):
+    def play_one_episode(self,
+                        render=False,
+                        frame_history=4,
+                        fixed_spawn=None,
+                        continuous=False):
 
-        def predict(inputs):
+        def predict(inputs, continuous):
             """
             Run a full episode, mapping observation to action,
             using greedy policy.
@@ -72,13 +76,25 @@ class Evaluator(object):
             inputs = torch.tensor(obs_stack).permute(
                 0, 4, 1, 2, 3)
 
-            value, logit, (hx, cx) = self.model.forward((inputs, (hx, cx)))
-            value = value.detach()
-            logit = logit.detach()
-            hx = hx.detach()
-            cx = cx.detach()
-            prob = F.softmax(logit, dim=-1)
-            return prob.multinomial(num_samples=1).detach(), (hx, cx)
+            if not continuous:
+                value, logit, (hx, cx) = self.model.forward((inputs, (hx, cx)))
+                value = value.detach()
+                logit = logit.detach()
+                hx = hx.detach()
+                cx = cx.detach()
+                prob = F.softmax(logit, dim=-1)
+                action = prob.multinomial(num_samples=1).detach()
+            else:
+                value, mean, sigma, (hx, cx) = model((inputs,(hx, cx)))
+                value = value.detach()
+                mean = mean.detach()
+                sigma = sigma.detach()
+                hx = hx.detach()
+                cx = cx.detach()
+                sigma = F.softplus(sigma) + 1e-5
+                action = mean + sigma * torch.randn(*mean.shape)
+
+            return action, (hx, cx)
 
         obs_stack = self.env.reset(fixed_spawn)
         print(obs_stack.shape)
@@ -91,8 +107,8 @@ class Evaluator(object):
         start_dists = None
         steps = 0
         while steps < self.max_steps and not np.all(isOver):
-            acts, (hx, cx) = predict((obs_stack, (hx, cx)))
-            obs_stack, r, isOver, info = self.env.step(acts, isOver)
+            acts, (hx, cx) = predict((obs_stack, (hx, cx)), continuous)
+            obs_stack, r, isOver, info = self.env.step(acts, isOver, continuous)
             steps += 1
             if start_dists is None:
                 start_dists = [

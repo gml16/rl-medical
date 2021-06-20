@@ -210,6 +210,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '--max-grad-norm', type=float, default=50,
         help='value loss coefficient (default: 50)')
+    parser.add_argument('--continuous', help='Continuous actions for A3C',
+                        action='store_true', default=False)
+
     args = parser.parse_args()
 
     agents = len(args.landmarks)
@@ -292,5 +295,6 @@ if __name__ == '__main__':
                           value_loss_coef=args.value_loss_coef,
                           entropy_coef=args.entropy_coef,
                           num_processes=args.num_processes,
+                          continuous=args.continuous,
                           comment=args.log_comment
                          )

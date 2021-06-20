@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from torchsummary import summary
+from math import pi
 import torch.multiprocessing as mp
 import torch.nn.functional as F
 import copy
@@ -11,7 +12,7 @@ from DQNModel import DQN
 #from evaluator import Evaluator
 from A3C_evaluator import Evaluator
 from tqdm import tqdm
-from ActorCriticModel import A3C
+from ActorCriticModel import A3C_discrete, A3C_continuous
 import shared_adam
 
 def set_reproducible(seed):
@@ -45,6 +46,7 @@ class Trainer(object):
                  value_loss_coef=0.5,
                  entropy_coef=0.01,
                  seed=None,
+                 continuous=False,
                  comment='A3C'
                 ):
         self.seed = seed
@@ -69,9 +71,13 @@ class Trainer(object):
         self.value_loss_coef = value_loss_coef
         self.entropy_coef = entropy_coef
         self.logger_comment = comment
+        self.continuous = continuous
 
         #TODO change to accept 4 frames
-        shared_model = A3C(1, self.env.action_space)
+        if(not self.continuous):
+            shared_model = A3C_discrete(1, self.env.action_space)
+        else:
+            shared_model = A3C_continuous(1, self.env.action_space)
         #shared_model = A3C(self.frame_history, self.env.action_space)
         shared_model.share_memory()
 
@@ -132,7 +138,10 @@ class Trainer(object):
 
         #shared_model = A3C(self.frame_history, self.env.action_space)
         #TODO Change to accept 4 frames
-        model = A3C(1, self.env.action_space)
+        if(not self.continuous):
+            model = A3C_discrete(1, self.env.action_space)
+        else:
+            model = A3C_continuous(1, self.env.action_space)
         #model = A3C(self.frame_history, self.env.action_space)
 
         env= copy.deepcopy(self.env)
@@ -200,39 +209,40 @@ class Trainer(object):
 
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
-                value, logit, (hx, cx) = model((torch.tensor(obs).unsqueeze(0),(hx, cx)))
+                if(not self.continuous):
+                    value, logit, (hx, cx) = model((torch.tensor(obs).unsqueeze(0),(hx, cx)))
 
-                prob = F.softmax(logit, dim=-1)
-                log_prob = F.log_softmax(logit, dim=-1)
-                #self.logger.log(f"Subagent {rank} prob {prob}")
-                #self.logger.log(f"Subagent {rank} log_prob {log_prob}")
-                entropy = -(log_prob * prob).sum(1, keepdim=True)
-                entropies.append(entropy)
+                    prob = F.softmax(logit, dim=-1)
+                    log_prob = F.log_softmax(logit, dim=-1)
 
-                action = prob.multinomial(num_samples=1).detach()
-                #self.logger.log(f"Subagent {rank} action {action}")
-                log_prob = log_prob.gather(1, action)
-                #self.logger.log(f"Subagent {rank} log_prob {log_prob}")
+                    entropy = -(log_prob * prob).sum(1, keepdim=True)
+
+                    action = prob.multinomial(num_samples=1).detach()
+                    log_prob = log_prob.gather(1, action)
+                else:
+                    value, mean, sigma, (hx, cx) =
+                            model((torch.tensor(obs).unsqueeze(0),(hx, cx)))
+                    sigma = F.softplus(sigma) + 1e-5
+                    action = mean + sigma * torch.randn(*mean.shape)
+                    log_prob = -(action - mean).pow(2) / (2 * std.pow(2)) -\
+                               std.log() - 0.5 * (2 * pi).log().expand_as(sigma).sum()
+
+                    self.logger.log(f"Subagent {rank} log_prob shape {log_prob.shape}")
+
+                    entropy = (0.5 +
+                               sigma.log() +
+                               0.5 * (2 * pi).log().expand_as(sigma)).sum()
 
                 obs, reward, terminal, info = env.step(
-                    np.copy(action.numpy()), terminal)
-
-                #self.logger.log(f"Subagent {rank} reward {reward}")
-                #self.logger.log(f"Subagent {rank} terminal {terminal}")
+                    np.copy(action.numpy()), terminal, continuous = self.continuous)
 
                 reward = torch.clamp(
                     torch.tensor(
                         reward, dtype=torch.float32), -1, 1)
 
-                #self.logger.log(f"Subagent {rank} clipped reward {reward}")
-
                 score = [sum(x) for x in zip(score, reward)]
-                #self.buffer.append((obs, acts, reward, terminal))
-                # if acc_steps % self.train_freq == 0:
-                #     #mini_batch = self.buffer.sample(self.batch_size)
-                #     loss = self.dqn.train_q_network(mini_batch, self.gamma)
-                #     losses.append(loss)
 
+                entropies.append(entropy)
                 values.append(value)
                 log_probs.append(log_prob)
                 rewards.append(reward)
@@ -327,7 +337,7 @@ class Trainer(object):
         epoch_distances = []
         for k in range(self.eval_env.files.num_files):
             self.logger.log(f"eval episode {k}")
-            (score, start_dists, info) = evaluator.play_one_episode()
+            (score, start_dists, info) = evaluator.play_one_episode(continuous = self.continuous)
             epoch_distances.append([info['distError_' + str(i)]
                                     for i in range(self.agents)])
 
