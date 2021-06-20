@@ -31,6 +31,9 @@ if __name__ == "__main__":
                 Each line of this file is a full path to an image scan.
                 For (task == train or eval) there should be two input files
                 ['images', 'landmarks']""")
+    parser.add_argument(
+        '--viz', help='Size of the window, None for no visualisation',
+        default=0, type=float)
     # parser.add_argument(
     #     '--fixed_spawn', nargs='*',  type=float,
     #     help='Starting position of the agents during rollout. Randomised if not specified.',)
@@ -97,7 +100,7 @@ if __name__ == "__main__":
                                  saveVideo=False,
                                  task="eval",
                                  agents=agents,
-                                 viz=0,
+                                 viz=args.viz,
                                  logger=logger)
 
         if not "A3C" in name:
