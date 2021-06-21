@@ -53,7 +53,6 @@ class Trainer(object):
         self.env = env
         self.eval_env = eval_env
         self.agents = env.agents
-        self.agents = 1
         self.image_size = image_size
         self.max_episodes = max_episodes
         self.steps_per_episode = steps_per_episode
@@ -75,9 +74,9 @@ class Trainer(object):
 
         #TODO change to accept 4 frames
         if(not self.continuous):
-            shared_model = A3C_discrete(1, self.env.action_space)
+            shared_model = A3C_discrete(1, self.env.action_space, self.agents)
         else:
-            shared_model = A3C_continuous(1, self.env.action_space)
+            shared_model = A3C_continuous(1, self.env.action_space, self.agents)
         #shared_model = A3C(self.frame_history, self.env.action_space)
         shared_model.share_memory()
 
@@ -139,9 +138,9 @@ class Trainer(object):
         #shared_model = A3C(self.frame_history, self.env.action_space)
         #TODO Change to accept 4 frames
         if(not self.continuous):
-            model = A3C_discrete(1, self.env.action_space)
+            model = A3C_discrete(1, self.env.action_space, self.agents)
         else:
-            model = A3C_continuous(1, self.env.action_space)
+            model = A3C_continuous(1, self.env.action_space, self.agents)
         #model = A3C(self.frame_history, self.env.action_space)
 
         env= copy.deepcopy(self.env)

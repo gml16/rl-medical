@@ -16,8 +16,10 @@ def weights_init(m):
         m.bias.data.fill_(0.01)
 
 class A3C_discrete(torch.nn.Module):
-    def __init__(self, num_inputs, action_space):
+    def __init__(self, num_inputs, action_space, agents):
         super(A3C_discrete, self).__init__()
+
+        self.agents = agents
 
         self.conv1 = nn.Conv3d(num_inputs, 32, 3, stride=2, padding=1)
         self.conv2 = nn.Conv3d(32, 32, 3, stride=2, padding=1)
@@ -28,16 +30,28 @@ class A3C_discrete(torch.nn.Module):
 
         #num_outputs = action_space
         num_outputs = action_space.n
-        self.critic_linear = nn.Linear(256, 1)
-        self.actor_linear = nn.Linear(256, num_outputs)
+        self.critic_linear = nn.ModuleList(
+            [nn.Linear(256, 1) for _ in range(self.agents)])
+        self.actor_linear = nn.ModuleList(
+            [nn.Linear(256, num_outputs) for _ in range(self.agents)])
 
         self.apply(weights_init)
-        self.actor_linear.weight.data = normalized_columns_initializer(
-            self.actor_linear.weight.data, 0.01)
-        self.actor_linear.bias.data.fill_(0)
-        self.critic_linear.weight.data = normalized_columns_initializer(
-            self.critic_linear.weight.data, 1.0)
-        self.critic_linear.bias.data.fill_(0)
+        for module in self.actor_linear:
+            module.weight.data = normalized_columns_initializer(
+                self.actor_linear.weight.data, 0.01)
+            module.bias.data.fill_(0)
+
+        # self.actor_linear.weight.data = normalized_columns_initializer(
+        #     self.actor_linear.weight.data, 0.01)
+        # self.actor_linear.bias.data.fill_(0)
+
+        for module in self.critic_linear:
+            module.weight.data = normalized_columns_initializer(
+                self.actor_linear.weight.data, 0.01)
+            module.bias.data.fill_(0)
+        # self.critic_linear.weight.data = normalized_columns_initializer(
+        #     self.critic_linear.weight.data, 1.0)
+        # self.critic_linear.bias.data.fill_(0)
 
         self.lstm.bias_ih.data.fill_(0)
         self.lstm.bias_hh.data.fill_(0)
@@ -48,18 +62,37 @@ class A3C_discrete(torch.nn.Module):
     def forward(self, inputs):
 
         inputs, (hx, cx) = inputs
-        x = F.elu(self.conv1(inputs))
-        x = F.elu(self.conv2(x))
-        x = F.elu(self.conv3(x))
-        x = F.elu(self.conv4(x))
 
-        x = x.view(-1, 32 * 3 * 3 * 3)
+        inputs = inputs / 255.0
+        values = []
+        actions = []
+        for i in range(self.agents):
+            x = inputs[:,i]
+            hx = hx[:,i]
+            cv = cx[:,i]
+            x = F.elu(self.conv1(inputs))
+            x = F.elu(self.conv2(x))
+            x = F.elu(self.conv3(x))
+            x = F.elu(self.conv4(x))
 
-        hx, cx = self.lstm(x, (hx, cx))
-        x = hx
+            x = x.view(-1, 32 * 3 * 3 * 3)
 
+            hx, cx = self.lstm(x, (hx, cx))
+            x = hx
+            value = self.critic_linear[i](x)
+            actions = self.actor_linear[i](x)
+            values.append(value)
+            actions.append(action)
 
-        return self.critic_linear(x), self.actor_linear(x), (hx, cx)
+        values = torch.stack(values, dim=1)
+        actions = torch.stack(actions, dim=1)
+
+        print(f"Shape of values :{values.shape}")
+        print(f"Shape of actions :{actions.shape}")
+        print(f"Shape of hidden state :{hx.shape}")
+        print(f"Shape of cell state :{cx.shape}")
+        
+        return values, actions, (hx, cx)
 
 class A3C_continuous(torch.nn.Module):
     def __init__(self, num_inputs, action_space):
