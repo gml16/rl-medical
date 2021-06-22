@@ -188,8 +188,8 @@ class Trainer(object):
                 cx = cx.detach()
                 hx = hx.detach()
             else:
-                cx = torch.zeros(1, 256)
-                hx = torch.zeros(1, 256)
+                cx = torch.zeros(self.agents, 256).unsqueeze(0)
+                hx = torch.zeros(self.agents, 256).unsqueeze(0)
 
             # Reset the environment for the start of the episode.
             obs = env.reset()
@@ -199,6 +199,7 @@ class Trainer(object):
 
             #cx = torch.zeros(1, 256)
             #hx = torch.zeros(1, 256)
+            print(f"training obs shape {obs.shape}")
 
             values = []
             log_probs = []
@@ -209,15 +210,18 @@ class Trainer(object):
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
                 if(not self.continuous):
-                    value, logit, (hx, cx) = model((torch.tensor(obs).unsqueeze(0),(hx, cx)))
+                    value, logit, (hx, cx) = model((torch.tensor(obs).unsqueeze(0).unsqueeze(2),(hx, cx)))
+
+                    value = value.squeeze()
+                    logit = logit.squeeze(0)
 
                     prob = F.softmax(logit, dim=-1)
                     log_prob = F.log_softmax(logit, dim=-1)
 
-                    entropy = -(log_prob * prob).sum(1, keepdim=True)
+                    entropy = -(log_prob * prob).sum(1)
 
                     action = prob.multinomial(num_samples=1).detach()
-                    log_prob = log_prob.gather(1, action)
+                    log_prob = log_prob.gather(1, action).squeeze()
                 else:
                     value, mean, sigma, (hx, cx) = \
                             model((torch.tensor(obs).unsqueeze(0),(hx, cx)))
@@ -251,13 +255,14 @@ class Trainer(object):
                 if all(t for t in terminal):
                     break
 
-            R = torch.zeros(1,1)
+            R = torch.zeros(self.agents,1)
 
             if not all(t for t in terminal):
                 if not  self.continuous:
-                    value, _, _ = model((torch.tensor(obs).unsqueeze(0), (hx, cx)))
+                    value, _, _ = model((torch.tensor(obs).unsqueeze(0).unsqueeze(2), (hx, cx)))
                 else:
                     value, _, _, _ = model((torch.tensor(obs).unsqueeze(0), (hx, cx)))
+                value = value.squeeze()
                 R = value.detach()
 
             #self.logger.log(f"Subagent {rank} final reward {R}")
@@ -266,12 +271,13 @@ class Trainer(object):
                 torch.tensor(
                     R, dtype=torch.float32), -1, 1)
 
+
             #self.logger.log(f"Subagent {rank} final clipped reward {R}")
 
             values.append(R)
 
-            gae = torch.zeros(1, 1)
-            value_loss, policy_loss = 0, 0
+            gae = torch.zeros(self.agents)
+            value_loss, policy_loss = torch.zeros(self.agents), torch.zeros(self.agents)
 
             for i in reversed(range(len(rewards))):
                 R = self.gamma * R + rewards[i]
@@ -288,7 +294,7 @@ class Trainer(object):
 
             optimizer.zero_grad()
 
-            (policy_loss + self.value_loss_coef * value_loss).backward()
+            (policy_loss + self.value_loss_coef * value_loss).sum().backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
 
             '''

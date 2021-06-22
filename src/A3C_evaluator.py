@@ -74,12 +74,12 @@ class Evaluator(object):
             """
             obs_stack, (hx, cx) = inputs
             inputs = torch.tensor(obs_stack).permute(
-                0, 4, 1, 2, 3)
+                0, 4, 1, 2, 3).unsqueeze(0)
 
             if not continuous:
                 value, logit, (hx, cx) = self.model.forward((inputs, (hx, cx)))
-                value = value.detach()
-                logit = logit.detach()
+                value = value.squeeze().detach()
+                logit = logit.squeeze(0).detach()
                 hx = hx.detach()
                 cx = cx.detach()
                 prob = F.softmax(logit, dim=-1)
@@ -97,10 +97,9 @@ class Evaluator(object):
             return action, (hx, cx)
 
         obs_stack = self.env.reset(fixed_spawn)
-        print(obs_stack.shape)
 
-        cx = torch.zeros(1, 256)
-        hx = torch.zeros(1, 256)
+        cx = torch.zeros(self.agents, 256).unsqueeze(0)
+        hx = torch.zeros(self.agents, 256).unsqueeze(0)
         # Here obs have shape (agent, *image_size, frame_history)
         sum_r = np.zeros((self.agents))
         isOver = [False] * self.agents

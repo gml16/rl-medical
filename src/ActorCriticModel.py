@@ -38,7 +38,7 @@ class A3C_discrete(torch.nn.Module):
         self.apply(weights_init)
         for module in self.actor_linear:
             module.weight.data = normalized_columns_initializer(
-                self.actor_linear.weight.data, 0.01)
+                module.weight.data, 0.01)
             module.bias.data.fill_(0)
 
         # self.actor_linear.weight.data = normalized_columns_initializer(
@@ -47,7 +47,7 @@ class A3C_discrete(torch.nn.Module):
 
         for module in self.critic_linear:
             module.weight.data = normalized_columns_initializer(
-                self.actor_linear.weight.data, 0.01)
+                module.weight.data, 0.01)
             module.bias.data.fill_(0)
         # self.critic_linear.weight.data = normalized_columns_initializer(
         #     self.critic_linear.weight.data, 1.0)
@@ -61,16 +61,19 @@ class A3C_discrete(torch.nn.Module):
 
     def forward(self, inputs):
 
-        inputs, (hx, cx) = inputs
+        inputs, (hxs, cxs) = inputs
 
         inputs = inputs / 255.0
         values = []
         actions = []
+        hxs_next = []
+        cxs_next = []
         for i in range(self.agents):
             x = inputs[:,i]
-            hx = hx[:,i]
-            cv = cx[:,i]
-            x = F.elu(self.conv1(inputs))
+            hx = hxs[:,i]
+            cx = cxs[:,i]
+
+            x = F.elu(self.conv1(x))
             x = F.elu(self.conv2(x))
             x = F.elu(self.conv3(x))
             x = F.elu(self.conv4(x))
@@ -80,19 +83,19 @@ class A3C_discrete(torch.nn.Module):
             hx, cx = self.lstm(x, (hx, cx))
             x = hx
             value = self.critic_linear[i](x)
-            actions = self.actor_linear[i](x)
+            action = self.actor_linear[i](x)
+            
             values.append(value)
             actions.append(action)
+            hxs_next.append(hx)
+            cxs_next.append(cx)
 
         values = torch.stack(values, dim=1)
         actions = torch.stack(actions, dim=1)
-
-        print(f"Shape of values :{values.shape}")
-        print(f"Shape of actions :{actions.shape}")
-        print(f"Shape of hidden state :{hx.shape}")
-        print(f"Shape of cell state :{cx.shape}")
+        hxs = torch.stack(hxs_next, dim=1)
+        cxs = torch.stack(cxs_next, dim=1)
         
-        return values, actions, (hx, cx)
+        return values, actions, (hxs, cxs)
 
 class A3C_continuous(torch.nn.Module):
     def __init__(self, num_inputs, action_space):
