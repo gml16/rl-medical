@@ -118,8 +118,10 @@ if __name__ == '__main__':
         '--landmarks', nargs='*', help='Landmarks to use in the images',
         type=int, default=[1])
     parser.add_argument(
-        '--model_name', help='Models implemented are: Network3d, CommNet',
-        default="CommNet", choices=['CommNet', 'Network3d'], type=str)
+        '--model_name',
+        help='Models implemented are: Network3d, CommNet, A3C_continuous_v2, A3C_dicrete, A3C_continuous'
+        default="CommNet",
+        choices=['CommNet', 'Network3d', 'A3C_discrete', 'A3C_continuous', 'A3C_continuous_v2'], type=str)
     parser.add_argument(
         '--batch_size', help='Size of each batch', default=64, type=int)
     parser.add_argument(
@@ -243,7 +245,11 @@ if __name__ == '__main__':
         if not args.continuous:
             model = A3C_discrete(FRAME_HISTORY, 6)
         else:
-            model = A3C_continuous(FRAME_HISTORY, 3)
+            if args.model_name == "A3C_continuous":
+                model = A3C_continuous(FRAME_HISTORY, 3)
+            elif args.model_name == "A3C_continuous_v2"
+                model = A3C_continuous_v2(FRAME_HISTORY, 3)
+
         model.load_state_dict(torch.load(args.load, map_location=model.device))
         environment = get_player(files_list=args.files,
                                  file_type=args.file_type,
@@ -299,5 +305,6 @@ if __name__ == '__main__':
                           entropy_coef=args.entropy_coef,
                           num_processes=args.num_processes,
                           continuous=args.continuous,
-                          comment=args.log_comment
+                          comment=args.log_comment,
+                          model_name=args.model_name
                          )

@@ -47,8 +47,10 @@ class Trainer(object):
                  entropy_coef=0.01,
                  seed=None,
                  continuous=False,
-                 comment='A3C'
+                 comment='A3C',
+                 model_name="A3C",
                 ):
+        self.model_name=model_name
         self.seed = seed
         self.env = env
         self.eval_env = eval_env
@@ -76,7 +78,10 @@ class Trainer(object):
         if(not self.continuous):
             shared_model = A3C_discrete(1, self.env.action_space, self.agents)
         else:
-            shared_model = A3C_continuous(1, self.env.action_space, self.agents)
+            if self.model_name == "A3C_continuous":
+                shared_model = A3C_continuous(FRAME_HISTORY, 3)
+            elif self.model_name == "A3C_continuous_v2"
+                shared_model = A3C_continuous_v2(FRAME_HISTORY, 3)
         #shared_model = A3C(self.frame_history, self.env.action_space)
         shared_model.share_memory()
 
@@ -140,7 +145,11 @@ class Trainer(object):
         if(not self.continuous):
             model = A3C_discrete(1, self.env.action_space, self.agents)
         else:
-            model = A3C_continuous(1, self.env.action_space, self.agents)
+            if self.model_name == "A3C_continuous":
+                model = A3C_continuous(FRAME_HISTORY, 3)
+            elif self.model_name == "A3C_continuous_v2"
+                self.logger.log("Created model with A3C_continuous_v2 architecture")
+                model = A3C_continuous_v2(FRAME_HISTORY, 3)
         #model = A3C(self.frame_history, self.env.action_space)
 
         env= copy.deepcopy(self.env)
