@@ -14,7 +14,7 @@ from DQN import get_player
 from logger import Logger
 import evaluator
 import A3C_evaluator
-from ActorCriticModel import A3C
+from ActorCriticModel import A3C_discrete, A3C_continuous
 
 FRAME_HISTORY = 4
 
@@ -69,6 +69,10 @@ if __name__ == "__main__":
             if "1" in name:
                 agents = 1
 
+        continuous = False
+        if "Continuous" in name:
+            continuous = True
+
         if "brain" in name:
             file_type = "brain"
             file_type2 = "brain"
@@ -108,8 +112,11 @@ if __name__ == "__main__":
                       type=model_name, collective_rewards=collective_rewards)
             model = dqn.q_network
         else:
-            model = A3C(1, environment.action_space)
-
+            if not continuous:
+                model = A3C_discrete(1, environment.action_space, agents = agents)
+            else:
+                model = A3C_continuous(1, environment.action_space)
+            
         #model.load_state_dict(torch.load(f, map_location=model.device))
         print(f)
         model = torch.load(f.name)
@@ -121,6 +128,6 @@ if __name__ == "__main__":
         else:
             evaluator = A3C_evaluator.Evaluator(environment, model, logger,
                                     agents, 200)
-                                    
-        mean, std = evaluator.play_n_episodes(fixed_spawn=fixed_spawn, silent=True)
+        print(continuous)                          
+        mean, std = evaluator.play_n_episodes(fixed_spawn=fixed_spawn, silent=True, continuous = continuous)
         logger.log(f"{fullName}: mean {mean}, std {std}")

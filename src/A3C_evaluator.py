@@ -11,7 +11,7 @@ class Evaluator(object):
         self.agents = agents
         self.max_steps = max_steps
 
-    def play_n_episodes(self, render=False, fixed_spawn=None, silent=False):
+    def play_n_episodes(self, render=False, fixed_spawn=None, silent=False, continuous = False):
         """
         wraps play_one_episode, playing a single episode at a time and logs
         results used when playing demos.
@@ -41,7 +41,7 @@ class Evaluator(object):
         distances = []
         for j in range(num_runs):
             for k in range(num_files):
-                (score, start_dists, info)  = self.play_one_episode(render, fixed_spawn=fixed_spawn[j])
+                (score, start_dists, info)  = self.play_one_episode(render, fixed_spawn=fixed_spawn[j], continuous = continuous)
                 row = [j * num_files + k + 1] + list(chain.from_iterable(zip(
                     [info[f"filename_{i}"] for i in range(self.agents)],
                     [info[f"agent_xpos_{i}"] for i in range(self.agents)],
@@ -73,10 +73,10 @@ class Evaluator(object):
             using greedy policy.
             """
             obs_stack, (hx, cx) = inputs
-            inputs = torch.tensor(obs_stack).permute(
-                0, 4, 1, 2, 3).unsqueeze(0)
 
             if not continuous:
+                inputs = torch.tensor(obs_stack).permute(
+                    0, 4, 1, 2, 3).unsqueeze(0)
                 value, logit, (hx, cx) = self.model.forward((inputs, (hx, cx)))
                 value = value.squeeze().detach()
                 logit = logit.squeeze(0).detach()
@@ -85,6 +85,8 @@ class Evaluator(object):
                 prob = F.softmax(logit, dim=-1)
                 action = prob.multinomial(num_samples=1).detach()
             else:
+                inputs = torch.tensor(obs_stack).permute(
+                    0, 4, 1, 2, 3)
                 value, mean, sigma, (hx, cx) = self.model((inputs,(hx, cx)))
                 value = value.detach()
                 mean = mean.detach()
@@ -98,8 +100,12 @@ class Evaluator(object):
 
         obs_stack = self.env.reset(fixed_spawn)
 
-        cx = torch.zeros(self.agents, 256).unsqueeze(0)
-        hx = torch.zeros(self.agents, 256).unsqueeze(0)
+        if not continuous:
+            cx = torch.zeros(self.agents, 256).unsqueeze(0)
+            hx = torch.zeros(self.agents, 256).unsqueeze(0)
+        else:
+            cx = torch.zeros(1,256)
+            hx = torch.zeros(1,256)
         # Here obs have shape (agent, *image_size, frame_history)
         sum_r = np.zeros((self.agents))
         isOver = [False] * self.agents
