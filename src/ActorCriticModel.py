@@ -155,33 +155,29 @@ class A3C_continuous_v2(torch.nn.Module):
             in_channels=num_inputs,
             out_channels=32,
             kernel_size=(5, 5, 5),
-            padding=1).to(
-            self.device)
-        self.maxpool0 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
-        self.prelu0 = nn.PReLU().to(self.device)
+            padding=1)
+        self.maxpool0 = nn.MaxPool3d(kernel_size=(2, 2, 2))
+        self.prelu0 = nn.PReLU()
         self.conv1 = nn.Conv3d(
             in_channels=32,
             out_channels=32,
             kernel_size=(5, 5, 5),
-            padding=1).to(
-            self.device)
-        self.maxpool1 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
-        self.prelu1 = nn.PReLU().to(self.device)
+            padding=1)
+        self.maxpool1 = nn.MaxPool3d(kernel_size=(2, 2, 2))
+        self.prelu1 = nn.PReLU()
         self.conv2 = nn.Conv3d(
             in_channels=32,
             out_channels=64,
             kernel_size=(4, 4, 4),
-            padding=1).to(
-            self.device)
-        self.maxpool2 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
-        self.prelu2 = nn.PReLU().to(self.device)
+            padding=1)
+        self.maxpool2 = nn.MaxPool3d(kernel_size=(2, 2, 2))
+        self.prelu2 = nn.PReLU()
         self.conv3 = nn.Conv3d(
             in_channels=64,
             out_channels=64,
             kernel_size=(3, 3, 3),
-            padding=0).to(
-            self.device)
-        self.prelu3 = nn.PReLU().to(self.device)
+            padding=0)
+        self.prelu3 = nn.PReLU()
 
         self.lstm = nn.LSTMCell(512, 512)
 
@@ -193,31 +189,31 @@ class A3C_continuous_v2(torch.nn.Module):
 
         self.actor_mu0 = nn.Linear(in_features=512, out_features=256)
         self.prelu5 = nn.PReLU()
-        self.critic1 = nn.Linear(256, num_outputs)
+        self.actor_mu1 = nn.Linear(256, num_outputs)
 
         self.actor_sigma0 = nn.Linear(in_features=512, out_features=256)
         self.prelu6 = nn.PReLU()
-        self.critic1 = nn.Linear(256, num_outputs)
+        self.actor_sigma1 = nn.Linear(256, num_outputs)
 
         self.apply(weights_init)
         self.actor_mu0.weight.data = normalized_columns_initializer(
-            self.actor_mu.weight.data, 0.01)
+            self.actor_mu0.weight.data, 0.01)
         self.actor_mu0.bias.data.fill_(0)
         self.actor_sigma0.weight.data = normalized_columns_initializer(
-            self.actor_sigma.weight.data, 0.01)
+            self.actor_sigma0.weight.data, 0.01)
         self.actor_sigma0.bias.data.fill_(0)
         self.critic0.weight.data = normalized_columns_initializer(
-            self.critic_linear.weight.data, 1.0)
+            self.critic0.weight.data, 1.0)
         self.critic0.bias.data.fill_(0)
 
         self.actor_mu1.weight.data = normalized_columns_initializer(
-            self.actor_mu.weight.data, 0.01)
+            self.actor_mu1.weight.data, 0.01)
         self.actor_mu1.bias.data.fill_(0)
         self.actor_sigma1.weight.data = normalized_columns_initializer(
-            self.actor_sigma.weight.data, 0.01)
+            self.actor_sigma1.weight.data, 0.01)
         self.actor_sigma1.bias.data.fill_(0)
         self.critic1.weight.data = normalized_columns_initializer(
-            self.critic_linear.weight.data, 1.0)
+            self.critic1.weight.data, 1.0)
         self.critic1.bias.data.fill_(0)
 
         self.lstm.bias_ih.data.fill_(0)

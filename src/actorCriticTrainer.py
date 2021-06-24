@@ -12,7 +12,7 @@ from DQNModel import DQN
 #from evaluator import Evaluator
 from A3C_evaluator import Evaluator
 from tqdm import tqdm
-from ActorCriticModel import A3C_discrete, A3C_continuous
+from ActorCriticModel import A3C_discrete, A3C_continuous, A3C_continuous_v2
 import shared_adam
 
 def set_reproducible(seed):
@@ -79,9 +79,9 @@ class Trainer(object):
             shared_model = A3C_discrete(1, self.env.action_space, self.agents)
         else:
             if self.model_name == "A3C_continuous":
-                shared_model = A3C_continuous(FRAME_HISTORY, 3)
-            elif self.model_name == "A3C_continuous_v2"
-                shared_model = A3C_continuous_v2(FRAME_HISTORY, 3)
+                shared_model = A3C_continuous(1, self.env.action_space)
+            elif self.model_name == "A3C_continuous_v2":
+                shared_model = A3C_continuous_v2(1, self.env.action_space)
         #shared_model = A3C(self.frame_history, self.env.action_space)
         shared_model.share_memory()
 
@@ -146,10 +146,10 @@ class Trainer(object):
             model = A3C_discrete(1, self.env.action_space, self.agents)
         else:
             if self.model_name == "A3C_continuous":
-                model = A3C_continuous(FRAME_HISTORY, 3)
-            elif self.model_name == "A3C_continuous_v2"
+                model = A3C_continuous(1, self.env.action_space)
+            elif self.model_name == "A3C_continuous_v2":
                 self.logger.log("Created model with A3C_continuous_v2 architecture")
-                model = A3C_continuous_v2(FRAME_HISTORY, 3)
+                model = A3C_continuous_v2(1, self.env.action_space)
         #model = A3C(self.frame_history, self.env.action_space)
 
         env= copy.deepcopy(self.env)
@@ -197,8 +197,16 @@ class Trainer(object):
                 cx = cx.detach()
                 hx = hx.detach()
             else:
-                cx = torch.zeros(self.agents, 256).unsqueeze(0)
-                hx = torch.zeros(self.agents, 256).unsqueeze(0)
+                if not self.continuous:
+                    cx = torch.zeros(self.agents, 256).unsqueeze(0)
+                    hx = torch.zeros(self.agents, 256).unsqueeze(0)
+                else:
+                    if self.model_name == "A3C_continuous":
+                        cx = torch.zeros(1, 256)
+                        hx = torch.zeros(1, 256)
+                    elif self.model_name == "A3C_continuous_v2":
+                        cx = torch.zeros(1, 512)
+                        hx = torch.zeros(1, 512)
 
             # Reset the environment for the start of the episode.
             obs = env.reset()
@@ -333,6 +341,7 @@ class Trainer(object):
 
             self.eps = max(self.min_eps, self.eps - self.delta)
             # Every epoch
+            #if episode % 1 == 0:
             if episode % self.epoch_length == 0:
                 lr = self.get_lr(optimizer)
                 self.append_epoch_board(epoch_distances, self.eps, losses,

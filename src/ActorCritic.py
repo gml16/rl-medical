@@ -119,7 +119,7 @@ if __name__ == '__main__':
         type=int, default=[1])
     parser.add_argument(
         '--model_name',
-        help='Models implemented are: Network3d, CommNet, A3C_continuous_v2, A3C_dicrete, A3C_continuous'
+        help='Models implemented are: Network3d, CommNet, A3C_continuous_v2, A3C_dicrete, A3C_continuous',
         default="CommNet",
         choices=['CommNet', 'Network3d', 'A3C_discrete', 'A3C_continuous', 'A3C_continuous_v2'], type=str)
     parser.add_argument(
@@ -247,7 +247,7 @@ if __name__ == '__main__':
         else:
             if args.model_name == "A3C_continuous":
                 model = A3C_continuous(FRAME_HISTORY, 3)
-            elif args.model_name == "A3C_continuous_v2"
+            elif args.model_name == "A3C_continuous_v2":
                 model = A3C_continuous_v2(FRAME_HISTORY, 3)
 
         model.load_state_dict(torch.load(args.load, map_location=model.device))
