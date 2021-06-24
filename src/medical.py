@@ -454,36 +454,50 @@ class MedicalPlayer(gym.Env):
 
         self._update_history()
         # check if agent oscillates
-        if self._oscillate:
-            self._location = self.getBestLocation()
-            # self._location=[item for sublist in temp for item in sublist]
-            self._screen = self._current_state()
+        if not continuous:
+            if self._oscillate:
+                self._location = self.getBestLocation()
+                # self._location=[item for sublist in temp for item in sublist]
+                self._screen = self._current_state()
 
-            if self.task != 'play':
-                for i in range(self.agents):
-                    self.cur_dist[i] = self.calcDistance(self._location[i],
-                                                         self._target_loc[i],
-                                                         self.spacing)
+                if self.task != 'play':
+                    for i in range(self.agents):
+                        self.cur_dist[i] = self.calcDistance(self._location[i],
+                                                             self._target_loc[i],
+                                                             self.spacing)
 
-            # multi-scale steps
-            if self.multiscale:
-                if self.xscale > 1:
-                    self.xscale -= 1
-                    self.yscale -= 1
-                    self.zscale -= 1
-                    self.action_step = int(self.action_step / 3)
-                    self._clear_history()
-                # terminate if scale is less than 1
+                # multi-scale steps
+                if self.multiscale:
+                    if self.xscale > 1:
+                        self.xscale -= 1
+                        self.yscale -= 1
+                        self.zscale -= 1
+                        self.action_step = int(self.action_step / 3)
+                        self._clear_history()
+                    # terminate if scale is less than 1
+                    else:
+                        for i in range(self.agents):
+                            self.terminal[i] = True
+                            if self.cur_dist[i] <= 1:
+                                self.num_success[i] += 1
                 else:
                     for i in range(self.agents):
                         self.terminal[i] = True
                         if self.cur_dist[i] <= 1:
                             self.num_success[i] += 1
-            else:
-                for i in range(self.agents):
-                    self.terminal[i] = True
-                    if self.cur_dist[i] <= 1:
-                        self.num_success[i] += 1
+        else:
+            if act_x == 0 and act_y == 0 and act_z == 0:
+                if self.xscale > 1:
+                    self.xscale -= 1
+                    self.yscale -= 1
+                    self.zscale -= 1
+                else:
+                    for i in range(self.agents):
+                        self.terminal[i] = True
+                        if self.cur_dist[i] <= 1:
+                            self.num_success[i] += 1
+
+
         # render screen if viz is on
         with _ALE_LOCK:
             if self.viz:
