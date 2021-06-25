@@ -4,12 +4,13 @@ from itertools import chain
 import torch.nn.functional as F
 
 class Evaluator(object):
-    def __init__(self, environment, model, logger, agents, max_steps):
+    def __init__(self, environment, model, logger, agents, max_steps, model_name):
         self.env = environment
         self.model = model
         self.logger = logger
         self.agents = agents
         self.max_steps = max_steps
+        self.model_name = model_name
 
     def play_n_episodes(self, render=False, fixed_spawn=None, silent=False, continuous = False):
         """
