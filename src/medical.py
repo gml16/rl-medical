@@ -173,7 +173,7 @@ class MedicalPlayer(gym.Env):
         """
         restart current episode
         """
-        if self.stopping_critetion = "consec_zero_action"
+        if self.stopping_criterion == "consec_zero_action":
             self.consec_zeros = [0] * self.agents
         self.terminal = [False] * self.agents
         self.reward = np.zeros((self.agents,))

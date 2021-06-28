@@ -40,7 +40,7 @@ FRAME_HISTORY = 1
 
 def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
                task="play", file_type="brain", saveGif=False, saveVideo=False,
-               multiscale=True, history_length=20, agents=1, logger=None):
+               multiscale=True, history_length=20, agents=1, logger=None, stopping_criterion="osc"):
     env = MedicalPlayer(
         directory=directory,
         screen_dims=IMAGE_SIZE,
@@ -54,7 +54,8 @@ def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
         history_length=history_length,
         multiscale=multiscale,
         agents=agents,
-        logger=logger)
+        logger=logger,
+        stopping_criterion=stopping_criterion)
     if task != "train":
         # in training, env will be decorated by ExpReplay, and history
         # is taken care of in expreplay buffer
@@ -123,7 +124,7 @@ if __name__ == '__main__':
         default="CommNet",
         choices=['CommNet', 'Network3d', 'A3C_discrete', 'A3C_continuous', 'A3C_continuous_v2', 'A3C_continuous_v3', 'A3C_continuous_v4'], type=str)
     parser.add_argument(
-        '--stopping_critertion',
+        '--stopping_criterion',
         help='Stopping criterions implemented are: Oscillations, Zero action, Two consecutive zero actions, Unrounded action smaller than threshold',
         default="osc",
         choices=['osc', 'zero_action', 'consec_zero_action', 'threshold'], type=str)

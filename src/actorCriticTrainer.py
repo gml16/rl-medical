@@ -265,7 +265,7 @@ class Trainer(object):
                     value, mean, sigma, (hx, cx) = \
                             model((torch.tensor(obs).unsqueeze(0),(hx, cx)))
                     #check_2 = time.time()
-                    forward_time += check_2 - check_1
+                    #forward_time += check_2 - check_1
                     sigma = F.softplus(sigma) + 1e-5
                     action = (mean + sigma * torch.randn(*mean.shape)).detach()
                     log_prob = (-(action - mean).pow(2) / (2 * sigma.pow(2)) -\
