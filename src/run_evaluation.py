@@ -56,7 +56,12 @@ if __name__ == "__main__":
         elif "Network3d" in name:
             model_name = "Network3d"
         elif "A3C" in name:
-            model_name = "A3C"
+            if "ContinuousV2" in name:
+                model_name = "A3C_continuous_v2"
+            elif "Continuous" in name:
+                model_name = "A3C_continuous"
+            else:
+                model_name = "A3C_discrte"
 
         if not "A3C" in name:
             if "3" in name:
@@ -127,7 +132,7 @@ if __name__ == "__main__":
                                     agents, 200)
         else:
             evaluator = A3C_evaluator.Evaluator(environment, model, logger,
-                                    agents, 200)
+                                    agents, 200, model_name = model_name)
         print(continuous)                          
         mean, std = evaluator.play_n_episodes(fixed_spawn=fixed_spawn, silent=True, continuous = continuous)
         logger.log(f"{fullName}: mean {mean}, std {std}")

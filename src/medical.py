@@ -52,7 +52,8 @@ class MedicalPlayer(gym.Env):
                  file_type="brain", landmark_ids=None,
                  screen_dims=(27, 27, 27), history_length=28, multiscale=True,
                  max_num_frames=0, saveGif=False, saveVideo=False, agents=1,
-                 oscillations_allowed=4, fixed_spawn=None, logger=None):
+                 oscillations_allowed=4, fixed_spawn=None, logger=None,
+                 stopping_criterion="osc"):
         """
         :param train_directory: environment or game name
         :param viz: visualization
@@ -91,6 +92,8 @@ class MedicalPlayer(gym.Env):
         self.multiscale = multiscale
 
         self.landmarks = landmark_ids
+
+        self.stopping_criterion = stopping_criterion
 
         # init env dimensions
         if self.dims == 2:
@@ -170,6 +173,8 @@ class MedicalPlayer(gym.Env):
         """
         restart current episode
         """
+        if self.stopping_critetion = "consec_zero_action"
+            self.consec_zeros = [0] * self.agents
         self.terminal = [False] * self.agents
         self.reward = np.zeros((self.agents,))
         self.cnt = 0  # counter to limit number of steps per episodes
@@ -289,7 +294,7 @@ class MedicalPlayer(gym.Env):
         """The environment's step function returns exactly what we need.
         Args:
           act:
-        Returns:
+        Returns:0
           observation (object):
             an environment-specific object representing your observation of
             the environment. For example, pixel data from a camera, joint
@@ -486,16 +491,42 @@ class MedicalPlayer(gym.Env):
                         if self.cur_dist[i] <= 1:
                             self.num_success[i] += 1
         else:
-            if act_x == 0 and act_y == 0 and act_z == 0:
-                if self.xscale > 1:
-                    self.xscale -= 1
-                    self.yscale -= 1
-                    self.zscale -= 1
-                else:
-                    for i in range(self.agents):
-                        self.terminal[i] = True
-                        if self.cur_dist[i] <= 1:
-                            self.num_success[i] += 1
+            if self.stopping_criterion == "zero_action":
+                if act_x == 0 and act_y == 0 and act_z == 0:
+                    if self.xscale > 1:
+                        self.xscale -= 1
+                        self.yscale -= 1
+                        self.zscale -= 1
+                    else:
+                        for i in range(self.agents):
+                            self.terminal[i] = True
+                            if self.cur_dist[i] <= 1:
+                                self.num_success[i] += 1
+            elif self.stopping_criterion == "consec_zero_action":
+                if act_x == 0 and act_y == 0 and act_z == 0:
+                    if self.consec_zeros[0] == 1:
+                        if self.xscale > 1:
+                            self.xscale -= 1
+                            self.yscale -= 1
+                            self.zscale -= 1
+                        else:
+                            for i in range(self.agents):
+                                self.terminal[i] = True
+                                if self.cur_dist[i] <= 1:
+                                    self.num_success[i] += 1
+                    elif self.consec_zeros[0] == 0:
+                        self.consec_zeros[0] = 1
+            elif self.stopping_criterion == "threshold":
+                if act[0][0] < 0.25 and act[0][1] < 0.25 and act[0][2] < 0.25:
+                    if self.xscale > 1:
+                        self.xscale -= 1
+                        self.yscale -= 1
+                        self.zscale -= 1
+                    else:
+                        for i in range(self.agents):
+                            self.terminal[i] = True
+                            if self.cur_dist[i] <= 1:
+                                self.num_success[i] += 1
 
 
         # render screen if viz is on

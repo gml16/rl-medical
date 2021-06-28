@@ -13,7 +13,7 @@ from DQNModel import DQN
 #from evaluator import Evaluator
 from A3C_evaluator import Evaluator
 from tqdm import tqdm
-from ActorCriticModel import A3C_discrete, A3C_continuous, A3C_continuous_v2
+from ActorCriticModel import A3C_discrete, A3C_continuous, A3C_continuous_v2, A3C_continuous_v3, A3C_continuous_v4
 import shared_adam
 
 def set_reproducible(seed):
@@ -83,6 +83,10 @@ class Trainer(object):
                 shared_model = A3C_continuous(1, self.env.action_space)
             elif self.model_name == "A3C_continuous_v2":
                 shared_model = A3C_continuous_v2(1, self.env.action_space)
+            elif self.model_name == "A3C_continuous_v3":
+                shared_model = A3C_continuous_v3(1, self.env.action_space)
+            elif self.model_name == "A3C_continuous_v4":
+                shared_model = A3C_continuous_v4(1, self.env.action_space)
         #shared_model = A3C(self.frame_history, self.env.action_space)
         shared_model.share_memory()
 
@@ -139,7 +143,7 @@ class Trainer(object):
         #    set_reproducible(self.seed+rank)
         #self.logger.log(self.dqn.q_network)
         #self.init_memory()
-        starting_time = time.time()
+        #starting_time = time.time()
 
         self.logger.boardWriter = SummaryWriter(comment=self.logger_comment)
 
@@ -153,6 +157,10 @@ class Trainer(object):
             elif self.model_name == "A3C_continuous_v2":
                 self.logger.log("Created model with A3C_continuous_v2 architecture")
                 model = A3C_continuous_v2(1, self.env.action_space)
+            elif self.model_name == "A3C_continuous_v3":
+                model = A3C_continuous_v3(1, self.env.action_space)
+            elif self.model_name == "A3C_continuous_v4":
+                model = A3C_continuous_v4(1, self.env.action_space)
         #model = A3C(self.frame_history, self.env.action_space)
 
         env= copy.deepcopy(self.env)
@@ -183,12 +191,13 @@ class Trainer(object):
         ready_processes[rank] = 1
         terminal = [False for _ in range(self.agents)]
 
-        print(f"Sub-agent {rank} initialization duration: {time.time()-starting_time}")
+        #print(f"Sub-agent {rank} initialization duration: {time.time()-starting_time}")
 
 
         while episode <= self.max_episodes:
+            forward_time = 0
 
-            episode_startint_time = time.time()
+            #episode_starting_time = time.time()
 
             #while(not torch.all(ready_processes.byte()).item()):
             #    pass
@@ -210,7 +219,7 @@ class Trainer(object):
                     cx = torch.zeros(self.agents, 256).unsqueeze(0)
                     hx = torch.zeros(self.agents, 256).unsqueeze(0)
                 else:
-                    if self.model_name == "A3C_continuous":
+                    if self.model_name == "A3C_continuous" or "A3C_continuous_v3" or "A3C_continuous_v4":
                         cx = torch.zeros(1, 256)
                         hx = torch.zeros(1, 256)
                     elif self.model_name == "A3C_continuous_v2":
@@ -232,11 +241,11 @@ class Trainer(object):
             rewards = []
             entropies = []
             
-            checkpoint_1 = time.time()
-            print(f"Sub-agent {rank} episode initialization duration: {checkpoint_1-episode_starting_time}")
+            #checkpoint_1 = time.time()
+            #print(f"Sub-agent {rank} episode initialization duration: {checkpoint_1-episode_starting_time}")
 
             for step_num in range(self.steps_per_episode):
-                check_1 = time.time()
+                #check_1 = time.time()
                 acc_steps += 1
                 if(not self.continuous):
                     value, logit, (hx, cx) = model((torch.tensor(obs).unsqueeze(0).unsqueeze(2),(hx, cx)))
@@ -252,8 +261,11 @@ class Trainer(object):
                     action = prob.multinomial(num_samples=1).detach()
                     log_prob = log_prob.gather(1, action).squeeze()
                 else:
+                    #check_1 = time.time()
                     value, mean, sigma, (hx, cx) = \
                             model((torch.tensor(obs).unsqueeze(0),(hx, cx)))
+                    #check_2 = time.time()
+                    forward_time += check_2 - check_1
                     sigma = F.softplus(sigma) + 1e-5
                     action = (mean + sigma * torch.randn(*mean.shape)).detach()
                     log_prob = (-(action - mean).pow(2) / (2 * sigma.pow(2)) -\
@@ -267,14 +279,14 @@ class Trainer(object):
                                sigma.log() +
                                0.5 * (torch.Tensor([2 * pi])).log().expand_as(sigma)).sum()
 
-                check2 = time.time()
-                print(f"Sub-agent {rank} 1-2  duration: {check2-check1}")
+                #check_2 = time.time()
+                #print(f"Sub-agent {rank} 1-2  duration: {check_2-check_1}")
 
                 obs, reward, terminal, info = env.step(
                     np.copy(action.numpy()), terminal, continuous = self.continuous, rank = rank)
 
-                check3 = time.time()
-                print(f"Sub-agent {rank} 2-3  duration: {check3-check2}")
+                #check_3 = time.time()
+                #print(f"Sub-agent {rank} 2-3  duration: {check_3-check_2}")
 
                 reward = torch.clamp(
                     torch.tensor(
@@ -289,13 +301,14 @@ class Trainer(object):
 
                 if all(t for t in terminal):
                     break
-                check4 = time.time()
-                print(f"Sub-agent {rank} 3-4  duration: {check4-check3}")
+                #check_4 = time.time()
+                #print(f"Sub-agent {rank} 3-4  duration: {check_4-check_3}")
+                #print(f"Sub-agent {rank} step: {step_num}")
 
-            checkpoint_2 = time.time()
-            print(f"Sub-agent {rank} episode running duration: {checkpoint_2-checkpoint_1}")
+            #checkpoint_2 = time.time()
+            #print(f"Sub-agent {rank} episode running duration: {checkpoint_2-checkpoint_1}")
 
-
+            #print(f"Sub-agent {rank} time spent in forward: {forward_time}")
             R = torch.zeros(self.agents,1)
 
             if not all(t for t in terminal):
@@ -333,15 +346,18 @@ class Trainer(object):
                 policy_loss = policy_loss - \
                     log_probs[i] * gae.detach() - self.entropy_coef * entropies[i]
 
-            checkpoint_3 = time.time()
-            print(f"Sub-agent {rank} grad aggregation duration: {checkpoint_3-checkpoint_2}")
+            #checkpoint_3 = time.time()
+            #print(f"Sub-agent {rank} grad aggregation duration: {checkpoint_3-checkpoint_2}")
 
             optimizer.zero_grad()
-
+            #check_3 = time.time()
             (policy_loss + self.value_loss_coef * value_loss).sum().backward()
+            #check_4 = time.time()
+            #print(f"Sub-agent {rank} time spent in backward: {check_4 - check_3}")
+
             torch.nn.utils.clip_grad_norm_(model.parameters(), self.max_grad_norm)
-            checkpoint_4 = time.time()
-            print(f"Sub-agent {rank} backprop duration: {checkpoint_4-checkpoint_3}")
+            #checkpoint_4 = time.time()
+            #print(f"Sub-agent {rank} backprop duration: {checkpoint_4-checkpoint_3}")
 
             '''
             for name, param in model.named_parameters():
@@ -353,9 +369,12 @@ class Trainer(object):
             '''
 
             self.ensure_shared_grads(model, shared_model)
+            #check_5 = time.time()
             optimizer.step()
-            checkpoint_5 = time.time()
-            print(f"Sub-agent {rank} weight update duration: {checkpoint_5-checkpoint_4}")
+            #check_6 = time.time()
+            #print(f"Sub-agent {rank} time spent in backward: {check_6 - check_5}")
+            #checkpoint_5 = time.time()
+            #print(f"Sub-agent {rank} weight update duration: {checkpoint_5-checkpoint_4}")
 
             '''
             for name, param in model.named_parameters():

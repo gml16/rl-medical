@@ -119,9 +119,14 @@ if __name__ == '__main__':
         type=int, default=[1])
     parser.add_argument(
         '--model_name',
-        help='Models implemented are: Network3d, CommNet, A3C_continuous_v2, A3C_dicrete, A3C_continuous',
+        help='Models implemented are: Network3d, CommNet, A3C_continuous_v3, A3C_continuous_v2, A3C_dicrete, A3C_continuous',
         default="CommNet",
-        choices=['CommNet', 'Network3d', 'A3C_discrete', 'A3C_continuous', 'A3C_continuous_v2'], type=str)
+        choices=['CommNet', 'Network3d', 'A3C_discrete', 'A3C_continuous', 'A3C_continuous_v2', 'A3C_continuous_v3', 'A3C_continuous_v4'], type=str)
+    parser.add_argument(
+        '--stopping_critertion',
+        help='Stopping criterions implemented are: Oscillations, Zero action, Two consecutive zero actions, Unrounded action smaller than threshold',
+        default="osc",
+        choices=['osc', 'zero_action', 'consec_zero_action', 'threshold'], type=str)
     parser.add_argument(
         '--batch_size', help='Size of each batch', default=64, type=int)
     parser.add_argument(
@@ -273,7 +278,8 @@ if __name__ == '__main__':
                                  agents=agents,
                                  viz=args.viz,
                                  multiscale=args.multiscale,
-                                 logger=None)
+                                 logger=None,
+                                 stopping_criterion=args.stopping_criterion)
         environment.sampled_files = None
 
         if args.val_files is not None:
@@ -283,7 +289,8 @@ if __name__ == '__main__':
                                   file_type=args.file_type,
                                   landmark_ids=args.landmarks,
                                   agents=agents,
-                                  logger=None)
+                                  logger=None,
+                                  stopping_criterion=args.stopping_criterion)
             eval_env.env.sampled_files = None
             print("Created val env")
 

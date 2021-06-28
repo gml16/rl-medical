@@ -105,7 +105,7 @@ class Evaluator(object):
             cx = torch.zeros(self.agents, 256).unsqueeze(0)
             hx = torch.zeros(self.agents, 256).unsqueeze(0)
         else:
-            if self.model_name == "A3C_continuous":
+            if self.model_name == "A3C_continuous" or "A3C_continuous_v3" or "A3C_continuous_v4":
                 cx = torch.zeros(1, 256)
                 hx = torch.zeros(1, 256)
             elif self.model_name == "A3C_continuous_v2":
