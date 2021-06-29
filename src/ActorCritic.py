@@ -218,8 +218,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '--max-grad-norm', type=float, default=50,
         help='value loss coefficient (default: 50)')
-    parser.add_argument('--continuous', help='Continuous actions for A3C',
-                        action='store_true', default=False)
+
+    if "continuous" in args.model_name:
+        continuous = True
 
     args = parser.parse_args()
 
@@ -248,13 +249,12 @@ if __name__ == '__main__':
     if args.task != 'train':
         # dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
         #           type=args.model_name, collective_rewards=args.team_reward, attention=args.attention)
-        if not args.continuous:
+        if args.model_name = "A3C_discrete":
             model = A3C_discrete(FRAME_HISTORY, 6)
-        else:
-            if args.model_name == "A3C_continuous":
-                model = A3C_continuous(FRAME_HISTORY, 3)
-            elif args.model_name == "A3C_continuous_v2":
-                model = A3C_continuous_v2(FRAME_HISTORY, 3)
+        elif args.model_name == "A3C_continuous":
+            model = A3C_continuous(FRAME_HISTORY, 3)
+        elif args.model_name == "A3C_continuous_v2":
+            model = A3C_continuous_v2(FRAME_HISTORY, 3)
 
         model.load_state_dict(torch.load(args.load, map_location=model.device))
         environment = get_player(files_list=args.files,
@@ -312,7 +312,7 @@ if __name__ == '__main__':
                           value_loss_coef=args.value_loss_coef,
                           entropy_coef=args.entropy_coef,
                           num_processes=args.num_processes,
-                          continuous=args.continuous,
+                          continuous=continuous,
                           comment=args.log_comment,
                           model_name=args.model_name
                          )

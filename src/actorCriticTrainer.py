@@ -76,17 +76,16 @@ class Trainer(object):
         self.continuous = continuous
 
         #TODO change to accept 4 frames
-        if(not self.continuous):
+        if self.model_name == "A3C_discrete":
             shared_model = A3C_discrete(1, self.env.action_space, self.agents)
-        else:
-            if self.model_name == "A3C_continuous":
-                shared_model = A3C_continuous(1, self.env.action_space)
-            elif self.model_name == "A3C_continuous_v2":
-                shared_model = A3C_continuous_v2(1, self.env.action_space)
-            elif self.model_name == "A3C_continuous_v3":
-                shared_model = A3C_continuous_v3(1, self.env.action_space)
-            elif self.model_name == "A3C_continuous_v4":
-                shared_model = A3C_continuous_v4(1, self.env.action_space)
+        elif self.model_name == "A3C_continuous":
+            shared_model = A3C_continuous(1, self.env.action_space)
+        elif self.model_name == "A3C_continuous_v2":
+            shared_model = A3C_continuous_v2(1, self.env.action_space)
+        elif self.model_name == "A3C_continuous_v3":
+            shared_model = A3C_continuous_v3(1, self.env.action_space)
+        elif self.model_name == "A3C_continuous_v4":
+            shared_model = A3C_continuous_v4(1, self.env.action_space)
         #shared_model = A3C(self.frame_history, self.env.action_space)
         shared_model.share_memory()
 
@@ -149,18 +148,18 @@ class Trainer(object):
 
         #shared_model = A3C(self.frame_history, self.env.action_space)
         #TODO Change to accept 4 frames
-        if(not self.continuous):
+
+        if self.model_name == "A3C_discrete":
             model = A3C_discrete(1, self.env.action_space, self.agents)
-        else:
-            if self.model_name == "A3C_continuous":
-                model = A3C_continuous(1, self.env.action_space)
-            elif self.model_name == "A3C_continuous_v2":
-                self.logger.log("Created model with A3C_continuous_v2 architecture")
-                model = A3C_continuous_v2(1, self.env.action_space)
-            elif self.model_name == "A3C_continuous_v3":
-                model = A3C_continuous_v3(1, self.env.action_space)
-            elif self.model_name == "A3C_continuous_v4":
-                model = A3C_continuous_v4(1, self.env.action_space)
+        elif self.model_name == "A3C_continuous":
+            model = A3C_continuous(1, self.env.action_space)
+        elif self.model_name == "A3C_continuous_v2":
+            self.logger.log("Created model with A3C_continuous_v2 architecture")
+            model = A3C_continuous_v2(1, self.env.action_space)
+        elif self.model_name == "A3C_continuous_v3":
+            model = A3C_continuous_v3(1, self.env.action_space)
+        elif self.model_name == "A3C_continuous_v4":
+            model = A3C_continuous_v4(1, self.env.action_space)
         #model = A3C(self.frame_history, self.env.action_space)
 
         env= copy.deepcopy(self.env)
@@ -215,16 +214,17 @@ class Trainer(object):
                 cx = cx.detach()
                 hx = hx.detach()
             else:
-                if not self.continuous:
+                if self.model_name == "A3C_discrete":
                     cx = torch.zeros(self.agents, 256).unsqueeze(0)
                     hx = torch.zeros(self.agents, 256).unsqueeze(0)
-                else:
-                    if self.model_name == "A3C_continuous" or "A3C_continuous_v3" or "A3C_continuous_v4":
-                        cx = torch.zeros(1, 256)
-                        hx = torch.zeros(1, 256)
-                    elif self.model_name == "A3C_continuous_v2":
-                        cx = torch.zeros(1, 512)
-                        hx = torch.zeros(1, 512)
+                elif self.model_name == "A3C_continuous" or
+                    self.model_name == "A3C_continuous_v3" or
+                    self.model_name == "A3C_continuous_v4":
+                    cx = torch.zeros(1, 256)
+                    hx = torch.zeros(1, 256)
+                elif self.model_name == "A3C_continuous_v2":
+                    cx = torch.zeros(1, 512)
+                    hx = torch.zeros(1, 512)
 
             # Reset the environment for the start of the episode.
             obs = env.reset()
@@ -240,7 +240,7 @@ class Trainer(object):
             log_probs = []
             rewards = []
             entropies = []
-            
+
             #checkpoint_1 = time.time()
             #print(f"Sub-agent {rank} episode initialization duration: {checkpoint_1-episode_starting_time}")
 
@@ -248,8 +248,10 @@ class Trainer(object):
                 #check_1 = time.time()
                 acc_steps += 1
                 if(not self.continuous):
+                    check_1 = time.time()
                     value, logit, (hx, cx) = model((torch.tensor(obs).unsqueeze(0).unsqueeze(2),(hx, cx)))
-
+                    check_2 = time.time()
+                    forward_time += check_2 - check_1
                     value = value.squeeze()
                     logit = logit.squeeze(0)
 
@@ -308,7 +310,7 @@ class Trainer(object):
             #checkpoint_2 = time.time()
             #print(f"Sub-agent {rank} episode running duration: {checkpoint_2-checkpoint_1}")
 
-            #print(f"Sub-agent {rank} time spent in forward: {forward_time}")
+            self.logger.log(f"Sub-agent {rank} time spent in forward: {forward_time}")
             R = torch.zeros(self.agents,1)
 
             if not all(t for t in terminal):
