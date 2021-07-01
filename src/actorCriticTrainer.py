@@ -13,7 +13,7 @@ from DQNModel import DQN
 #from evaluator import Evaluator
 from A3C_evaluator import Evaluator
 from tqdm import tqdm
-from ActorCriticModel import A3C_discrete, A3C_continuous, A3C_continuous_v2, A3C_continuous_v3, A3C_continuous_v4
+from ActorCriticModel import A3C_discrete, A3C_continuous, A3C_continuous_v2, A3C_continuous_v3, A3C_continuous_v4, A3C_continuous_v5
 import shared_adam
 
 def set_reproducible(seed):
@@ -86,6 +86,8 @@ class Trainer(object):
             shared_model = A3C_continuous_v3(1, self.env.action_space)
         elif self.model_name == "A3C_continuous_v4":
             shared_model = A3C_continuous_v4(1, self.env.action_space)
+        elif self.model_name == "A3C_continuous_v5":
+            shared_model = A3C_continuous_v5(1, self.env.action_space)
         #shared_model = A3C(self.frame_history, self.env.action_space)
         shared_model.share_memory()
 
@@ -154,11 +156,12 @@ class Trainer(object):
         elif self.model_name == "A3C_continuous":
             model = A3C_continuous(1, self.env.action_space)
         elif self.model_name == "A3C_continuous_v2":
-            self.logger.log("Created model with A3C_continuous_v2 architecture")
             model = A3C_continuous_v2(1, self.env.action_space)
         elif self.model_name == "A3C_continuous_v3":
             model = A3C_continuous_v3(1, self.env.action_space)
         elif self.model_name == "A3C_continuous_v4":
+            model = A3C_continuous_v4(1, self.env.action_space)
+        elif self.model_name == "A3C_continuous_v5":
             model = A3C_continuous_v4(1, self.env.action_space)
         #model = A3C(self.frame_history, self.env.action_space)
 
@@ -220,6 +223,7 @@ class Trainer(object):
                 elif self.model_name == "A3C_continuous" or \
                     self.model_name == "A3C_continuous_v3" or \
                     self.model_name == "A3C_continuous_v4":
+                    self.model_name == "A3C_continuous_v5":
                     cx = torch.zeros(1, 256)
                     hx = torch.zeros(1, 256)
                 elif self.model_name == "A3C_continuous_v2":

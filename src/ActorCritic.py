@@ -40,7 +40,7 @@ FRAME_HISTORY = 1
 
 def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
                task="play", file_type="brain", saveGif=False, saveVideo=False,
-               multiscale=True, history_length=20, agents=1, logger=None, 
+               multiscale=True, history_length=20, agents=1, logger=None,
                stopping_criterion="osc", threshold=0.25):
     env = MedicalPlayer(
         directory=directory,
@@ -124,7 +124,7 @@ if __name__ == '__main__':
         '--model_name',
         help='Models implemented are: Network3d, CommNet, A3C_continuous_v3, A3C_continuous_v2, A3C_dicrete, A3C_continuous',
         default="CommNet",
-        choices=['CommNet', 'Network3d', 'A3C_discrete', 'A3C_continuous', 'A3C_continuous_v2', 'A3C_continuous_v3', 'A3C_continuous_v4'], type=str)
+        choices=['CommNet', 'Network3d', 'A3C_discrete', 'A3C_continuous', 'A3C_continuous_v2', 'A3C_continuous_v3', 'A3C_continuous_v4', 'A3C_continuous_v5'], type=str)
     parser.add_argument(
         '--stopping_criterion',
         help='Stopping criterions implemented are: Oscillations, Zero action, Two consecutive zero actions, Unrounded action smaller than threshold',

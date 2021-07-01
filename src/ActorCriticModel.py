@@ -312,7 +312,7 @@ class A3C_continuous_v3(torch.nn.Module):
         self.critic.weight.data = normalized_columns_initializer(
             self.critic.weight.data, 1.0)
         self.critic.bias.data.fill_(0)
-        
+
         '''
         self.actor_mu1.weight.data = normalized_columns_initializer(
             self.actor_mu1.weight.data, 0.01)
@@ -432,7 +432,7 @@ class A3C_continuous_v4(torch.nn.Module):
         self.lstm.bias_hh.data.fill_(0)
 
         self.train()
-    
+
     def forward(self, inputs):
 
         inputs, (hx, cx) = inputs
@@ -448,6 +448,111 @@ class A3C_continuous_v4(torch.nn.Module):
         hx, cx = self.lstm(x, (hx, cx))
         x = hx
 
+        return self.critic(x), self.actor_mu(x), self.actor_sigma(x), (hx, cx)
+
+class A3C_continuous_v5(torch.nn.Module):
+    def __init__(self, num_inputs, action_space):
+        super(A3C_continuous_v5, self).__init__()
+
+        self.conv0 = nn.Conv3d(
+            in_channels=num_inputs,
+            out_channels=32,
+            kernel_size=(5, 5, 5),
+            stride=2,
+            padding=1)
+        self.conv1 = nn.Conv3d(
+            in_channels=32,
+            out_channels=32,
+            kernel_size=(5, 5, 5),
+            stride=2,
+            padding=1)
+        self.conv2 = nn.Conv3d(
+            in_channels=32,
+            out_channels=64,
+            kernel_size=(4, 4, 4),
+            stride=2,
+            padding=1)
+        self.conv3 = nn.Conv3d(
+            in_channels=64,
+            out_channels=64,
+            kernel_size=(3, 3, 3),
+            padding=0)
+
+        self.lstm = nn.LSTMCell(512, 256)
+
+        num_outputs = (action_space.n)//2
+
+        self.critic = nn.Linear(in_features=256, out_features=1)
+        #self.prelu4 = nn.PReLU()
+        #self.critic1 = nn.Linear(256, 1)
+
+        self.actor_mu = nn.Linear(in_features=256, out_features=num_outputs)
+        #self.prelu5 = nn.PReLU()
+        #self.actor_mu1 = nn.Linear(256, num_outputs)
+
+        self.actor_sigma = nn.Linear(in_features=256, out_features=num_outputs)
+        #self.prelu6 = nn.PReLU()
+        #self.actor_sigma1 = nn.Linear(256, num_outputs)
+
+        self.apply(weights_init)
+        self.actor_mu.weight.data = normalized_columns_initializer(
+            self.actor_mu.weight.data, 0.01)
+        self.actor_mu.bias.data.fill_(0)
+        self.actor_sigma.weight.data = normalized_columns_initializer(
+            self.actor_sigma.weight.data, 0.01)
+        self.actor_sigma.bias.data.fill_(0)
+        self.critic.weight.data = normalized_columns_initializer(
+            self.critic.weight.data, 1.0)
+        self.critic.bias.data.fill_(0)
+
+        '''
+        self.actor_mu1.weight.data = normalized_columns_initializer(
+            self.actor_mu1.weight.data, 0.01)
+        self.actor_mu1.bias.data.fill_(0)
+        self.actor_sigma1.weight.data = normalized_columns_initializer(
+            self.actor_sigma1.weight.data, 0.01)
+        self.actor_sigma1.bias.data.fill_(0)
+        self.critic1.weight.data = normalized_columns_initializer(
+            self.critic1.weight.data, 1.0)
+        self.critic1.bias.data.fill_(0)
+        '''
+
+        self.lstm.bias_ih.data.fill_(0)
+        self.lstm.bias_hh.data.fill_(0)
+
+        self.train()
+
+
+    def forward(self, inputs):
+
+        inputs, (hx, cx) = inputs
+
+        #inputs = inputs/ 255.0
+
+        x = F.elu(self.conv0(inputs))
+        x = F.elu(self.conv1(x))
+        x = F.elu(self.conv2(x))
+        x = F.elu(self.conv3(x))
+        x = x.view(-1, 512)
+
+        print(x.shape)
+
+        hx, cx = self.lstm(x, (hx, cx))
+        x = hx
+
+        '''
+        value = self.critic0(x)
+        value = self.prelu4(value)
+        value = self.critic1(value)
+
+        mu = self.actor_mu0(x)
+        mu = self.prelu5(mu)
+        mu = self.actor_mu1(mu)
+
+        sigma = self.actor_sigma0(x)
+        sigma = self.prelu6(sigma)
+        sigma = self.actor_sigma1(sigma)
+        '''
         return self.critic(x), self.actor_mu(x), self.actor_sigma(x), (hx, cx)
 
 
