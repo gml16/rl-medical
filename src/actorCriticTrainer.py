@@ -217,8 +217,8 @@ class Trainer(object):
                 if self.model_name == "A3C_discrete":
                     cx = torch.zeros(self.agents, 256).unsqueeze(0)
                     hx = torch.zeros(self.agents, 256).unsqueeze(0)
-                elif self.model_name == "A3C_continuous" or
-                    self.model_name == "A3C_continuous_v3" or
+                elif self.model_name == "A3C_continuous" or \
+                    self.model_name == "A3C_continuous_v3" or \
                     self.model_name == "A3C_continuous_v4":
                     cx = torch.zeros(1, 256)
                     hx = torch.zeros(1, 256)

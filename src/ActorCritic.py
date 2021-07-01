@@ -219,10 +219,12 @@ if __name__ == '__main__':
         '--max-grad-norm', type=float, default=50,
         help='value loss coefficient (default: 50)')
 
+    args = parser.parse_args()
+
     if "continuous" in args.model_name:
         continuous = True
-
-    args = parser.parse_args()
+    else:
+        continuous = False
 
     agents = len(args.landmarks)
 
@@ -249,7 +251,7 @@ if __name__ == '__main__':
     if args.task != 'train':
         # dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
         #           type=args.model_name, collective_rewards=args.team_reward, attention=args.attention)
-        if args.model_name = "A3C_discrete":
+        if args.model_name == "A3C_discrete":
             model = A3C_discrete(FRAME_HISTORY, 6)
         elif args.model_name == "A3C_continuous":
             model = A3C_continuous(FRAME_HISTORY, 3)
