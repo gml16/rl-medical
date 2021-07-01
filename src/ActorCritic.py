@@ -299,7 +299,7 @@ if __name__ == '__main__':
                                   landmark_ids=args.landmarks,
                                   agents=agents,
                                   logger=None,
-                                  stopping_criterion=args.stopping_criterion
+                                  stopping_criterion=args.stopping_criterion,
                                   threshold=args.threshold)
             eval_env.env.sampled_files = None
             print("Created val env")

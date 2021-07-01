@@ -194,7 +194,7 @@ class Trainer(object):
 
 
         while episode <= self.max_episodes:
-            forward_time = 0
+            #forward_time = 0
 
             #episode_starting_time = time.time()
 
@@ -248,10 +248,10 @@ class Trainer(object):
                 #check_1 = time.time()
                 acc_steps += 1
                 if(not self.continuous):
-                    check_1 = time.time()
+                    #check_1 = time.time()
                     value, logit, (hx, cx) = model((torch.tensor(obs).unsqueeze(0).unsqueeze(2),(hx, cx)))
-                    check_2 = time.time()
-                    forward_time += check_2 - check_1
+                    #check_2 = time.time()
+                    #forward_time += check_2 - check_1
                     value = value.squeeze()
                     logit = logit.squeeze(0)
 
@@ -310,7 +310,7 @@ class Trainer(object):
             #checkpoint_2 = time.time()
             #print(f"Sub-agent {rank} episode running duration: {checkpoint_2-checkpoint_1}")
 
-            self.logger.log(f"Sub-agent {rank} time spent in forward: {forward_time}")
+            #self.logger.log(f"Sub-agent {rank} time spent in forward: {forward_time}")
             R = torch.zeros(self.agents,1)
 
             if not all(t for t in terminal):

@@ -519,7 +519,7 @@ class MedicalPlayer(gym.Env):
                         self.consec_zeros[0] = 1
             elif self.stopping_criterion == "threshold":
                 if act[0][0] < self.threshold and act[0][1] < self.threshold and act[0][2] < self.threshold:
-                    if self.xscale > 1:
+                    if self.xscale > 1:    
                         self.xscale -= 1
                         self.yscale -= 1
                         self.zscale -= 1
