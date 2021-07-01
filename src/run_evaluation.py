@@ -10,7 +10,7 @@ import numpy as np
 import torch
 
 from DQNModel import DQN
-from DQN import get_player
+from ActorCritic import get_player
 from logger import Logger
 import evaluator
 import A3C_evaluator
@@ -61,7 +61,7 @@ if __name__ == "__main__":
             elif "Continuous" in name:
                 model_name = "A3C_continuous"
             else:
-                model_name = "A3C_discrte"
+                model_name = "A3C_discrete"
 
         if not "A3C" in name:
             if "3" in name:
@@ -101,6 +101,15 @@ if __name__ == "__main__":
         else:
             collective_rewards = False
 
+        if "NewStop" in name:
+            stopping_criterion = "zero_action"
+        elif "ConsecZero" in name:
+            stopping_criterion = "consec_zero_action"
+        elif "Threshold" in name:
+            stopping_criterion = "threshold"
+        else:
+            stopping_criterion = "osc"
+
 
         environment = get_player(files_list=files,
                                  file_type=file_type,
@@ -110,7 +119,8 @@ if __name__ == "__main__":
                                  task="eval",
                                  agents=agents,
                                  viz=args.viz,
-                                 logger=logger)
+                                 logger=logger,
+                                 stopping_criterion=stopping_criterion)
 
         if not "A3C" in name:
             dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
@@ -118,14 +128,18 @@ if __name__ == "__main__":
             model = dqn.q_network
         else:
             if not continuous:
+                print("discrete")
                 model = A3C_discrete(1, environment.action_space, agents = agents)
             else:
+                print("continuous")
                 model = A3C_continuous(1, environment.action_space)
             
         #model.load_state_dict(torch.load(f, map_location=model.device))
         print(f)
+        print(type(model))
         model = torch.load(f.name)
         model.eval()
+        print(type(model))
 
         if not "A3C" in name:
             evaluator = evaluator.Evaluator(environment, model, logger,

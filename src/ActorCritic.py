@@ -40,7 +40,8 @@ FRAME_HISTORY = 1
 
 def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
                task="play", file_type="brain", saveGif=False, saveVideo=False,
-               multiscale=True, history_length=20, agents=1, logger=None, stopping_criterion="osc"):
+               multiscale=True, history_length=20, agents=1, logger=None, 
+               stopping_criterion="osc", threshold=0.25):
     env = MedicalPlayer(
         directory=directory,
         screen_dims=IMAGE_SIZE,
@@ -55,7 +56,8 @@ def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
         multiscale=multiscale,
         agents=agents,
         logger=logger,
-        stopping_criterion=stopping_criterion)
+        stopping_criterion=stopping_criterion,
+        threshold=threshold)
     if task != "train":
         # in training, env will be decorated by ExpReplay, and history
         # is taken care of in expreplay buffer
@@ -129,6 +131,10 @@ if __name__ == '__main__':
         default="osc",
         choices=['osc', 'zero_action', 'consec_zero_action', 'threshold'], type=str)
     parser.add_argument(
+        '--threshold',
+        help="""Threshold value for threshold stopping criterion""",
+        default=0.25, type=float)
+    parser.add_argument(
         '--batch_size', help='Size of each batch', default=64, type=int)
     parser.add_argument(
         '--memory_size',
@@ -196,7 +202,6 @@ if __name__ == '__main__':
     parser.add_argument(
         '--seed',
         help="Random seed for both training and evaluating. If none is provided, no seed will be set", type=int)
-
     parser.add_argument(
         '--fixed_spawn', nargs='*',  type=float,
         help='Starting position of the agents during rollout. Randomised if not specified.',)
@@ -282,7 +287,8 @@ if __name__ == '__main__':
                                  viz=args.viz,
                                  multiscale=args.multiscale,
                                  logger=None,
-                                 stopping_criterion=args.stopping_criterion)
+                                 stopping_criterion=args.stopping_criterion,
+                                 threshold=args.threshold)
         environment.sampled_files = None
 
         if args.val_files is not None:
@@ -293,7 +299,8 @@ if __name__ == '__main__':
                                   landmark_ids=args.landmarks,
                                   agents=agents,
                                   logger=None,
-                                  stopping_criterion=args.stopping_criterion)
+                                  stopping_criterion=args.stopping_criterion
+                                  threshold=args.threshold)
             eval_env.env.sampled_files = None
             print("Created val env")
 

@@ -53,7 +53,7 @@ class MedicalPlayer(gym.Env):
                  screen_dims=(27, 27, 27), history_length=28, multiscale=True,
                  max_num_frames=0, saveGif=False, saveVideo=False, agents=1,
                  oscillations_allowed=4, fixed_spawn=None, logger=None,
-                 stopping_criterion="osc"):
+                 stopping_criterion="osc", threshold = 0.25):
         """
         :param train_directory: environment or game name
         :param viz: visualization
@@ -94,6 +94,7 @@ class MedicalPlayer(gym.Env):
         self.landmarks = landmark_ids
 
         self.stopping_criterion = stopping_criterion
+        self.threshold = threshold
 
         # init env dimensions
         if self.dims == 2:
@@ -517,7 +518,7 @@ class MedicalPlayer(gym.Env):
                     elif self.consec_zeros[0] == 0:
                         self.consec_zeros[0] = 1
             elif self.stopping_criterion == "threshold":
-                if act[0][0] < 0.25 and act[0][1] < 0.25 and act[0][2] < 0.25:
+                if act[0][0] < self.threshold and act[0][1] < self.threshold and act[0][2] < self.threshold:
                     if self.xscale > 1:
                         self.xscale -= 1
                         self.yscale -= 1
