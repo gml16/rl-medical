@@ -6,7 +6,8 @@
 import warnings
 from evaluator import Evaluator
 from logger import Logger
-from trainer import Trainer
+from trainer import Trainer as Trainer
+from TD3_trainer import Trainer as TD3Trainer
 from DQNModel import DQN
 from medical import MedicalPlayer, FrameStack
 import argparse
@@ -111,10 +112,13 @@ if __name__ == '__main__':
         '--landmarks', nargs='*', help='Landmarks to use in the images',
         type=int, default=[1])
     parser.add_argument(
-        '--model_name', help='Models implemented are: Network3d, CommNet',
-        default="CommNet", choices=['CommNet', 'Network3d'], type=str)
+        '--model_name', help='Models implemented are: Network3d, CommNet, TD3Net'
+        default="CommNet", choices=['CommNet', 'Network3d', 'TD3Net'], type=str)
     parser.add_argument(
-        '--batch_size', help='Size of each batch', default=64, type=int)
+        '--algorithm', help='Algorithms implemented are: DQN, TD3'
+        default="DQN", choices=['DQN', 'TD3'], type=str)
+    parser.add_argument(
+        '--batch_size', help='Size of each batch', default=256, type=int)
     parser.add_argument(
         '--memory_size',
         help="""Number of transitions stored in exp replay buffer.
@@ -123,11 +127,31 @@ if __name__ == '__main__':
     parser.add_argument(
         '--init_memory_size',
         help='Number of transitions stored in exp replay before training',
-        default=3e4, type=int)
+        default=25e3, type=int)
+    parser.add_argument("--expl_noise",
+                        help='Std of Gaussian exploration noise',
+                        default=0.1)
     parser.add_argument(
         '--discount',
         help='Discount factor used in the Bellman equation',
-        default=0.9, type=float)
+        default=0.99, type=float)
+    parser.add_argument(
+        '--tau',
+        help='Target network update rate',
+        default=0.005)
+    parser.add_argument(
+        '--policy_noise',
+        help='Noise added to target policy during critic update',
+        default=0.2)
+	parser.add_argument(
+        '--noise_clip',
+        help='Range to clip target policy noise',
+        default=0.5)
+	parser.add_argument(
+        '--policy_freq',
+        help='Frequency of delayed policy updates',
+        default=2,
+        type=int)
     parser.add_argument(
         '--lr',
         help='Starting learning rate',
@@ -171,7 +195,7 @@ if __name__ == '__main__':
         action='store_true')
     parser.set_defaults(write=False)
     parser.add_argument(
-        '--team_reward', help='Refers to adding the (potentially weighted) average reward of all agents to their individiual rewards', 
+        '--team_reward', help='Refers to adding the (potentially weighted) average reward of all agents to their individiual rewards',
         choices=[None, 'mean', 'attention'], default=None)
     parser.add_argument(
         '--attention', help='Use attention for communication channel in C-MARL/CommNet', dest='attention',
@@ -248,24 +272,51 @@ if __name__ == '__main__':
                                   landmark_ids=args.landmarks,
                                   agents=agents,
                                   logger=logger)
-        trainer = Trainer(environment,
-                          eval_env=eval_env,
-                          batch_size=args.batch_size,
-                          image_size=IMAGE_SIZE,
-                          frame_history=FRAME_HISTORY,
-                          update_frequency=args.target_update_freq,
-                          replay_buffer_size=args.memory_size,
-                          init_memory_size=init_memory_size,
-                          gamma=args.discount,
-                          steps_per_episode=args.steps_per_episode,
-                          max_episodes=args.max_episodes,
-                          delta=args.delta,
-                          logger=logger,
-                          model_name=args.model_name,
-                          train_freq=args.train_freq,
-                          team_reward=args.team_reward,
-                          attention=args.attention,
-                          lr=args.lr,
-                          scheduler_gamma=args.scheduler_gamma,
-                          scheduler_step_size=args.scheduler_step_size
-                         ).train()
+        if args.algorithm == "DQN":
+            trainer = Trainer(environment,
+                              eval_env=eval_env,
+                              batch_size=args.batch_size,
+                              image_size=IMAGE_SIZE,
+                              frame_history=FRAME_HISTORY,
+                              replay_buffer_size=args.memory_size,
+                              init_memory_size=init_memory_size,
+                              gamma=args.discount,
+                              steps_per_episode=args.steps_per_episode,
+                              max_episodes=args.max_episodes,
+                              delta=args.delta,
+                              logger=logger,
+                              model_name=args.model_name,
+                              train_freq=args.train_freq,
+                              team_reward=args.team_reward,
+                              attention=args.attention,
+                              lr=args.lr,
+                              scheduler_gamma=args.scheduler_gamma,
+                              scheduler_step_size=args.scheduler_step_size
+                             ).train()
+        elif args.algorithm == "TD3":
+            trainer = TD3Trainer(environment,
+                              eval_env=eval_env,
+                              batch_size=args.batch_size,
+                              image_size=IMAGE_SIZE,
+                              frame_history=FRAME_HISTORY,
+                              update_frequency=args.target_update_freq,
+                              replay_buffer_size=args.memory_size,
+                              init_memory_size=init_memory_size,
+                              gamma=args.discount,
+                              steps_per_episode=args.steps_per_episode,
+                              max_episodes=args.max_episodes,
+                              delta=args.delta,
+                              logger=logger,
+                              model_name=args.model_name,
+                              train_freq=args.train_freq,
+                              team_reward=args.team_reward,
+                              attention=args.attention,
+                              lr=args.lr,
+                              scheduler_gamma=args.scheduler_gamma,
+                              scheduler_step_size=args.scheduler_step_size,
+                              expl_noise=args.expl_noise,
+                              tau=args.tau,
+                              policy_noise=args.policy_noise,
+                              noise_clip=args.noise_clip,
+                              policy_freq=args.policy_freq
+                             ).train()
