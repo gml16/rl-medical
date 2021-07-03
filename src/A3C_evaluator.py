@@ -96,6 +96,7 @@ class Evaluator(object):
                 cx = cx.detach()
                 sigma = F.softplus(sigma) + 1e-5
                 action = mean + sigma * torch.randn(*mean.shape)
+                #print(f"Action : {action}")
 
             return action, (hx, cx)
 

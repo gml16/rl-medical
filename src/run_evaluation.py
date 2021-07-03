@@ -101,12 +101,17 @@ if __name__ == "__main__":
         else:
             collective_rewards = False
 
+        threshold = 0.25
         if "NewStop" in name:
             stopping_criterion = "zero_action"
         elif "ConsecZero" in name:
             stopping_criterion = "consec_zero_action"
         elif "Threshold" in name:
             stopping_criterion = "threshold"
+            if "01" in name:
+                threshold = 0.1
+            elif "025" in name:
+                threshold = 0.25
         else:
             stopping_criterion = "osc"
 
@@ -120,7 +125,8 @@ if __name__ == "__main__":
                                  agents=agents,
                                  viz=args.viz,
                                  logger=logger,
-                                 stopping_criterion=stopping_criterion)
+                                 stopping_criterion=stopping_criterion,
+                                 threshold=threshold)
 
         if not "A3C" in name:
             dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,

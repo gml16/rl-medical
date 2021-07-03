@@ -162,7 +162,7 @@ class Trainer(object):
         elif self.model_name == "A3C_continuous_v4":
             model = A3C_continuous_v4(1, self.env.action_space)
         elif self.model_name == "A3C_continuous_v5":
-            model = A3C_continuous_v4(1, self.env.action_space)
+            model = A3C_continuous_v5(1, self.env.action_space)
         #model = A3C(self.frame_history, self.env.action_space)
 
         env= copy.deepcopy(self.env)
@@ -222,7 +222,7 @@ class Trainer(object):
                     hx = torch.zeros(self.agents, 256).unsqueeze(0)
                 elif self.model_name == "A3C_continuous" or \
                     self.model_name == "A3C_continuous_v3" or \
-                    self.model_name == "A3C_continuous_v4":
+                    self.model_name == "A3C_continuous_v4" or \
                     self.model_name == "A3C_continuous_v5":
                     cx = torch.zeros(1, 256)
                     hx = torch.zeros(1, 256)

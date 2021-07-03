@@ -475,7 +475,7 @@ class A3C_continuous_v5(torch.nn.Module):
         self.conv3 = nn.Conv3d(
             in_channels=64,
             out_channels=64,
-            kernel_size=(3, 3, 3),
+            kernel_size=(4, 4, 4),
             padding=0)
 
         self.lstm = nn.LSTMCell(512, 256)
@@ -534,8 +534,6 @@ class A3C_continuous_v5(torch.nn.Module):
         x = F.elu(self.conv2(x))
         x = F.elu(self.conv3(x))
         x = x.view(-1, 512)
-
-        print(x.shape)
 
         hx, cx = self.lstm(x, (hx, cx))
         x = hx
