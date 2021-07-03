@@ -34,6 +34,7 @@ class Trainer(object):
                  scheduler_gamma=0.5,
                  scheduler_step_size=100,
                  expl_noise=0.1,
+                 tau=0.005,
                  policy_noise=0.2,
                  noise_clip=0.5,
                  policy_freq=2
@@ -66,15 +67,15 @@ class Trainer(object):
         self.state_dim = self.env.observation_space.shape[0]
         self.action_dim = self.env.action_space.shape[0]
 
-    	kwargs = {
-    		"state_dim": self.state_dim,
-    		"action_dim": self.action_dim,
-    		"max_action": self.max_action,
+        kwargs = {
+                "state_dim": self.state_dim,
+                "action_dim": self.action_dim,
+                "max_action": self.max_action,
     		"discount": self.gamma,
     		"tau": self.tau,
-            "policy_noise": self.policy_noise * self.max_action,
-            "noise_clip": self.noise_clip * self.max_action,
-            "policy_freq": self.policy_freq
+                "policy_noise": self.policy_noise * self.max_action,
+                "noise_clip": self.noise_clip * self.max_action,
+                "policy_freq": self.policy_freq
     	}
 
         self.logger.log(kwargs)

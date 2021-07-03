@@ -53,7 +53,8 @@ def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
         history_length=history_length,
         multiscale=multiscale,
         agents=agents,
-        logger=logger)
+        logger=logger,
+        continuous=continuous)
     if task != "train":
         # in training, env will be decorated by ExpReplay, and history
         # is taken care of in expreplay buffer
@@ -112,10 +113,10 @@ if __name__ == '__main__':
         '--landmarks', nargs='*', help='Landmarks to use in the images',
         type=int, default=[1])
     parser.add_argument(
-        '--model_name', help='Models implemented are: Network3d, CommNet, TD3Net'
+        '--model_name', help='Models implemented are: Network3d, CommNet, TD3Net',
         default="CommNet", choices=['CommNet', 'Network3d', 'TD3Net'], type=str)
     parser.add_argument(
-        '--algorithm', help='Algorithms implemented are: DQN, TD3'
+        '--algorithm', help='Algorithms implemented are: DQN, TD3',
         default="DQN", choices=['DQN', 'TD3'], type=str)
     parser.add_argument(
         '--batch_size', help='Size of each batch', default=256, type=int)
@@ -143,11 +144,11 @@ if __name__ == '__main__':
         '--policy_noise',
         help='Noise added to target policy during critic update',
         default=0.2)
-	parser.add_argument(
+    parser.add_argument(
         '--noise_clip',
         help='Range to clip target policy noise',
         default=0.5)
-	parser.add_argument(
+    parser.add_argument(
         '--policy_freq',
         help='Frequency of delayed policy updates',
         default=2,
@@ -236,6 +237,10 @@ if __name__ == '__main__':
     if args.seed is not None:
         set_reproducible(args.seed)
 
+    continuous = False
+    if args.algorithm == "TD3":
+        continuous = True
+
     logger = Logger(args.log_dir, args.write, args.save_freq, comment=args.log_comment)
 
     if args.task != 'train':
@@ -263,7 +268,8 @@ if __name__ == '__main__':
                                  agents=agents,
                                  viz=args.viz,
                                  multiscale=args.multiscale,
-                                 logger=logger)
+                                 logger=logger,
+                                 continuous=continuous)
         eval_env = None
         if args.val_files is not None:
             eval_env = get_player(task='eval',
@@ -271,7 +277,8 @@ if __name__ == '__main__':
                                   file_type=args.file_type,
                                   landmark_ids=args.landmarks,
                                   agents=agents,
-                                  logger=logger)
+                                  logger=logger,
+                                  continuous=continuous)
         if args.algorithm == "DQN":
             trainer = Trainer(environment,
                               eval_env=eval_env,
