@@ -52,7 +52,7 @@ class MedicalPlayer(gym.Env):
                  screen_dims=(27, 27, 27), history_length=28, multiscale=True,
                  max_num_frames=0, saveGif=False, saveVideo=False, agents=1,
                  oscillations_allowed=4, fixed_spawn=None, logger=None,
-                 continuous=False):
+                 continuous=False, threshold = 0.25):
         """
         :param train_directory: environment or game name
         :param viz: visualization
@@ -90,6 +90,7 @@ class MedicalPlayer(gym.Env):
         # multi-scale agent
         self.multiscale = multiscale
 
+
         # init env dimensions
         if self.dims == 2:
             self.width, self.height = screen_dims
@@ -109,9 +110,12 @@ class MedicalPlayer(gym.Env):
                 self.gif_buffer = []
         # stat counter to store current score or accumlated reward
         self.current_episode_score = [[]] * self.agents
-        # get action space and minimal action set
+        #continuous actions or not
+        self.continuous = continuous
 
-        if not continuous:
+        # get action space and minimal action set
+        
+        if not self.continuous:
             self.action_space = spaces.Discrete(6)  # change number actions here
             self.actions = self.action_space.n
         else:
@@ -119,6 +123,7 @@ class MedicalPlayer(gym.Env):
                                             shape=(3,),
                                             dtype=np.float32
             )
+            self.threshold = threshold
         self.observation_space = spaces.Box(low=0, high=255,
                                             shape=self.screen_dims,
                                             dtype=np.uint8)
@@ -128,7 +133,7 @@ class MedicalPlayer(gym.Env):
         self._loc_history = [
             [(0,) * self.dims for _ in range(self._history_length)]
             for _ in range(self.agents)]
-        if not continuous:
+        if not self.continuous:
             self._qvalues_history = [
                 [(0,) * self.actions for _ in range(self._history_length)]
                 for _ in range(self.agents)]
@@ -175,7 +180,7 @@ class MedicalPlayer(gym.Env):
             [(0,) * self.dims for _ in range(self._history_length)]
             for _ in range(self.agents)]
         # list of q-value lists
-        if not continuous:
+        if not self.continuous:
             self._qvalues_history = [
                 [(0,) * self.actions for _ in range(self._history_length)]
                 for _ in range(self.agents)]
@@ -271,7 +276,7 @@ class MedicalPlayer(gym.Env):
         points2 = spacing * np.array(points2)
         return np.linalg.norm(points1 - points2)
 
-    def step(self, act, q_values, isOver):
+    def step(self, act, q_values=None, isOver=None):
         """The environment's step function returns exactly what we need.
         Args:
           act:
@@ -306,74 +311,97 @@ class MedicalPlayer(gym.Env):
 
         # agent i movement
         for i in range(self.agents):
-            # UP Z+ -----------------------------------------------------------
-            if (act[i] == 0):
-                next_location[i] = (
-                    current_loc[i][0], current_loc[i][1], round(
-                        current_loc[i][2] + self.action_step))
-                if (next_location[i][2] >= self._image_dims[2]):
-                    # print(' trying to go out the image Z+ ',)
-                    next_location[i] = current_loc[i]
-                    go_out[i] = True
+            if not self.continuous:
+                # UP Z+ -----------------------------------------------------------
+                if (act[i] == 0):
+                    next_location[i] = (
+                        current_loc[i][0], current_loc[i][1], round(
+                            current_loc[i][2] + self.action_step))
+                    if (next_location[i][2] >= self._image_dims[2]):
+                        # print(' trying to go out the image Z+ ',)
+                        next_location[i] = current_loc[i]
+                        go_out[i] = True
 
-            # FORWARD Y+ ------------------------------------------------------
-            if (act[i] == 1):
+                # FORWARD Y+ ------------------------------------------------------
+                if (act[i] == 1):
+                    next_location[i] = (
+                        current_loc[i][0],
+                        round(
+                            current_loc[i][1] +
+                            self.action_step),
+                        current_loc[i][2])
+                    if (next_location[i][1] >= self._image_dims[1]):
+                        # print(' trying to go out the image Y+ ',)
+                        next_location[i] = current_loc[i]
+                        go_out[i] = True
+                # RIGHT X+ --------------------------------------------------------
+                if (act[i] == 2):
+                    next_location[i] = (
+                        round(
+                            current_loc[i][0] +
+                            self.action_step),
+                        current_loc[i][1],
+                        current_loc[i][2])
+                    if next_location[i][0] >= self._image_dims[0]:
+                        # print(' trying to go out the image X+ ',)
+                        next_location[i] = current_loc[i]
+                        go_out[i] = True
+                # LEFT X- ---------------------------------------------------------
+                if act[i] == 3:
+                    next_location[i] = (
+                        round(
+                            current_loc[i][0] -
+                            self.action_step),
+                        current_loc[i][1],
+                        current_loc[i][2])
+                    if next_location[i][0] <= 0:
+                        # print(' trying to go out the image X- ',)
+                        next_location[i] = current_loc[i]
+                        go_out[i] = True
+                # BACKWARD Y- -----------------------------------------------------
+                if act[i] == 4:
+                    next_location[i] = (
+                        current_loc[i][0],
+                        round(
+                            current_loc[i][1] -
+                            self.action_step),
+                        current_loc[i][2])
+                    if next_location[i][1] <= 0:
+                        # print(' trying to go out the image Y- ',)
+                        next_location[i] = current_loc[i]
+                        go_out[i] = True
+                # DOWN Z- ---------------------------------------------------------
+                if act[i] == 5:
+                    next_location[i] = (
+                        current_loc[i][0], current_loc[i][1], round(
+                            current_loc[i][2] - self.action_step))
+                    if next_location[i][2] <= 0:
+                        # print(' trying to go out the image Z- ',)
+                        next_location[i] = current_loc[i]
+                        go_out[i] = True
+                # -----------------------------------------------------------------
+            else:
+                #self.logger.log(f"All acts {act}")
+                #self.logger.log(f"Current action of agent {i} is {act[i]}")
+
+                act_x = round(act[i][0])
+                act_y = round(act[i][1])
+                act_z = round(act[i][2])
+
+                #self.logger.log(f"Actions rounded {act_x},{act_y},{act_z}")
                 next_location[i] = (
-                    current_loc[i][0],
-                    round(
-                        current_loc[i][1] +
-                        self.action_step),
-                    current_loc[i][2])
-                if (next_location[i][1] >= self._image_dims[1]):
-                    # print(' trying to go out the image Y+ ',)
+                    round(current_loc[i][0] + act_x),
+                    round(current_loc[i][1] + act_y),
+                    round(current_loc[i][2] + act_z)
+                )
+                if (next_location[i][0] <= 0 or
+                    next_location[i][0] >= self._image_dims[0] or
+                    next_location[i][1] <= 0 or
+                    next_location[i][1] >= self._image_dims[1] or
+                    next_location[i][2] <= 0 or
+                    next_location[i][2] >= self._image_dims[2]):
                     next_location[i] = current_loc[i]
                     go_out[i] = True
-            # RIGHT X+ --------------------------------------------------------
-            if (act[i] == 2):
-                next_location[i] = (
-                    round(
-                        current_loc[i][0] +
-                        self.action_step),
-                    current_loc[i][1],
-                    current_loc[i][2])
-                if next_location[i][0] >= self._image_dims[0]:
-                    # print(' trying to go out the image X+ ',)
-                    next_location[i] = current_loc[i]
-                    go_out[i] = True
-            # LEFT X- ---------------------------------------------------------
-            if act[i] == 3:
-                next_location[i] = (
-                    round(
-                        current_loc[i][0] -
-                        self.action_step),
-                    current_loc[i][1],
-                    current_loc[i][2])
-                if next_location[i][0] <= 0:
-                    # print(' trying to go out the image X- ',)
-                    next_location[i] = current_loc[i]
-                    go_out[i] = True
-            # BACKWARD Y- -----------------------------------------------------
-            if act[i] == 4:
-                next_location[i] = (
-                    current_loc[i][0],
-                    round(
-                        current_loc[i][1] -
-                        self.action_step),
-                    current_loc[i][2])
-                if next_location[i][1] <= 0:
-                    # print(' trying to go out the image Y- ',)
-                    next_location[i] = current_loc[i]
-                    go_out[i] = True
-            # DOWN Z- ---------------------------------------------------------
-            if act[i] == 5:
-                next_location[i] = (
-                    current_loc[i][0], current_loc[i][1], round(
-                        current_loc[i][2] - self.action_step))
-                if next_location[i][2] <= 0:
-                    # print(' trying to go out the image Z- ',)
-                    next_location[i] = current_loc[i]
-                    go_out[i] = True
-            # -----------------------------------------------------------------
 
         #######################################################################
 
@@ -415,36 +443,63 @@ class MedicalPlayer(gym.Env):
 
         self._update_history()
         # check if agent oscillates
-        if self._oscillate:
-            self._location = self.getBestLocation()
-            # self._location=[item for sublist in temp for item in sublist]
-            self._screen = self._current_state()
+        if not self.continuous:
+            if self._oscillate:
+                self._location = self.getBestLocation()
+                # self._location=[item for sublist in temp for item in sublist]
+                self._screen = self._current_state()
 
-            if self.task != 'play':
-                for i in range(self.agents):
-                    self.cur_dist[i] = self.calcDistance(self._location[i],
-                                                         self._target_loc[i],
-                                                         self.spacing)
+                if self.task != 'play':
+                    for i in range(self.agents):
+                        self.cur_dist[i] = self.calcDistance(self._location[i],
+                                                            self._target_loc[i],
+                                                            self.spacing)
 
-            # multi-scale steps
-            if self.multiscale:
-                if self.xscale > 1:
-                    self.xscale -= 1
-                    self.yscale -= 1
-                    self.zscale -= 1
-                    self.action_step = int(self.action_step / 3)
-                    self._clear_history()
-                # terminate if scale is less than 1
+                # multi-scale steps
+                if self.multiscale:
+                    if self.xscale > 1:
+                        self.xscale -= 1
+                        self.yscale -= 1
+                        self.zscale -= 1
+                        self.action_step = int(self.action_step / 3)
+                        self._clear_history()
+                    # terminate if scale is less than 1
+                    else:
+                        for i in range(self.agents):
+                            self.terminal[i] = True
+                            if self.cur_dist[i] <= 1:
+                                self.num_success[i] += 1
                 else:
                     for i in range(self.agents):
                         self.terminal[i] = True
                         if self.cur_dist[i] <= 1:
                             self.num_success[i] += 1
-            else:
-                for i in range(self.agents):
-                    self.terminal[i] = True
-                    if self.cur_dist[i] <= 1:
-                        self.num_success[i] += 1
+        else:
+            stopped = True
+            for i in range(self.agents):
+                if abs(act[i][0]) > self.threshold or abs(act[i][1]) > self.threshold or abs(act[i][2]) > self.threshold:
+                    stopped = False
+            if stopped:
+                # multi-scale steps
+                if self.multiscale:
+                    if self.xscale > 1:
+                        self.xscale -= 1
+                        self.yscale -= 1
+                        self.zscale -= 1
+                        self.action_step = int(self.action_step / 3)
+                        self._clear_history()
+                    # terminate if scale is less than 1
+                    else:
+                        for i in range(self.agents):
+                            self.terminal[i] = True
+                            if self.cur_dist[i] <= 1:
+                                self.num_success[i] += 1
+                else:
+                    for i in range(self.agents):
+                        self.terminal[i] = True
+                        if self.cur_dist[i] <= 1:
+                            self.num_success[i] += 1
+
         # render screen if viz is on
         with _ALE_LOCK:
             if self.viz:
@@ -488,9 +543,10 @@ class MedicalPlayer(gym.Env):
         self._loc_history = [
             [(0,) * self.dims for _ in range(self._history_length)]
             for _ in range(self.agents)]
-        self._qvalues_history = [
-            [(0,) * self.actions for _ in range(self._history_length)]
-            for _ in range(self.agents)]
+        if not self.continuous:
+            self._qvalues_history = [
+                [(0,) * self.actions for _ in range(self._history_length)]
+                for _ in range(self.agents)]
 
     def _update_history(self):
         ''' update history buffer with current states
@@ -502,9 +558,10 @@ class MedicalPlayer(gym.Env):
                 len(self._loc_history[i]), self._location[i])
 
             # update q-value history
-            self._qvalues_history[i].pop(0)
-            self._qvalues_history[i].insert(
-                len(self._qvalues_history[i]), self._qvalues[i])
+            if not self.continuous:
+                self._qvalues_history[i].pop(0)
+                self._qvalues_history[i].insert(
+                    len(self._qvalues_history[i]), self._qvalues[i])
 
     def _current_state(self):
         """
@@ -873,10 +930,13 @@ class FrameStack(gym.Wrapper):
         self.frames.append(ob)
         return self._observation()
 
-    def step(self, acts, q_values, isOver):
+    def step(self, acts, q_values = None, isOver = None):
         for i in range(self.agents):
             if isOver[i]:
-                acts[i] = 15
+                if not self.env.continuous:
+                    acts[i] = 15
+                else:
+                    acts[i] = np.array([0.0, 0.0, 0.0])
         current_st, reward, terminal, info = self.env.step(
             acts, q_values, isOver)
         current_st = tuple(current_st)

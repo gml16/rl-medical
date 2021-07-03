@@ -3,7 +3,7 @@ import numpy as np
 from expreplay import ReplayMemory
 from TD3_expreplay import ReplayBuffer
 from DQNModel import DQN
-from evaluator import Evaluator
+from TD3_evaluator import Evaluator
 from tqdm import tqdm
 from TD3Model import TD3
 
@@ -64,7 +64,7 @@ class Trainer(object):
         self.noise_clip = noise_clip
         self.policy_freq = policy_freq
         self.max_action = float(self.env.action_space.high[0])
-        self.state_dim = self.env.observation_space.shape[0]
+        self.state_dim = self.env.observation_space.shape
         self.action_dim = self.env.action_space.shape[0]
 
         kwargs = {
@@ -75,25 +75,28 @@ class Trainer(object):
     		"tau": self.tau,
                 "policy_noise": self.policy_noise * self.max_action,
                 "noise_clip": self.noise_clip * self.max_action,
-                "policy_freq": self.policy_freq
+                "policy_freq": self.policy_freq,
+                "agents": self.agents,
+                "frame_history": self.frame_history,
+                "logger": self.logger
     	}
 
         self.logger.log(kwargs)
 
-        self.policy = TD3()
+        self.policy = TD3(**kwargs)
 
-        self.buffer = ReplayBuffer(state_dim, action_dim)
+        self.buffer = ReplayBuffer(self.state_dim, self.action_dim, self.agents)
 
         self.evaluator = Evaluator(eval_env,
-                                   self.policy,
+                                   self.policy.actor,
                                    logger,
                                    self.agents,
                                    steps_per_episode)
         self.train_freq = train_freq
 
     def train(self):
-        self.logger.log(self.policy.Actor)
-        self.logger.log(self.policy.Critic)
+        self.logger.log(self.policy.actor)
+        self.logger.log(self.policy.critic)
         self.init_memory()
         episode = 1
         acc_steps = 0
@@ -104,18 +107,20 @@ class Trainer(object):
             terminal = [False for _ in range(self.agents)]
             losses = []
             score = [0] * self.agents
+
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
                 acts = (
-				       policy.select_action(np.array(state))
-				       + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
+			self.policy.select_action(torch.tensor(obs).unsqueeze(0).unsqueeze(2))
+		            + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
 			    ).clip(-self.max_action, self.max_action)
                 # Step the agent once, and get the transition tuple
-                obs, reward, terminal, info = self.env.step(np.copy(acts))
+                next_obs, reward, terminal, info = self.env.step(np.copy(acts), isOver = terminal)
                 score = [sum(x) for x in zip(score, reward)]
-                self.buffer.append((obs, acts, reward, terminal))
+                self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
+                obs = next_obs
                 if acc_steps % self.train_freq == 0:
-                    loss = self.TD3.train(self.buffer, self.batch_size)
+                    loss = self.policy.train(self.buffer, self.batch_size)
                     losses.append(loss)
                 if all(t for t in terminal):
                     break
@@ -123,14 +128,16 @@ class Trainer(object):
                                     for i in range(self.agents)])
             self.append_episode_board(info, score, "train", episode)
 
-            self.eps = max(self.min_eps, self.eps - self.delta)
+            #self.eps = max(self.min_eps, self.eps - self.delta)
             # Every epoch
+            #if episode % 1 == 0:
             if episode % self.epoch_length == 0:
-                self.append_epoch_board(epoch_distances, self.eps, losses,
+                self.append_epoch_board(epoch_distances, self.expl_noise, losses,
                                         "train", episode)
+                self.policy.save(name="latest", forced=True)
                 self.validation_epoch(episode)
-                self.dqn.save_model(name="latest_dqn.pt", forced=True)
-                self.dqn.scheduler.step()
+                #self.policy.save(name="latest", forced=True)
+                #self.dqn.scheduler.step()
                 epoch_distances = []
             episode += 1
 
@@ -145,11 +152,12 @@ class Trainer(object):
             for _ in range(self.steps_per_episode):
                 steps += 1
                 acts = (
-                        policy.select_action(np.array(state))
-				        + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
+                        self.policy.select_action(torch.tensor(obs).unsqueeze(0).unsqueeze(2))
+				+ np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
 			    ).clip(-self.max_action, self.max_action)
-                obs, reward, terminal, info = self.env.step(acts)
-                self.buffer.append((obs, acts, reward, terminal))
+                next_obs, reward, terminal, info = self.env.step(acts, isOver = terminal)
+                self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
+                obs = next_obs
                 if all(t for t in terminal):
                     break
             pbar.update(steps)
@@ -159,11 +167,11 @@ class Trainer(object):
     def validation_epoch(self, episode):
         if self.eval_env is None:
             return
-        self.dqn.q_network.train(False)
+        self.policy.actor.train(False)
         epoch_distances = []
         for k in range(self.eval_env.files.num_files):
             self.logger.log(f"eval episode {k}")
-            (score, start_dists, q_values,
+            (score, start_dists,
                 info) = self.evaluator.play_one_episode()
             epoch_distances.append([info['distError_' + str(i)]
                                     for i in range(self.agents)])
@@ -173,8 +181,8 @@ class Trainer(object):
         if (val_dists < self.best_val_distance):
             self.logger.log("Improved new best mean validation distances")
             self.best_val_distance = val_dists
-            self.dqn.save_model(name="best_dqn.pt", forced=True)
-        self.dqn.q_network.train(True)
+            self.policy.save(name="best", forced=True)
+        self.policy.actor.train(True)
 
     def append_episode_board(self, info, score, name="train", episode=0):
         dists = {str(i):
@@ -183,12 +191,11 @@ class Trainer(object):
         scores = {str(i): score[i] for i in range(self.agents)}
         self.logger.write_to_board(f"{name}/score", scores, episode)
 
-    def append_epoch_board(self, epoch_dists, eps=0, losses=[],
+    def append_epoch_board(self, epoch_dists, expl_noise=0, losses=[],
                            name="train", episode=0):
         epoch_dists = np.array(epoch_dists)
         if name == "train":
-            lr = self.dqn.scheduler.state_dict()["_last_lr"]
-            self.logger.write_to_board(name, {"eps": eps, "lr": lr}, episode)
+            self.logger.write_to_board(name, {"expl_noise": expl_noise}, episode)
             if len(losses) > 0:
                 loss_dict = {"loss": sum(losses) / len(losses)}
                 self.logger.write_to_board(name, loss_dict, episode)

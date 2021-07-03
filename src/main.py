@@ -33,13 +33,14 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 IMAGE_SIZE = (45, 45, 45)
 # how many frames to keep
 # in other words, how many observations the network can see
-FRAME_HISTORY = 4
+FRAME_HISTORY = 1
 ###############################################################################
 
 
 def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
                task="play", file_type="brain", saveGif=False, saveVideo=False,
-               multiscale=True, history_length=20, agents=1, logger=None):
+               multiscale=True, history_length=20, agents=1, logger=None,
+               continuous=False):
     env = MedicalPlayer(
         directory=directory,
         screen_dims=IMAGE_SIZE,
@@ -124,7 +125,7 @@ if __name__ == '__main__':
         '--memory_size',
         help="""Number of transitions stored in exp replay buffer.
                 If too much is allocated training may abruptly stop.""",
-        default=1e5, type=int)
+        default=25e3, type=int)
     parser.add_argument(
         '--init_memory_size',
         help='Number of transitions stored in exp replay before training',
