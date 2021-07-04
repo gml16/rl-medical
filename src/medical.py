@@ -409,10 +409,14 @@ class MedicalPlayer(gym.Env):
         if self.task != 'play':
             for i in range(self.agents):
                 if go_out[i]:
-                    self.reward[i] = -1
+                    if not self.continuous:
+                        self.reward[i] = -1
+                    else:
+                        self.reward[i] = -float(self.action_space.high[0])
                 else:
                     self.reward[i] = self._calc_reward(
                         current_loc[i], next_location[i], agent=i)
+
 
         # update screen, reward ,location, terminal
         self._location = next_location

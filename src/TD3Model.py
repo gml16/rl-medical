@@ -186,6 +186,11 @@ class TD3(object):
         # Sample replay buffer
         state, action, next_state, reward, not_done = replay_buffer.sample(batch_size)
 
+        reward = torch.clamp(
+                    torch.tensor(reward, dtype=torch.float32), 
+                    -self.max_action,
+                    self.max_action).to(device)
+
         with torch.no_grad():
             # Select action according to policy and add clipped noise
             noise = (
