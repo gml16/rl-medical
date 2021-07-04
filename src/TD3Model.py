@@ -10,7 +10,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Implementation of Twin Delayed Deep Deterministic Policy Gradients (TD3)
 # Paper: https://arxiv.org/abs/1802.09477
 
-
 class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, max_action, num_inputs=1, agents=1):
         super(Actor, self).__init__()
@@ -45,7 +44,7 @@ class Actor(nn.Module):
 
             action = self.actor1[i](x)
             action = self.actor2[i](action)
-            
+
             actions.append(action)
 
         actions = torch.stack(actions, dim=1)
@@ -105,7 +104,7 @@ class Critic(nn.Module):
 
             q1_s.append(q1)
             q2_s.append(q2)
-        
+
         q1_s = torch.stack(q1_s, dim=1)
         q2_s = torch.stack(q2_s, dim=1)
 
@@ -129,9 +128,196 @@ class Critic(nn.Module):
             x = x.view(-1, 32 * 3 * 3 * 3)
 
             sa = torch.cat([x, act], 1)
-            
+
             q1 = self.critic_11[i](sa)
             q1 = self.critic_12[i](q1)
+
+            q1_s.append(q1)
+
+        q1_s = torch.stack(q1_s, dim=1)
+
+        return q1_s
+
+class Actor_v2(nn.Module):
+    def __init__(self, state_dim, action_dim, max_action, num_inputs=1, agents=1):
+        super(Actor_v2, self).__init__()
+
+        self.agents = agents
+
+        # Shared conv layers
+        self.conv1 = nn.Conv3d(num_inputs, 32, 3)
+        self.avgpool1 = nn.AvgPool3d(kernel_size=(2, 2, 2))
+        self.conv2 = nn.Conv3d(32, 64, 3)
+
+        self.conv3 = nn.Conv3d(64, 64, 3)
+        self.avgpool2 = nn.AvgPool3d(kernel_size=(2, 2, 2))
+        self.conv4 = nn.Conv3d(64, 128, 3)
+
+        self.conv5 = nn.Conv3d(128, 128, 3)
+        self.avgpool3 = nn.AvgPool3d(kernel_size=(2, 2, 2))
+        self.conv6 = nn.Conv3d(128, 256, 2)
+
+        self.actor1 = nn.ModuleList(
+            [nn.Linear(256, 256) for _ in range(self.agents)])
+        self.actor2 = nn.ModuleList(
+            [nn.Linear(256, 256) for _ in range(self.agents)])
+        self.actor3 = nn.ModuleList(
+            [nn.Linear(256, 256) for _ in range(self.agents)])
+        self.actor4 = nn.ModuleList(
+            [nn.Linear(256, action_dim) for _ in range(self.agents)])
+
+        self.max_action = max_action
+
+
+    def forward(self, state):
+        state = state.to(device)
+        actions = []
+
+        for i in range(self.agents):
+            x =  state[:,i]
+
+            x = F.relu(self.conv1(x))
+            x = self.avgpool1(x)
+            x = F.relu(self.conv2(x))
+
+            x = F.relu(self.conv3(x))
+            x = self.avgpool2(x)
+            x = F.relu(self.conv4(x))
+
+            x = F.relu(self.conv5(x))
+            x = self.avgpool3(x)
+            x = F.relu(self.conv6(x))
+
+            x = x.view(-1, 32 * 3 * 3 * 3)
+
+            action = F.relu(self.actor1[i](x))
+            action = F.relu(self.actor2[i](action))
+            action = F.relu(self.actor3[i](action))
+            action = self.actor4[i](action)
+
+            actions.append(action)
+
+        actions = torch.stack(actions, dim=1)
+
+        return self.max_action * torch.tanh(actions)
+
+
+class Critic_v2(nn.Module):
+    def __init__(self, state_dim, action_dim, num_inputs=1, agents=1):
+        super(Critic_v2, self).__init__()
+
+        self.agents = agents
+
+        # Shared conv layers
+        self.conv1 = nn.Conv3d(num_inputs, 32, 3)
+        self.avgpool1 = nn.AvgPool3d(kernel_size=(2, 2, 2))
+        self.conv2 = nn.Conv3d(32, 64, 3)
+
+        self.conv3 = nn.Conv3d(64, 64, 3)
+        self.avgpool2 = nn.AvgPool3d(kernel_size=(2, 2, 2))
+        self.conv4 = nn.Conv3d(64, 128, 3)
+
+        self.conv5 = nn.Conv3d(128, 128, 3)
+        self.avgpool3 = nn.AvgPool3d(kernel_size=(2, 2, 2))
+        self.conv6 = nn.Conv3d(128, 256, 2)
+
+
+        # Q1
+        self.critic_11 = nn.ModuleList(
+            [nn.Linear(256 + action_dim, 256) for _ in range(self.agents)])
+        self.critic_12 = nn.ModuleList(
+            [nn.Linear(256, 256) for _ in range(self.agents)])
+        self.critic_13 = nn.ModuleList(
+            [nn.Linear(256, 256) for _ in range(self.agents)])
+        self.critic_14 = nn.ModuleList(
+            [nn.Linear(256, 1) for _ in range(self.agents)])
+
+        # Q2
+        self.critic_21 = nn.ModuleList(
+            [nn.Linear(256 + action_dim, 256) for _ in range(self.agents)])
+        self.critic_22 = nn.ModuleList(
+            [nn.Linear(256, 256) for _ in range(self.agents)])
+        self.critic_23 = nn.ModuleList(
+            [nn.Linear(256, 256) for _ in range(self.agents)])
+        self.critic_24 = nn.ModuleList(
+            [nn.Linear(256, 1) for _ in range(self.agents)])
+
+
+    def forward(self, state, action):
+        state = state.to(device)
+        action = action.to(device)
+
+        q1_s = []
+        q2_s = []
+
+        for i in range(self.agents):
+            act = action[:,i]
+            x =  state[:,i]
+
+            x = F.relu(self.conv1(x))
+            x = self.avgpool1(x)
+            x = F.relu(self.conv2(x))
+
+            x = F.relu(self.conv3(x))
+            x = self.avgpool2(x)
+            x = F.relu(self.conv4(x))
+
+            x = F.relu(self.conv5(x))
+            x = self.avgpool3(x)
+            x = F.relu(self.conv6(x))
+
+            x = x.view(-1, 32 * 3 * 3 * 3)
+
+            sa = torch.cat([x, act], 1)
+
+            q1 = F.relu(self.critic_11[i](sa))
+            q1 = F.relu(self.critic_12[i](q1))
+            q1 = F.relu(self.critic_13[i](q1))
+            q1 = self.critic_14[i](q1)
+
+            q2 = F.relu(self.critic_21[i](sa))
+            q2 = F.relu(self.critic_22[i](q2))
+            q2 = F.relu(self.critic_23[i](q2))
+            q2 = self.critic_24[i](q2)
+
+            q1_s.append(q1)
+            q2_s.append(q2)
+
+        q1_s = torch.stack(q1_s, dim=1)
+        q2_s = torch.stack(q2_s, dim=1)
+
+        return q1_s, q2_s
+
+
+    def Q1(self, state, action):
+        state = state.to(device)
+        action = action.to(device)
+
+        q1_s = []
+
+        for i in range(self.agents):
+            act = action[:,i]
+            x =  state[:,i]
+
+            x = F.relu(self.conv1(x))
+            x = self.avgpool1(x)
+            x = F.relu(self.conv2(x))
+
+            x = F.relu(self.conv3(x))
+            x = self.avgpool2(x)
+            x = F.relu(self.conv4(x))
+
+            x = F.relu(self.conv5(x))
+            x = self.avgpool3(x)
+            x = F.relu(self.conv6(x))
+            x = x.view(-1, 32 * 3 * 3 * 3)
+
+            sa = torch.cat([x, act], 1)
+
+            q1 = F.relu(self.critic_11[i](sa))
+            q1 = F.relu(self.critic_12[i](q1))
+            q1 = F.relu(self.critic_13[i](q1))
+            q1 = self.critic_14[i](q1)
 
             q1_s.append(q1)
 
@@ -156,13 +342,15 @@ class TD3(object):
         logger=None
     ):
 
-        self.actor = Actor(state_dim, action_dim, max_action, agents=agents).to(device)
+        self.actor = Actor_v2(state_dim, action_dim, max_action, agents=agents).to(device)
         self.actor_target = copy.deepcopy(self.actor)
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=3e-4)
+        #self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=3e-4)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-5)
 
-        self.critic = Critic(state_dim, action_dim, agents=agents).to(device)
+        self.critic = Critic_v2(state_dim, action_dim, agents=agents).to(device)
         self.critic_target = copy.deepcopy(self.critic)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=3e-4)
+        #self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=3e-4)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-3)
 
         self.max_action = max_action
         self.discount = discount
@@ -187,7 +375,7 @@ class TD3(object):
         state, action, next_state, reward, not_done = replay_buffer.sample(batch_size)
 
         reward = torch.clamp(
-                    torch.tensor(reward, dtype=torch.float32), 
+                    torch.tensor(reward, dtype=torch.float32),
                     -self.max_action,
                     self.max_action).to(device)
 

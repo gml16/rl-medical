@@ -58,7 +58,7 @@ class Trainer(object):
         self.epoch_length = self.env.files.num_files
         self.best_val_distance = float('inf')
         self.logger = logger
-        
+
         self.tau = tau
         self.policy_noise = policy_noise
         self.noise_clip = noise_clip
@@ -71,8 +71,8 @@ class Trainer(object):
                 "state_dim": self.state_dim,
                 "action_dim": self.action_dim,
                 "max_action": self.max_action,
-    		"discount": self.gamma,
-    		"tau": self.tau,
+                "discount": self.gamma,
+                "tau": self.tau,
                 "policy_noise": self.policy_noise * self.max_action,
                 "noise_clip": self.noise_clip * self.max_action,
                 "policy_freq": self.policy_freq,

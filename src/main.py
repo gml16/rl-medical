@@ -136,7 +136,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--discount',
         help='Discount factor used in the Bellman equation',
-        default=0.99, type=float)
+        default=0.85, type=float) #was 0.99, changed for v_2
     parser.add_argument(
         '--tau',
         help='Target network update rate',
