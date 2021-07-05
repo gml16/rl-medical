@@ -73,11 +73,9 @@ class Evaluator(object):
             inputs = torch.tensor(obs_stack).permute(
                 0, 4, 1, 2, 3).unsqueeze(0)
             acts = self.actor.forward(inputs).squeeze(0).cpu().data.numpy()
-            with torch.no_grad:
+            with torch.no_grad():
                 q_values = self.critic.Q1(inputs,
-                            acts.unsqueeze(0)).squeeze(0).cpu().data.numpy()
-                self.logger.log(f"q_value shape : {q_values.shape}")
-                self.logger.log(f"Action shape : {acts.shape}")
+                            torch.tensor(acts, dtype=torch.float).unsqueeze(0)).squeeze(0).cpu().data.numpy()
 
             return acts, q_values
 
