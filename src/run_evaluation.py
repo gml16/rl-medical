@@ -10,12 +10,14 @@ import numpy as np
 import torch
 
 from DQNModel import DQN
-from DQN import get_player
+from main import get_player
 from logger import Logger
 from evaluator import Evaluator
 from TD3_evaluator import Evaluator as TD3Evaluator
+from TD3Model import TD3
 
 FRAME_HISTORY = 4
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -94,7 +96,7 @@ if __name__ == "__main__":
                                  saveVideo=False,
                                  task="eval",
                                  agents=agents,
-                                 viz=0,
+                                 viz=args.viz,
                                  logger=logger,
                                  continuous=continuous)
 
@@ -106,9 +108,10 @@ if __name__ == "__main__":
             policy = TD3(environment.observation_space.shape,
                         environment.action_space.shape[0],
                         float(environment.action_space.high[0]),
-                        agents = self.agents)
+                        agents = agents)
             model = policy.actor
-        model.load_state_dict(torch.load(f, map_location=model.device))
+    
+        model.load_state_dict(torch.load(f.name, map_location=device))
 
         if model_name == "CommNet" or model_name == "Network3d":
             evaluator = Evaluator(environment, model, logger,
