@@ -188,7 +188,7 @@ class Actor_v2(nn.Module):
             x = self.avgpool3(x)
             x = F.relu(self.conv6(x))
 
-            x = x.view(-1, 32 * 3 * 3 * 3)
+            x = x.view(-1, 256)
 
             action = F.relu(self.actor1[i](x))
             action = F.relu(self.actor2[i](action))
@@ -266,7 +266,7 @@ class Critic_v2(nn.Module):
             x = self.avgpool3(x)
             x = F.relu(self.conv6(x))
 
-            x = x.view(-1, 32 * 3 * 3 * 3)
+            x = x.view(-1, 256)
 
             sa = torch.cat([x, act], 1)
 
@@ -310,7 +310,7 @@ class Critic_v2(nn.Module):
             x = F.relu(self.conv5(x))
             x = self.avgpool3(x)
             x = F.relu(self.conv6(x))
-            x = x.view(-1, 32 * 3 * 3 * 3)
+            x = x.view(-1, 256)
 
             sa = torch.cat([x, act], 1)
 
