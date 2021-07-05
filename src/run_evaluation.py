@@ -46,7 +46,13 @@ if __name__ == "__main__":
     z = [0.5,0.25,0.75]
     fixed_spawn = list(np.array(list(itertools.product(x, y, z))).flatten())
 
-    for f in args.model_files:
+    #set to 1 if not actor critic approach
+    step=2
+
+    #for f in args.model_files:
+    for i in range(0, len(args.model_files), step):
+        f = args.model_files[i]
+        f_critic = args.model_files[i+1]
         # mypath = os.path.normpath(f)
 
         # python DQN.py --task eval --load runs/Mar01_04-16-35_monal03.doc.ic.ac.ukbrain10DefaultNetwork3d/best_dqn.pt --files /vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/brain_test_files.txt /vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/brain_test_landmarks.txt --file_type brain --landmarks 13 14 0 1 2 3 4 5 6 7 --model_name Network3d --viz 0
@@ -104,20 +110,23 @@ if __name__ == "__main__":
             dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
                       type=model_name, collective_rewards=collective_rewards)
             model = dqn.q_network
+            model.load_state_dict(torch.load(f.name, map_location=device))
         elif model_name == "TD3V2":
             policy = TD3(environment.observation_space.shape,
                         environment.action_space.shape[0],
                         float(environment.action_space.high[0]),
                         agents = agents)
-            model = policy.actor
-    
-        model.load_state_dict(torch.load(f.name, map_location=device))
+            actor = policy.actor
+            critic = policy.critic
+
+            actor.load_state_dict(torch.load(f.name, map_location=device))
+            critic.load_state_dict(torch.load(f_critic.name, map_location=device))
 
         if model_name == "CommNet" or model_name == "Network3d":
             evaluator = Evaluator(environment, model, logger,
                                     agents, 200)
         else:
-            evaluator = TD3Evaluator(environment, model, logger,
+            evaluator = TD3Evaluator(environment, actor, critic, logger,
                                     agents, 200)
         mean, std = evaluator.play_n_episodes(fixed_spawn=fixed_spawn, silent=True)
         logger.log(f"{fullName}: mean {mean}, std {std}")

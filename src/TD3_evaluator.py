@@ -4,9 +4,10 @@ from itertools import chain
 
 
 class Evaluator(object):
-    def __init__(self, environment, model, logger, agents, max_steps):
+    def __init__(self, environment, actor, critic, logger, agents, max_steps):
         self.env = environment
-        self.model = model
+        self.actor = actor
+        self.critic = critic
         self.logger = logger
         self.agents = agents
         self.max_steps = max_steps
@@ -27,7 +28,8 @@ class Evaluator(object):
             fixed_spawn = np.stack([fixed_spawn for _ in range(self.agents)], axis=-1)
 
         num_files = self.env.files.num_files
-        self.model.train(False)
+        self.actor.train(False)
+        self.critic.train(False)
         headers = ["number"] + list(chain.from_iterable(zip(
             [f"Filename {i}" for i in range(self.agents)],
             [f"Agent {i} pos x" for i in range(self.agents)],
@@ -70,20 +72,24 @@ class Evaluator(object):
             """
             inputs = torch.tensor(obs_stack).permute(
                 0, 4, 1, 2, 3).unsqueeze(0)
-            acts = self.model.forward(inputs).squeeze(0).cpu().data.numpy()
+            acts = self.actor.forward(inputs).squeeze(0).cpu().data.numpy()
+            with torch.no_grad:
+                q_values = self.critic.Q1(inputs,
+                            acts.unsqueeze(0)).squeeze(0).cpu().data.numpy()
+                self.logger.log(f"q_value shape : {q_values.shape}")
+                self.logger.log(f"Action shape : {acts.shape}")
 
-            return acts
+            return acts, q_values
 
         obs_stack = self.env.reset(fixed_spawn)
-        print(obs_stack.shape)
         # Here obs have shape (agent, *image_size, frame_history)
         sum_r = np.zeros((self.agents))
         isOver = [False] * self.agents
         start_dists = None
         steps = 0
         while steps < self.max_steps and not np.all(isOver):
-            acts = predict(obs_stack)
-            obs_stack, r, isOver, info = self.env.step(acts, isOver = isOver)
+            acts, q_values = predict(obs_stack)
+            obs_stack, r, isOver, info = self.env.step(acts, q_values = q_values, isOver = isOver)
             steps += 1
             if start_dists is None:
                 start_dists = [

@@ -139,6 +139,10 @@ class MedicalPlayer(gym.Env):
             self._qvalues_history = [
                 [(0,) * self.actions for _ in range(self._history_length)]
                 for _ in range(self.agents)]
+        else:
+            self._qvalues_history = [
+                [0 for _ in range(self._history_length)]
+                for _ in range(self.agents)]
         # initialize rectangle limits from input image coordinates
         self.rectangle = [Rectangle(0, 0, 0, 0, 0, 0)] * int(self.agents)
 
@@ -185,6 +189,10 @@ class MedicalPlayer(gym.Env):
         if not self.continuous:
             self._qvalues_history = [
                 [(0,) * self.actions for _ in range(self._history_length)]
+                for _ in range(self.agents)]
+        else:
+            self._qvalues_history = [
+                [0 for _ in range(self._history_length)]
                 for _ in range(self.agents)]
         self.current_episode_score = [[]] * self.agents
         self.new_random_game(fixed_spawn)
@@ -260,6 +268,8 @@ class MedicalPlayer(gym.Env):
         self._start_location = [(x[i], y[i], z[i]) for i in range(self.agents)]
         if not self.continuous:
             self._qvalues = [[0, ] * self.actions] * self.agents
+        else:
+            self._qvalues = [0] * self.agents
         self._screen = self._current_state()
 
         if self.task == 'play':
@@ -449,7 +459,7 @@ class MedicalPlayer(gym.Env):
 
         self._update_history()
         # check if agent oscillates
-        if not self.continuous:
+        if not self.continuous or self.stopping_criterion=="osc":
             if self._oscillate:
                 self._location = self.getBestLocation()
                 # self._location=[item for sublist in temp for item in sublist]
@@ -541,8 +551,11 @@ class MedicalPlayer(gym.Env):
         for i in range(self.agents):
             last_qvalues_history = self._qvalues_history[i][-4:]
             last_loc_history = self._loc_history[i][-4:]
-            best_qvalues = np.max(last_qvalues_history, axis=1)
-            best_idx = best_qvalues.argmin()
+            if not self.continuous:
+                best_qvalues = np.max(last_qvalues_history, axis=1)
+                best_idx = best_qvalues.argmin()
+            else:
+                best_idx = last_qvalues_history.argmin()
             best_locations.append(last_loc_history[best_idx])
         return best_locations
 
@@ -555,6 +568,10 @@ class MedicalPlayer(gym.Env):
         if not self.continuous:
             self._qvalues_history = [
                 [(0,) * self.actions for _ in range(self._history_length)]
+                for _ in range(self.agents)]
+        else:
+            self._qvalues_history = [
+                [0 for _ in range(self._history_length)]
                 for _ in range(self.agents)]
 
     def _update_history(self):

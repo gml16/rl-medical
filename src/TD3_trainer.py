@@ -89,6 +89,7 @@ class Trainer(object):
 
         self.evaluator = Evaluator(eval_env,
                                    self.policy.actor,
+                                   self.policy.critic,
                                    logger,
                                    self.agents,
                                    steps_per_episode)
@@ -118,7 +119,7 @@ class Trainer(object):
                     q_values = self.critic.Q1(
                                 torch.tensor(obs).unsqueeze(0).unsqueeze(2),
                                 acts.unsqueeze(0)).squeeze(0).cpu().data.numpy()
-                    self.logger.log(f"q_value shape : {q_value.shape}")
+                    self.logger.log(f"q_value shape : {q_values.shape}")
                     self.logger.log(f"Action shape : {acts.shape}")
 
                 # Step the agent once, and get the transition tuple
@@ -167,7 +168,7 @@ class Trainer(object):
                     q_values = self.critic.Q1(
                                 torch.tensor(obs).unsqueeze(0).unsqueeze(2),
                                 acts.unsqueeze(0)).squeeze(0).cpu().data.numpy()
-                    self.logger.log(f"q_value shape : {q_value.shape}")
+                    self.logger.log(f"q_value shape : {q_values.shape}")
                     self.logger.log(f"Action shape : {acts.shape}")
                 next_obs, reward, terminal, info = \
                         self.env.step(acts, q_values = q_values, isOver = terminal)
