@@ -52,7 +52,7 @@ class MedicalPlayer(gym.Env):
                  screen_dims=(27, 27, 27), history_length=28, multiscale=True,
                  max_num_frames=0, saveGif=False, saveVideo=False, agents=1,
                  oscillations_allowed=4, fixed_spawn=None, logger=None,
-                 continuous=False, threshold = 0.25):
+                 continuous=False, threshold = 0.5):
         """
         :param train_directory: environment or game name
         :param viz: visualization
@@ -114,7 +114,7 @@ class MedicalPlayer(gym.Env):
         self.continuous = continuous
 
         # get action space and minimal action set
-        
+
         if not self.continuous:
             self.action_space = spaces.Discrete(6)  # change number actions here
             self.actions = self.action_space.n
@@ -124,6 +124,7 @@ class MedicalPlayer(gym.Env):
                                             dtype=np.float32
             )
             self.threshold = threshold
+            self.max_action = float(self.action_space.high[0])
         self.observation_space = spaces.Box(low=0, high=255,
                                             shape=self.screen_dims,
                                             dtype=np.uint8)
@@ -417,7 +418,6 @@ class MedicalPlayer(gym.Env):
                     self.reward[i] = self._calc_reward(
                         current_loc[i], next_location[i], agent=i)
 
-
         # update screen, reward ,location, terminal
         self._location = next_location
         self._screen = self._current_state()
@@ -481,12 +481,15 @@ class MedicalPlayer(gym.Env):
         else:
             stopped = True
             for i in range(self.agents):
-                if abs(act[i][0]) > self.threshold or abs(act[i][1]) > self.threshold or abs(act[i][2]) > self.threshold:
+                if abs(act[i][0]) > self.threshold * self.max_action \
+                    or abs(act[i][1]) > self.threshold * self.max_action \
+                    or abs(act[i][2]) > self.threshold * self.max_action:
                     stopped = False
             if stopped:
                 # multi-scale steps
                 if self.multiscale:
                     if self.xscale > 1:
+                        self.max_action -=2
                         self.xscale -= 1
                         self.yscale -= 1
                         self.zscale -= 1
