@@ -122,7 +122,7 @@ class Trainer(object):
                     self.logger.log(f"Action shape : {acts.shape}")
 
                 # Step the agent once, and get the transition tuple
-                next_obs, reward, terminal, info =
+                next_obs, reward, terminal, info = \
                         self.env.step(np.copy(acts), q_values = q_values, isOver = terminal)
                 score = [sum(x) for x in zip(score, reward)]
                 self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
@@ -169,7 +169,7 @@ class Trainer(object):
                                 acts.unsqueeze(0)).squeeze(0).cpu().data.numpy()
                     self.logger.log(f"q_value shape : {q_value.shape}")
                     self.logger.log(f"Action shape : {acts.shape}")
-                next_obs, reward, terminal, info =
+                next_obs, reward, terminal, info = \
                         self.env.step(acts, q_values = q_values, isOver = terminal)
                 self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
                 obs = next_obs
