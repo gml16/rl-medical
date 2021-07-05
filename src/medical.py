@@ -52,7 +52,7 @@ class MedicalPlayer(gym.Env):
                  screen_dims=(27, 27, 27), history_length=28, multiscale=True,
                  max_num_frames=0, saveGif=False, saveVideo=False, agents=1,
                  oscillations_allowed=4, fixed_spawn=None, logger=None,
-                 continuous=False, threshold = 0.5):
+                 continuous=False, stopping_criterion = "osc", threshold = 0.5):
         """
         :param train_directory: environment or game name
         :param viz: visualization
@@ -128,16 +128,16 @@ class MedicalPlayer(gym.Env):
         self.observation_space = spaces.Box(low=0, high=255,
                                             shape=self.screen_dims,
                                             dtype=np.uint8)
+        self.stopping_criterion = stopping_criterion
 
         # history buffer for storing last locations to check oscilations
         self._history_length = history_length
         self._loc_history = [
             [(0,) * self.dims for _ in range(self._history_length)]
             for _ in range(self.agents)]
-        if not self.continuous:
-            self._qvalues_history = [
-                [(0,) * self.actions for _ in range(self._history_length)]
-                for _ in range(self.agents)]
+        self._qvalues_history = [
+            [(0,) * self.actions for _ in range(self._history_length)]
+            for _ in range(self.agents)]
         # initialize rectangle limits from input image coordinates
         self.rectangle = [Rectangle(0, 0, 0, 0, 0, 0)] * int(self.agents)
 
@@ -181,10 +181,9 @@ class MedicalPlayer(gym.Env):
             [(0,) * self.dims for _ in range(self._history_length)]
             for _ in range(self.agents)]
         # list of q-value lists
-        if not self.continuous:
-            self._qvalues_history = [
-                [(0,) * self.actions for _ in range(self._history_length)]
-                for _ in range(self.agents)]
+        self._qvalues_history = [
+            [(0,) * self.actions for _ in range(self._history_length)]
+            for _ in range(self.agents)]
         self.current_episode_score = [[]] * self.agents
         self.new_random_game(fixed_spawn)
 
@@ -257,7 +256,7 @@ class MedicalPlayer(gym.Env):
 
         self._location = [(x[i], y[i], z[i]) for i in range(self.agents)]
         self._start_location = [(x[i], y[i], z[i]) for i in range(self.agents)]
-        #self._qvalues = [[0, ] * self.actions] * self.agents
+        self._qvalues = [[0, ] * self.actions] * self.agents
         self._screen = self._current_state()
 
         if self.task == 'play':
@@ -550,10 +549,9 @@ class MedicalPlayer(gym.Env):
         self._loc_history = [
             [(0,) * self.dims for _ in range(self._history_length)]
             for _ in range(self.agents)]
-        if not self.continuous:
-            self._qvalues_history = [
-                [(0,) * self.actions for _ in range(self._history_length)]
-                for _ in range(self.agents)]
+        self._qvalues_history = [
+            [(0,) * self.actions for _ in range(self._history_length)]
+            for _ in range(self.agents)]
 
     def _update_history(self):
         ''' update history buffer with current states
@@ -565,10 +563,9 @@ class MedicalPlayer(gym.Env):
                 len(self._loc_history[i]), self._location[i])
 
             # update q-value history
-            if not self.continuous:
-                self._qvalues_history[i].pop(0)
-                self._qvalues_history[i].insert(
-                    len(self._qvalues_history[i]), self._qvalues[i])
+            self._qvalues_history[i].pop(0)
+            self._qvalues_history[i].insert(
+                len(self._qvalues_history[i]), self._qvalues[i])
 
     def _current_state(self):
         """
