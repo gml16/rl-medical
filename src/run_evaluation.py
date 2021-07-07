@@ -35,6 +35,9 @@ if __name__ == "__main__":
     parser.add_argument(
         '--viz', help='Size of the window, None for no visualisation',
         default=0, type=float)
+    parser.add_argument(
+        '--stopping_criterion', help='Stopping criterion: oscillation or threshold',
+        default="osc", choices=['osc', 'other'], type=str)
     # parser.add_argument(
     #     '--fixed_spawn', nargs='*',  type=float,
     #     help='Starting position of the agents during rollout. Randomised if not specified.',)
@@ -104,7 +107,8 @@ if __name__ == "__main__":
                                  agents=agents,
                                  viz=args.viz,
                                  logger=logger,
-                                 continuous=continuous)
+                                 continuous=continuous,
+                                 stopping_criterion=args.stopping_criterion)
 
         if model_name == "CommNet" or model_name == "Network3d":
             dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,

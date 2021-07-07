@@ -40,7 +40,7 @@ FRAME_HISTORY = 1
 def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
                task="play", file_type="brain", saveGif=False, saveVideo=False,
                multiscale=True, history_length=20, agents=1, logger=None,
-               continuous=False):
+               continuous=False, stopping_criterion="osc"):
     env = MedicalPlayer(
         directory=directory,
         screen_dims=IMAGE_SIZE,
@@ -55,7 +55,8 @@ def get_player(directory=None, files_list=None, landmark_ids=None, viz=False,
         multiscale=multiscale,
         agents=agents,
         logger=logger,
-        continuous=continuous)
+        continuous=continuous,
+        stopping_criterion=stopping_criterion)
     if task != "train":
         # in training, env will be decorated by ExpReplay, and history
         # is taken care of in expreplay buffer
