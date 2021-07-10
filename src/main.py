@@ -33,7 +33,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 IMAGE_SIZE = (45, 45, 45)
 # how many frames to keep
 # in other words, how many observations the network can see
-FRAME_HISTORY = 4
+FRAME_HISTORY = 1
 ###############################################################################
 
 
@@ -332,5 +332,5 @@ if __name__ == '__main__':
                               policy_noise=args.policy_noise,
                               noise_clip=args.noise_clip,
                               policy_freq=args.policy_freq,
-                              reduce_action=reduce_action
+                              reduce_action=args.reduce_action
                              ).train()

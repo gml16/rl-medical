@@ -100,7 +100,8 @@ class Trainer(object):
                                    self.policy.critic,
                                    logger,
                                    self.agents,
-                                   steps_per_episode)
+                                   steps_per_episode,
+                                   self.reduce_action)
         self.train_freq = train_freq
 
     def train(self):
@@ -118,7 +119,7 @@ class Trainer(object):
             score = [0] * self.agents
 
             if self.reduce_action:
-                self.logger.log("Reset action")
+                #self.logger.log("Reset action")
                 self.max_action = float(self.env.action_space.high[0])
                 self.policy.policy_noise = self.max_action * self.policy_noise
                 self.policy.noise_clip = self.max_action * self.noise_clip
@@ -147,7 +148,7 @@ class Trainer(object):
                 next_obs, reward, terminal, info = \
                         self.env.step(np.copy(acts), q_values = q_values, isOver = terminal)
                 if self.reduce_action and info["reduce_action"]:
-                    self.logger.log("Reduced action")
+                    #self.logger.log("Reduced action")
                     self.max_action -= 2
                     self.policy.policy_noise = self.max_action * self.policy_noise
                     self.policy.noise_clip = self.max_action * self.noise_clip
@@ -168,7 +169,7 @@ class Trainer(object):
 
             #self.eps = max(self.min_eps, self.eps - self.delta)
             # Every epoch
-            #if episode % 1 == 0:
+            #if episode % 3 == 0:
             if episode % self.epoch_length == 0:
                 self.append_epoch_board(epoch_distances, self.expl_noise, losses,
                                         "train", episode)
@@ -187,6 +188,9 @@ class Trainer(object):
             obs = self.env.reset()
             terminal = [False for _ in range(self.agents)]
             steps = 0
+            if self.reduce_action:
+                #self.logger.log("Reset action")
+                self.max_action = float(self.env.action_space.high[0])
             for _ in range(self.steps_per_episode):
                 steps += 1
 
@@ -195,6 +199,9 @@ class Trainer(object):
 
                 next_obs, reward, terminal, info = \
                         self.env.step(acts, q_values = q_values, isOver = terminal)
+                if self.reduce_action and info["reduce_action"]:
+                    #self.logger.log("Reduced action")
+                    self.max_action -= 2
                 #self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
                 self.buffer.append((obs, acts, reward, terminal))
                 obs = next_obs
@@ -213,7 +220,7 @@ class Trainer(object):
         for k in range(self.eval_env.files.num_files):
             self.logger.log(f"eval episode {k}")
             if self.reduce_action:
-                self.logger.log("Reset action")
+                #self.logger.log("Reset action")
                 self.policy.actor.max_action = float(self.env.action_space.high[0])
             (score, start_dists,
                 info) = self.evaluator.play_one_episode()

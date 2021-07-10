@@ -4,13 +4,14 @@ from itertools import chain
 
 
 class Evaluator(object):
-    def __init__(self, environment, actor, critic, logger, agents, max_steps):
+    def __init__(self, environment, actor, critic, logger, agents, max_steps, reduce_action = False):
         self.env = environment
         self.actor = actor
         self.critic = critic
         self.logger = logger
         self.agents = agents
         self.max_steps = max_steps
+        self.reduce_action = reduce_action
 
     def play_n_episodes(self, render=False, fixed_spawn=None, silent=False):
         """
@@ -88,8 +89,9 @@ class Evaluator(object):
         while steps < self.max_steps and not np.all(isOver):
             acts, q_values = predict(obs_stack)
             obs_stack, r, isOver, info = self.env.step(acts, q_values = q_values, isOver = isOver)
+            #self.logger.log(acts)
             if self.reduce_action and info["reduce_action"]:
-                self.logger.log("Reduced action")
+                #self.logger.log("Reduced action")
                 self.actor.max_action -= 2
             steps += 1
             if start_dists is None:
