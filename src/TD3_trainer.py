@@ -117,13 +117,20 @@ class Trainer(object):
 
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
+                #acts = (
+		#	self.policy.select_action(torch.tensor(obs).unsqueeze(0).unsqueeze(2))
+		#            + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
+		#	    ).clip(-self.max_action, self.max_action)
                 acts = (
-			self.policy.select_action(torch.tensor(obs).unsqueeze(0).unsqueeze(2))
-		            + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
-			    ).clip(-self.max_action, self.max_action)
+                        self.policy.select_action(torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0))
+                            + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
+                            ).clip(-self.max_action, self.max_action)
                 with torch.no_grad():
+                    #q_values = self.policy.critic.Q1(
+                    #            torch.tensor(obs).unsqueeze(0).unsqueeze(2),
+                    #            torch.tensor(acts, dtype=torch.float).unsqueeze(0)).squeeze(0).cpu().data.numpy()
                     q_values = self.policy.critic.Q1(
-                                torch.tensor(obs).unsqueeze(0).unsqueeze(2),
+                                torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0),
                                 torch.tensor(acts, dtype=torch.float).unsqueeze(0)).squeeze(0).cpu().data.numpy()
 
                 # Step the agent once, and get the transition tuple
