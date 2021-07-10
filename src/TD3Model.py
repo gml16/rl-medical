@@ -245,7 +245,7 @@ class Critic_v2(nn.Module):
 
     def forward(self, state, action):
 
-        state = state.to(device)#/255.0 
+        state = state.to(device)#/255.0
         action = action.to(device)
 
         q1_s = []
@@ -373,7 +373,10 @@ class TD3(object):
         self.total_it += 1
 
         # Sample replay buffer
-        state, action, next_state, reward, not_done = replay_buffer.sample(batch_size)
+        #state, action, next_state, reward, not_done = replay_buffer.sample(batch_size)
+        state, action, next_state, reward, done = replay_buffer.sample(batch_size)
+        not_done = 1. - done
+
 
         reward = torch.clamp(
                     torch.tensor(reward, dtype=torch.float32),

@@ -4,18 +4,22 @@ from collections import deque
 
 
 class ReplayMemory(object):
-    def __init__(self, max_size, state_shape, history_len, agents):
+    def __init__(self, max_size, state_shape, history_len, agents, action_dim = None, continuous = False):
         self.max_size = int(max_size)
         self.state_shape = state_shape
         self.history_len = int(history_len)
         self.agents = agents
+        self.continuous = continuous
         try:
             self.state = np.zeros(
                 (self.agents, self.max_size) + state_shape, dtype='uint8')
         except Exception as e:
             print("Please consider reducing the memory usage with the --memory_size flag.")
             raise e
-        self.action = np.zeros((self.agents, self.max_size), dtype='int32')
+        if not self.continuous:
+            self.action = np.zeros((self.agents, self.max_size), dtype='int32')
+        else:
+            self.action = np.zeros((self.agents, self.max_size, action_dim), dtype='float32')
         self.reward = np.zeros((self.agents, self.max_size), dtype='float32')
         self.isOver = np.zeros((self.agents, self.max_size), dtype='bool')
 

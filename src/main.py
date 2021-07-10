@@ -33,7 +33,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 IMAGE_SIZE = (45, 45, 45)
 # how many frames to keep
 # in other words, how many observations the network can see
-FRAME_HISTORY = 1
+FRAME_HISTORY = 4
 ###############################################################################
 
 
@@ -126,7 +126,7 @@ if __name__ == '__main__':
         '--memory_size',
         help="""Number of transitions stored in exp replay buffer.
                 If too much is allocated training may abruptly stop.""",
-        default=25e3, type=int)
+        default=1e5, type=int)
     parser.add_argument(
         '--init_memory_size',
         help='Number of transitions stored in exp replay before training',

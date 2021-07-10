@@ -14,7 +14,7 @@ class Trainer(object):
                  eval_env=None,
                  image_size=(45, 45, 45),
                  update_frequency=4,
-                 replay_buffer_size=1e6,
+                 replay_buffer_size=1e5,
                  init_memory_size=5e4,
                  max_episodes=100,
                  steps_per_episode=50,
@@ -85,7 +85,13 @@ class Trainer(object):
 
         self.policy = TD3(**kwargs)
 
-        self.buffer = ReplayBuffer(self.state_dim, self.action_dim, self.agents)
+        #self.buffer = ReplayBuffer(self.state_dim, self.action_dim, self.agents)
+        self.buffer = ReplayMemory(self.replay_buffer_size,
+                                    self.state_dim,
+                                    self.frame_history,
+                                    self.agents,
+                                    action_dim = self.action_dim,
+                                    continuous = True)
 
         self.evaluator = Evaluator(eval_env,
                                    self.policy.actor,
@@ -124,7 +130,8 @@ class Trainer(object):
                 next_obs, reward, terminal, info = \
                         self.env.step(np.copy(acts), q_values = q_values, isOver = terminal)
                 score = [sum(x) for x in zip(score, reward)]
-                self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
+                #self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
+                self.buffer.append((obs, acts, reward, terminal))
                 obs = next_obs
                 if acc_steps % self.train_freq == 0:
                     loss = self.policy.train(self.buffer, self.batch_size)
@@ -158,13 +165,14 @@ class Trainer(object):
             steps = 0
             for _ in range(self.steps_per_episode):
                 steps += 1
-                
+
                 acts = np.random.uniform(low=-self.max_action, high=self.max_action, size=(self.agents, self.action_dim))
                 q_values = np.zeros((self.agents, 1))
 
                 next_obs, reward, terminal, info = \
                         self.env.step(acts, q_values = q_values, isOver = terminal)
-                self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
+                #self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
+                self.buffer.append((obs, acts, reward, terminal))
                 obs = next_obs
                 if all(t for t in terminal):
                     break
