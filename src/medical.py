@@ -322,6 +322,8 @@ class MedicalPlayer(gym.Env):
         self.terminal = [False] * self.agents
         go_out = [False] * self.agents
 
+        reduce_action = False
+
         # agent i movement
         for i in range(self.agents):
             if not self.continuous:
@@ -474,6 +476,7 @@ class MedicalPlayer(gym.Env):
                 # multi-scale steps
                 if self.multiscale:
                     if self.xscale > 1:
+                        reduce_action = True
                         self.xscale -= 1
                         self.yscale -= 1
                         self.zscale -= 1
@@ -541,6 +544,7 @@ class MedicalPlayer(gym.Env):
             info[f"landmark_xpos_{i}"] = self._target_loc[i][0]
             info[f"landmark_ypos_{i}"] = self._target_loc[i][1]
             info[f"landmark_zpos_{i}"] = self._target_loc[i][2]
+            info["reduce_action"] = reduce_action
         return self._current_state(), self.reward, self.terminal, info
 
     def getBestLocation(self):

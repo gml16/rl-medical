@@ -215,6 +215,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '--fixed_spawn', nargs='*',  type=float,
         help='Starting position of the agents during rollout. Randomised if not specified.',)
+    parser.add_argument(
+        '--reduce_action', help='Reduces max action with scale', dest='reduce_action',
+        action='store_true')
+    parser.set_defaults(reduce_action=False)
     args = parser.parse_args()
 
     agents = len(args.landmarks)
@@ -327,5 +331,6 @@ if __name__ == '__main__':
                               tau=args.tau,
                               policy_noise=args.policy_noise,
                               noise_clip=args.noise_clip,
-                              policy_freq=args.policy_freq
+                              policy_freq=args.policy_freq,
+                              reduce_action=reduce_action
                              ).train()

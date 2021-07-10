@@ -37,7 +37,8 @@ class Trainer(object):
                  tau=0.005,
                  policy_noise=0.2,
                  noise_clip=0.5,
-                 policy_freq=2
+                 policy_freq=2,
+                 reduce_action=False
                 ):
         self.env = env
         self.eval_env = eval_env
@@ -58,6 +59,7 @@ class Trainer(object):
         self.epoch_length = self.env.files.num_files
         self.best_val_distance = float('inf')
         self.logger = logger
+        self.reduce_action = reduce_action
 
         self.tau = tau
         self.policy_noise = policy_noise
@@ -115,6 +117,14 @@ class Trainer(object):
             losses = []
             score = [0] * self.agents
 
+            if self.reduce_action:
+                self.logger.log("Reset action")
+                self.max_action = float(self.env.action_space.high[0])
+                self.policy.policy_noise = self.max_action * self.policy_noise
+                self.policy.noise_clip = self.max_action * self.noise_clip
+                self.policy.max_action = self.max_action
+                self.policy.actor.max_action = self.max_action
+
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
                 #acts = (
@@ -136,6 +146,13 @@ class Trainer(object):
                 # Step the agent once, and get the transition tuple
                 next_obs, reward, terminal, info = \
                         self.env.step(np.copy(acts), q_values = q_values, isOver = terminal)
+                if self.reduce_action and info["reduce_action"]:
+                    self.logger.log("Reduced action")
+                    self.max_action -= 2
+                    self.policy.policy_noise = self.max_action * self.policy_noise
+                    self.policy.noise_clip = self.max_action * self.noise_clip
+                    self.policy.max_action = self.max_action
+                    self.policy.actor.max_action = self.max_action
                 score = [sum(x) for x in zip(score, reward)]
                 #self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
                 self.buffer.append((obs, acts, reward, terminal))
@@ -191,9 +208,13 @@ class Trainer(object):
         if self.eval_env is None:
             return
         self.policy.actor.train(False)
+        self.policy.critic.train(False)
         epoch_distances = []
         for k in range(self.eval_env.files.num_files):
             self.logger.log(f"eval episode {k}")
+            if self.reduce_action:
+                self.logger.log("Reset action")
+                self.policy.actor.max_action = float(self.env.action_space.high[0])
             (score, start_dists,
                 info) = self.evaluator.play_one_episode()
             epoch_distances.append([info['distError_' + str(i)]
@@ -206,6 +227,7 @@ class Trainer(object):
             self.best_val_distance = val_dists
             self.policy.save(name="best", forced=True)
         self.policy.actor.train(True)
+        self.policy.critic.train(True)
 
     def append_episode_board(self, info, score, name="train", episode=0):
         dists = {str(i):

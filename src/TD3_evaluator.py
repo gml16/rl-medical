@@ -72,8 +72,8 @@ class Evaluator(object):
             """
             inputs = torch.FloatTensor(obs_stack).permute(
                 0, 4, 1, 2, 3).unsqueeze(0)
-            acts = self.actor.forward(inputs).squeeze(0).cpu().data.numpy()
             with torch.no_grad():
+                acts = self.actor.forward(inputs).squeeze(0).cpu().data.numpy()
                 q_values = self.critic.Q1(inputs,
                             torch.tensor(acts, dtype=torch.float).unsqueeze(0)).squeeze(0).cpu().data.numpy()
 
@@ -88,6 +88,9 @@ class Evaluator(object):
         while steps < self.max_steps and not np.all(isOver):
             acts, q_values = predict(obs_stack)
             obs_stack, r, isOver, info = self.env.step(acts, q_values = q_values, isOver = isOver)
+            if self.reduce_action and info["reduce_action"]:
+                self.logger.log("Reduced action")
+                self.actor.max_action -= 2
             steps += 1
             if start_dists is None:
                 start_dists = [

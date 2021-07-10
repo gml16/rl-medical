@@ -393,7 +393,7 @@ class TD3(object):
             noise = (
                 torch.randn_like(action) * self.policy_noise
             ).clamp(-self.noise_clip, self.noise_clip)
-            
+
             #unsqueeze to simulate frame history
             next_action = (
                 #self.actor_target(torch.tensor(next_state).unsqueeze(2)) + noise
