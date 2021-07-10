@@ -170,7 +170,7 @@ class Actor_v2(nn.Module):
 
 
     def forward(self, state):
-        state = state.to(device)
+        state = state.to(device)#/255.0
         actions = []
 
         for i in range(self.agents):
@@ -244,7 +244,8 @@ class Critic_v2(nn.Module):
 
 
     def forward(self, state, action):
-        state = state.to(device)
+
+        state = state.to(device)#/255.0 
         action = action.to(device)
 
         q1_s = []
@@ -290,7 +291,7 @@ class Critic_v2(nn.Module):
 
 
     def Q1(self, state, action):
-        state = state.to(device)
+        state = state.to(device)#/255.0
         action = action.to(device)
 
         q1_s = []

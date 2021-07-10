@@ -158,14 +158,10 @@ class Trainer(object):
             steps = 0
             for _ in range(self.steps_per_episode):
                 steps += 1
-                acts = (
-                        self.policy.select_action(torch.tensor(obs).unsqueeze(0).unsqueeze(2))
-				+ np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
-			    ).clip(-self.max_action, self.max_action)
-                with torch.no_grad():
-                    q_values = self.policy.critic.Q1(
-                                torch.tensor(obs).unsqueeze(0).unsqueeze(2),
-                                torch.tensor(acts, dtype=torch.float).unsqueeze(0)).squeeze(0).cpu().data.numpy()
+                
+                acts = np.random.uniform(low=-self.max_action, high=self.max_action, size=(self.agents, self.action_dim))
+                q_values = np.zeros((self.agents, 1))
+
                 next_obs, reward, terminal, info = \
                         self.env.step(acts, q_values = q_values, isOver = terminal)
                 self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
