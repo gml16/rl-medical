@@ -3,6 +3,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+def norm_col_init(weights, std=1.0):
+    x = torch.randn(weights.size())
+    x *= std / torch.sqrt((x**2).sum(1, keepdim=True))
+    return x
+
 
 def normalized_columns_initializer(weights, std=1.0):
     out = torch.randn(weights.size())
@@ -557,13 +562,13 @@ class A3C_continuous_v6(torch.nn.Module):
     def __init__(self, num_inputs, action_space):
         super(A3C_continuous_v6, self).__init__()
 
-        self.conv1 = nn.Conv1d(num_inputs, 32, 3, stride=2, padding=1)
+        self.conv1 = nn.Conv3d(num_inputs, 32, 3, stride=2, padding=1)
         self.lrelu1 = nn.LeakyReLU(0.1)
-        self.conv2 = nn.Conv1d(32, 32, 3, stride=2, padding=1)
+        self.conv2 = nn.Conv3d(32, 32, 3, stride=2, padding=1)
         self.lrelu2 = nn.LeakyReLU(0.1)
-        self.conv3 = nn.Conv1d(32, 64, 2, stride=2, padding=1)
+        self.conv3 = nn.Conv3d(32, 64, 2, stride=2, padding=1)
         self.lrelu3 = nn.LeakyReLU(0.1)
-        self.conv4 = nn.Conv1d(64, 64, 1, stride=2)
+        self.conv4 = nn.Conv3d(64, 64, 1, stride=2)
         self.lrelu4 = nn.LeakyReLU(0.1)
 
         num_outputs = (action_space.n)//2
