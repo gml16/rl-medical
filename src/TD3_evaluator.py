@@ -71,7 +71,8 @@ class Evaluator(object):
             Run a full episode, mapping observation to action,
             using greedy policy.
             """
-            inputs = torch.FloatTensor(obs_stack).permute(
+            inputs = torch.tensor(obs_stack).permute(
+            #inputs = torch.FloatTensor(obs_stack).permute(
                 0, 4, 1, 2, 3).unsqueeze(0)
             with torch.no_grad():
                 acts = self.actor.forward(inputs).squeeze(0).cpu().data.numpy()
