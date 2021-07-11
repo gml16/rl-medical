@@ -13,7 +13,7 @@ from DQNModel import DQN
 #from evaluator import Evaluator
 from A3C_evaluator import Evaluator
 from tqdm import tqdm
-from ActorCriticModel import A3C_discrete, A3C_continuous, A3C_continuous_v2, A3C_continuous_v3, A3C_continuous_v4, A3C_continuous_v5
+from ActorCriticModel import A3C_discrete, A3C_continuous, A3C_continuous_v2, A3C_continuous_v3, A3C_continuous_v4, A3C_continuous_v5, A3C_continuous_v6
 import shared_adam
 
 def set_reproducible(seed):
@@ -88,6 +88,8 @@ class Trainer(object):
             shared_model = A3C_continuous_v4(1, self.env.action_space)
         elif self.model_name == "A3C_continuous_v5":
             shared_model = A3C_continuous_v5(1, self.env.action_space)
+        elif self.model_name == "A3C_continuous_v6":
+            shared_model = A3C_continuous_v6(1, self.env.action_space)
         #shared_model = A3C(self.frame_history, self.env.action_space)
         shared_model.share_memory()
 
@@ -163,6 +165,8 @@ class Trainer(object):
             model = A3C_continuous_v4(1, self.env.action_space)
         elif self.model_name == "A3C_continuous_v5":
             model = A3C_continuous_v5(1, self.env.action_space)
+        elif self.model_name == "A3C_continuous_v6":
+            model = A3C_continuous_v6(1, self.env.action_space)
         #model = A3C(self.frame_history, self.env.action_space)
 
         env= copy.deepcopy(self.env)
@@ -229,6 +233,9 @@ class Trainer(object):
                 elif self.model_name == "A3C_continuous_v2":
                     cx = torch.zeros(1, 512)
                     hx = torch.zeros(1, 512)
+                elif self.model_name == "A3C_continuous_v6":
+                    cx = torch.zeros(1, 128)
+                    hx = torch.zeros(1, 128)
 
             # Reset the environment for the start of the episode.
             obs = env.reset()
