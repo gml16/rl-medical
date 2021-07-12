@@ -4,12 +4,13 @@ from collections import deque
 
 
 class ReplayMemory(object):
-    def __init__(self, max_size, state_shape, history_len, agents, action_dim = None, continuous = False):
+    def __init__(self, max_size, state_shape, history_len, agents, action_dim = None, continuous = False, logger = None):
         self.max_size = int(max_size)
         self.state_shape = state_shape
         self.history_len = int(history_len)
         self.agents = agents
         self.continuous = continuous
+        self.logger = logger
         try:
             self.state = np.zeros(
                 (self.agents, self.max_size) + state_shape, dtype='uint8')
@@ -106,6 +107,8 @@ class ReplayMemory(object):
             rewards.append(exp[2])
             next_states.append(exp[3])
             isOver.append(exp[4])
+
+        self.logger.log("Actions shape {np.array(actions).shape}")
         # Only get most recent terminal state
         return (np.array(states), np.array(actions)[:, :, -1],
                 np.array(rewards)[:, :, -1], np.array(next_states),

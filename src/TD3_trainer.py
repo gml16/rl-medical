@@ -87,15 +87,15 @@ class Trainer(object):
 
         self.policy = TD3(**kwargs)
 
-        self.buffer = ReplayBuffer(self.state_dim, self.action_dim, self.agents)
-        '''
+        #self.buffer = ReplayBuffer(self.state_dim, self.action_dim, self.agents)
         self.buffer = ReplayMemory(self.replay_buffer_size,
                                     self.state_dim,
                                     self.frame_history,
                                     self.agents,
                                     action_dim = self.action_dim,
-                                    continuous = True)
-        '''
+                                    continuous = True,
+                                    self.logger)
+
         self.evaluator = Evaluator(eval_env,
                                    self.policy.actor,
                                    self.policy.critic,
@@ -129,21 +129,21 @@ class Trainer(object):
 
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
-                acts = (
-			             self.policy.select_action(torch.tensor(obs).unsqueeze(0).unsqueeze(2))
-		                    + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
-			                ).clip(-self.max_action, self.max_action)
                 # acts = (
-                #         self.policy.select_action(torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0))
-                #             + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
-                #             ).clip(-self.max_action, self.max_action)
+			    #          self.policy.select_action(torch.tensor(obs).unsqueeze(0).unsqueeze(2))
+		        #             + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
+			    #             ).clip(-self.max_action, self.max_action)
+                acts = (
+                        self.policy.select_action(torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0))
+                            + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
+                            ).clip(-self.max_action, self.max_action)
                 with torch.no_grad():
-                    q_values = self.policy.critic.Q1(
-                               torch.tensor(obs).unsqueeze(0).unsqueeze(2),
-                               torch.tensor(acts, dtype=torch.float).unsqueeze(0)).squeeze(0).cpu().data.numpy()
                     # q_values = self.policy.critic.Q1(
-                    #             torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0),
-                    #             torch.tensor(acts, dtype=torch.float).unsqueeze(0)).squeeze(0).cpu().data.numpy()
+                    #            torch.tensor(obs).unsqueeze(0).unsqueeze(2),
+                    #            torch.tensor(acts, dtype=torch.float).unsqueeze(0)).squeeze(0).cpu().data.numpy()
+                    q_values = self.policy.critic.Q1(
+                                torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0),
+                                torch.tensor(acts, dtype=torch.float).unsqueeze(0)).squeeze(0).cpu().data.numpy()
 
                 # Step the agent once, and get the transition tuple
                 next_obs, reward, terminal, info = \
@@ -156,8 +156,8 @@ class Trainer(object):
                     self.policy.max_action = self.max_action
                     self.policy.actor.max_action = self.max_action
                 score = [sum(x) for x in zip(score, reward)]
-                self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
-                #self.buffer.append((obs, acts, reward, terminal))
+                #self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
+                self.buffer.append((obs, acts, reward, terminal))
                 obs = next_obs
                 if acc_steps % self.train_freq == 0:
                     loss = self.policy.train(self.buffer, self.batch_size)
@@ -203,8 +203,8 @@ class Trainer(object):
                 if self.reduce_action and info["reduce_action"]:
                     #self.logger.log("Reduced action")
                     self.max_action -= 2
-                self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
-                #self.buffer.append((obs, acts, reward, terminal))
+                #self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
+                self.buffer.append((obs, acts, reward, terminal))
                 obs = next_obs
                 if all(t for t in terminal):
                     break

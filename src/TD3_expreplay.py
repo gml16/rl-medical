@@ -2,11 +2,12 @@ import numpy as np
 import torch
 
 class ReplayBuffer(object):
-    def __init__(self, state_dim, action_dim, agents, max_size=int(1e5)):
+    def __init__(self, state_dim, action_dim, agents, max_size=int(1e5), logger = None):
         self.max_size = max_size
         self.agents = agents
         self.ptr = 0
         self.size = 0
+        self.logger = logger
 
         self.state = np.zeros((max_size, self.agents) + state_dim, dtype='uint8')
         self.action = np.zeros((max_size, self.agents, action_dim), dtype='float32')
