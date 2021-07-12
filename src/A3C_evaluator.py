@@ -106,12 +106,18 @@ class Evaluator(object):
             cx = torch.zeros(self.agents, 256).unsqueeze(0)
             hx = torch.zeros(self.agents, 256).unsqueeze(0)
         else:
-            if self.model_name == "A3C_continuous" or "A3C_continuous_v3" or "A3C_continuous_v4" or "A3C_continuous_v5":
+            if self.model_name == "A3C_continuous" or \
+                self.model_name == "A3C_continuous_v3" or \
+                self.model_name == "A3C_continuous_v4" or \
+                self.model_name == "A3C_continuous_v5":
                 cx = torch.zeros(1, 256)
                 hx = torch.zeros(1, 256)
             elif self.model_name == "A3C_continuous_v2":
                 cx = torch.zeros(1, 512)
                 hx = torch.zeros(1, 512)
+            elif self.model_name == "A3C_continuous_v6":
+                cx = torch.zeros(1, 128)
+                hx = torch.zeros(1, 128)
         # Here obs have shape (agent, *image_size, frame_history)
         sum_r = np.zeros((self.agents))
         isOver = [False] * self.agents
