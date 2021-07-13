@@ -94,7 +94,9 @@ class Trainer(object):
                                     self.agents,
                                     action_dim = self.action_dim,
                                     continuous = True,
-                                    self.logger)
+                                    logger = self.logger)
+
+        self.logger.log(f"Old replay buffer max size {self.replay_buffer_size}")
 
         self.evaluator = Evaluator(eval_env,
                                    self.policy.actor,
@@ -129,10 +131,10 @@ class Trainer(object):
 
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
-                # acts = (
-			    #          self.policy.select_action(torch.tensor(obs).unsqueeze(0).unsqueeze(2))
-		        #             + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
-			    #             ).clip(-self.max_action, self.max_action)
+                #acts = (
+		#	              self.policy.select_action(torch.tensor(obs).unsqueeze(0).unsqueeze(2))
+		#                     + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
+		#	                 ).clip(-self.max_action, self.max_action)
                 acts = (
                         self.policy.select_action(torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0))
                             + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
@@ -157,7 +159,7 @@ class Trainer(object):
                     self.policy.actor.max_action = self.max_action
                 score = [sum(x) for x in zip(score, reward)]
                 #self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
-                self.buffer.append((obs, acts, reward, terminal))
+                self.buffer.append((next_obs, acts, reward, terminal))
                 obs = next_obs
                 if acc_steps % self.train_freq == 0:
                     loss = self.policy.train(self.buffer, self.batch_size)
@@ -204,7 +206,7 @@ class Trainer(object):
                     #self.logger.log("Reduced action")
                     self.max_action -= 2
                 #self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
-                self.buffer.append((obs, acts, reward, terminal))
+                self.buffer.append((next_obs, acts, reward, terminal))
                 obs = next_obs
                 if all(t for t in terminal):
                     break

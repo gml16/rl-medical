@@ -108,7 +108,6 @@ class ReplayMemory(object):
             next_states.append(exp[3])
             isOver.append(exp[4])
 
-        self.logger.log("Actions shape {np.array(actions).shape}")
         # Only get most recent terminal state
         return (np.array(states), np.array(actions)[:, :, -1],
                 np.array(rewards)[:, :, -1], np.array(next_states),
