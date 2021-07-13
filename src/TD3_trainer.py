@@ -87,7 +87,7 @@ class Trainer(object):
 
         self.policy = TD3(**kwargs)
 
-        #self.buffer = ReplayBuffer(self.state_dim, self.action_dim, self.agents)
+        self.buffer1 = ReplayBuffer(self.state_dim, self.action_dim, self.agents)
         self.buffer = ReplayMemory(self.replay_buffer_size,
                                     self.state_dim,
                                     self.frame_history,
@@ -131,6 +131,9 @@ class Trainer(object):
 
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
+                self.logger.log(f"Directly taking last obs : {torch.tensor(obs).unsqueeze(0).unsqueeze(2)}")
+                self.logger.log(f"Recent state of buffer : {torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0)}")
+                self.logger.log(f"Are these two equal? : {torch.tensor(obs).unsqueeze(0).unsqueeze(2) == torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0)}")
                 #acts = (
 		#	              self.policy.select_action(torch.tensor(obs).unsqueeze(0).unsqueeze(2))
 		#                     + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
@@ -158,7 +161,7 @@ class Trainer(object):
                     self.policy.max_action = self.max_action
                     self.policy.actor.max_action = self.max_action
                 score = [sum(x) for x in zip(score, reward)]
-                #self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
+                self.buffer1.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
                 self.buffer.append((next_obs, acts, reward, terminal))
                 obs = next_obs
                 if acc_steps % self.train_freq == 0:
