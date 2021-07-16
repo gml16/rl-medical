@@ -369,13 +369,18 @@ class TD3(object):
         return self.actor(state).squeeze(0).cpu().data.numpy()
 
 
-    def train(self, replay_buffer, batch_size=256):
+    def train(self, replay_buffer, batch_size=256, TD3_replay_buffer = None):
         self.total_it += 1
-
+        ind = np.random.randint(0, TD3_replay_buffer.__len__(), size = batch_size)
         # Sample replay buffer
         #state, action, next_state, reward, not_done = replay_buffer.sample(batch_size)
-        state, action, reward, next_state, done = replay_buffer.sample(batch_size)
+        tstate, taction, tnext_state, treward, tnot_done = TD3_replay_buffer.sample(batch_size, predif_indices = ind)
+        #self.logger.log(f"TD3 replay buffer not done {tnot_done}")
+
+        state, action, reward, next_state, done = replay_buffer.sample(batch_size, predif_indices = ind)
         not_done = 1. - done
+        #self.logger.log(f"Old replay buffer not done {not_done}")
+        #self.logger.log(f"Are these two the same {not_done == tnot_done.unsqueeze(0)}")
 
         state = torch.FloatTensor(state).to(device)
         action = torch.FloatTensor(action).to(device)

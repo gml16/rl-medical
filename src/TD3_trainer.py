@@ -131,9 +131,9 @@ class Trainer(object):
 
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
-                self.logger.log(f"Directly taking last obs : {torch.tensor(obs).unsqueeze(0).unsqueeze(2)}")
-                self.logger.log(f"Recent state of buffer : {torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0)}")
-                self.logger.log(f"Are these two equal? : {torch.tensor(obs).unsqueeze(0).unsqueeze(2) == torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0)}")
+                #self.logger.log(f"Directly taking last obs : {torch.tensor(obs).unsqueeze(0).unsqueeze(2)}")
+                #self.logger.log(f"Recent state of buffer : {torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0)}")
+                #self.logger.log(f"Are these two equal? : {torch.tensor(obs).unsqueeze(0).unsqueeze(2) == torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0)}")
                 #acts = (
 		#	              self.policy.select_action(torch.tensor(obs).unsqueeze(0).unsqueeze(2))
 		#                     + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
@@ -162,10 +162,12 @@ class Trainer(object):
                     self.policy.actor.max_action = self.max_action
                 score = [sum(x) for x in zip(score, reward)]
                 self.buffer1.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
-                self.buffer.append((next_obs, acts, reward, terminal))
+                self.buffer.append((obs, acts, reward, terminal))
                 obs = next_obs
                 if acc_steps % self.train_freq == 0:
-                    loss = self.policy.train(self.buffer, self.batch_size)
+                    self.logger.log(f"Old exp replay {self.buffer.state[0,:self.buffer._curr_size,15,15,15]}")
+                    self.logger.log(f"TD3 exp replay {self.buffer1.state[:self.buffer1.size,0,15,15,15]}")
+                    loss = self.policy.train(self.buffer, self.batch_size, self.buffer1)
                     losses.append(loss)
                 if all(t for t in terminal):
                     break
@@ -208,7 +210,7 @@ class Trainer(object):
                 if self.reduce_action and info["reduce_action"]:
                     #self.logger.log("Reduced action")
                     self.max_action -= 2
-                #self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
+                self.buffer1.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
                 self.buffer.append((next_obs, acts, reward, terminal))
                 obs = next_obs
                 if all(t for t in terminal):

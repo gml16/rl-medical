@@ -130,7 +130,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--init_memory_size',
         help='Number of transitions stored in exp replay before training',
-        default=25e3, type=int)
+        default=25e1, type=int)
     parser.add_argument("--expl_noise",
                         help='Std of Gaussian exploration noise',
                         default=0.1)
