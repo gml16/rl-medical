@@ -93,13 +93,9 @@ class Trainer(object):
                 # Step the agent once, and get the transition tuple
                 obs, reward, terminal, info = self.env.step(
                     np.copy(acts), q_values, terminal)
-                self.logger.log(f"Recent state shape :{self.buffer.recent_state().shape}")
-                self.logger.log(f"Obs shape :{obs.shape}")
-                self.logger.log(f"Reward shape :{reward.shape}")
-                self.logger.log(f"Terminal shape :{terminal.shape}")
 
-                self.logger.log(f"Transition from {self.buffer.recent_state()} \
-                        to {obs} has reward : {reward}, Terminal? : {terminal}")
+                self.logger.log(f"Transition from {self.buffer.recent_state()[0,:,15,15,15]} \
+                        to {obs[0,15,15,15]} has reward : {reward[0]}, Terminal? : {terminal[0]}")
                 score = [sum(x) for x in zip(score, reward)]
                 self.buffer.append((obs, acts, reward, terminal))
                 if acc_steps % self.train_freq == 0:
