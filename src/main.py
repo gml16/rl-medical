@@ -130,10 +130,11 @@ if __name__ == '__main__':
     parser.add_argument(
         '--init_memory_size',
         help='Number of transitions stored in exp replay before training',
-        default=25e1, type=int)
+        default=25e3, type=int)
     parser.add_argument("--expl_noise",
                         help='Std of Gaussian exploration noise',
-                        default=0.1)
+                        default=0.15)
+                        #default=0.1)
     parser.add_argument(
         '--discount',
         help='Discount factor used in the Bellman equation',
@@ -141,7 +142,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--tau',
         help='Target network update rate',
-        default=0.005)
+        default=0.125)
+        #default=0.005)
     parser.add_argument(
         '--policy_noise',
         help='Noise added to target policy during critic update',
