@@ -88,7 +88,7 @@ class Trainer(object):
         while episode <= self.max_episodes:
             # Reset the environment for the start of the episode.
             obs = self.env.reset()
-            self.logger.log("New episode")
+            #self.logger.log("New episode")
             if self.fix_init:
                 self.buffer._hist.clear()
             terminal = [False for _ in range(self.agents)]
@@ -104,8 +104,8 @@ class Trainer(object):
                     next_obs, reward, terminal, info = self.env.step(
                         np.copy(acts), q_values, terminal)
                     self.buffer.append_effect((index, obs, acts, reward, terminal))
-                    self.logger.log(f"Transition from {self.buffer.recent_state()[0,:,15,15,15]} \
-                    to {next_obs[0,15,15,15]} has reward : {reward[0]}, Terminal? : {terminal[0]} at index {len(self.buffer)}")
+                    #self.logger.log(f"Transition from {self.buffer.recent_state()[0,:,15,15,15]} \
+                    #to {next_obs[0,15,15,15]} has reward : {reward[0]}, Terminal? : {terminal[0]} at index {len(self.buffer)}")
                     score = [sum(x) for x in zip(score, reward)]
                     #self.buffer.append((obs, acts, reward, terminal))
                     obs = next_obs
@@ -114,8 +114,8 @@ class Trainer(object):
                         self.buffer.recent_state())
                     obs, reward, terminal, info = self.env.step(
                         np.copy(acts), q_values, terminal)
-                    self.logger.log(f"Transition from {self.buffer.recent_state()[0,:,15,15,15]} \
-                    to {obs[0,15,15,15]} has reward : {reward[0]}, Terminal? : {terminal[0]} at index {len(self.buffer)}")
+                    #self.logger.log(f"Transition from {self.buffer.recent_state()[0,:,15,15,15]} \
+                    #to {obs[0,15,15,15]} has reward : {reward[0]}, Terminal? : {terminal[0]} at index {len(self.buffer)}")
                     score = [sum(x) for x in zip(score, reward)]
                     self.buffer.append((obs, acts, reward, terminal))
                 if acc_steps % self.train_freq == 0:
@@ -146,7 +146,7 @@ class Trainer(object):
         while len(self.buffer) < self.init_memory_size:
             # Reset the environment for the start of the episode.
             obs = self.env.reset()
-            self.logger.log("New episode")
+            #self.logger.log("New episode")
             if self.fix_init:
                 self.buffer._hist.clear()
             terminal = [False for _ in range(self.agents)]
@@ -159,8 +159,8 @@ class Trainer(object):
                     next_obs, reward, terminal, info = self.env.step(
                         acts, q_values, terminal)
                     self.buffer.append_effect((index, obs, acts, reward, terminal))
-                    self.logger.log(f"Transition from {self.buffer.recent_state()[0,:,15,15,15]} \
-                    to {next_obs[0,15,15,15]} has reward : {reward[0]}, Terminal? : {terminal[0]} at index {len(self.buffer)}")
+                    #self.logger.log(f"Transition from {self.buffer.recent_state()[0,:,15,15,15]} \
+                    #to {next_obs[0,15,15,15]} has reward : {reward[0]}, Terminal? : {terminal[0]} at index {len(self.buffer)}")
                     obs = next_obs
                 else:
                     acts, q_values = self.get_next_actions(obs)
@@ -205,6 +205,8 @@ class Trainer(object):
         epoch_dists = np.array(epoch_dists)
         if name == "train":
             lr = self.dqn.scheduler.state_dict()["_last_lr"]
+            if isinstance(lr, list):
+                lr = lr[0]
             self.logger.write_to_board(name, {"eps": eps, "lr": lr}, episode)
             if len(losses) > 0:
                 loss_dict = {"loss": sum(losses) / len(losses)}
