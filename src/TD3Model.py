@@ -369,34 +369,34 @@ class TD3(object):
         return self.actor(state).squeeze(0).cpu().data.numpy()
 
 
-    def train(self, replay_buffer, batch_size=256, TD3_replay_buffer = None):
+    def train(self, replay_buffer, batch_size=256):
         self.total_it += 1
-        ind = np.random.randint(0, TD3_replay_buffer.__len__(), size = batch_size)
+        #ind = np.random.randint(0, TD3_replay_buffer.__len__(), size = batch_size)
         # Sample replay buffer
-        #state, action, next_state, reward, not_done = replay_buffer.sample(batch_size)
-        tstate, taction, tnext_state, treward, tnot_done = TD3_replay_buffer.sample(batch_size, predif_indices = ind)
+        state, action, next_state, reward, not_done = replay_buffer.sample(batch_size)
+        #tstate, taction, tnext_state, treward, tnot_done = TD3_replay_buffer.sample(batch_size, predif_indices = ind)
         #self.logger.log(f"TD3 replay buffer not done {tnot_done}")
 
-        state, action, reward, next_state, done = replay_buffer.sample(batch_size, predif_indices = ind)
-        not_done = 1. - done
+        #state, action, reward, next_state, done = replay_buffer.sample(batch_size, predif_indices = ind)
+        #not_done = 1. - done
         #self.logger.log(f"Old replay buffer not done {not_done}")
         #self.logger.log(f"Are these two the same {not_done == tnot_done.unsqueeze(0)}")
 
-        state = torch.FloatTensor(state).to(device)
-        action = torch.FloatTensor(action).to(device)
-        reward = torch.FloatTensor(reward).to(device)
-        next_state = torch.FloatTensor(next_state).to(device)
-        not_done = torch.FloatTensor(not_done).to(device)
-
-        # reward = torch.clamp(
-        #             torch.tensor(reward, dtype=torch.float32),
-        #             -self.max_action,
-        #             self.max_action).to(device)
+        #state = torch.FloatTensor(state).to(device)
+        #action = torch.FloatTensor(action).to(device)
+        #reward = torch.FloatTensor(reward).to(device)
+        #next_state = torch.FloatTensor(next_state).to(device)
+        #not_done = torch.FloatTensor(not_done).to(device)
 
         reward = torch.clamp(
-                    reward,
-                    -self.max_action,
-                    self.max_action)
+                     torch.tensor(reward, dtype=torch.float32),
+                     -self.max_action,
+                     self.max_action).to(device)
+
+        #reward = torch.clamp(
+        #            reward,
+        #            -self.max_action,
+        #            self.max_action)
 
         with torch.no_grad():
             # Select action according to policy and add clipped noise
@@ -406,19 +406,19 @@ class TD3(object):
 
             #unsqueeze to simulate frame history
             next_action = (
-                #self.actor_target(torch.tensor(next_state).unsqueeze(2)) + noise
-                self.actor_target(next_state) + noise
+                self.actor_target(torch.tensor(next_state).unsqueeze(2)) + noise
+                #self.actor_target(next_state) + noise
             ).clamp(-self.max_action, self.max_action)
 
             # Compute the target Q value
-            #target_Q1, target_Q2 = self.critic_target(torch.tensor(next_state).unsqueeze(2), torch.tensor(next_action))
-            target_Q1, target_Q2 = self.critic_target(next_state, next_action)
+            target_Q1, target_Q2 = self.critic_target(torch.tensor(next_state).unsqueeze(2), torch.tensor(next_action))
+            #target_Q1, target_Q2 = self.critic_target(next_state, next_action)
             target_Q = torch.min(target_Q1, target_Q2)
             target_Q = reward + not_done * self.discount * target_Q
 
         # Get current Q estimates
-        #current_Q1, current_Q2 = self.critic(torch.tensor(state).unsqueeze(2), action)
-        current_Q1, current_Q2 = self.critic(state, action)
+        current_Q1, current_Q2 = self.critic(torch.tensor(state).unsqueeze(2), action)
+        #current_Q1, current_Q2 = self.critic(state, action)
 
         # Compute critic loss
         critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q)
@@ -432,8 +432,8 @@ class TD3(object):
         if self.total_it % self.policy_freq == 0:
 
             # Compute actor losse
-            #actor_loss = -self.critic.Q1(torch.tensor(state).unsqueeze(2), self.actor(torch.tensor(state).unsqueeze(2))).mean()
-            actor_loss = -self.critic.Q1(state, self.actor(state)).mean()
+            actor_loss = -self.critic.Q1(torch.tensor(state).unsqueeze(2), self.actor(torch.tensor(state).unsqueeze(2))).mean()
+            #actor_loss = -self.critic.Q1(state, self.actor(state)).mean()
 
             # Optimize the actor
             self.actor_optimizer.zero_grad()
