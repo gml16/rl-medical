@@ -30,7 +30,9 @@ class Trainer(object):
                  attention=False,
                  lr=1e-3,
                  scheduler_gamma=0.5,
-                 scheduler_step_size=100
+                 scheduler_step_size=100,
+                 fix_next_state=False,
+                 fix_init=False
                 ):
         self.env = env
         self.eval_env = eval_env
@@ -74,6 +76,9 @@ class Trainer(object):
         self.logger = logger
         self.train_freq = train_freq
 
+        self.fix_next_state = fix_next_state
+        self.fix_init = fix_init
+
     def train(self):
         self.logger.log(self.dqn.q_network)
         self.init_memory()
@@ -83,21 +88,36 @@ class Trainer(object):
         while episode <= self.max_episodes:
             # Reset the environment for the start of the episode.
             obs = self.env.reset()
+            self.logger.log("New episode")
+            if self.fix_init:
+                self.buffer._hist.clear()
             terminal = [False for _ in range(self.agents)]
             losses = []
             score = [0] * self.agents
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
-                acts, q_values = self.get_next_actions(
-                    self.buffer.recent_state())
                 # Step the agent once, and get the transition tuple
-                obs, reward, terminal, info = self.env.step(
-                    np.copy(acts), q_values, terminal)
-
-                self.logger.log(f"Transition from {self.buffer.recent_state()[0,:,15,15,15]} \
-                        to {obs[0,15,15,15]} has reward : {reward[0]}, Terminal? : {terminal[0]}")
-                score = [sum(x) for x in zip(score, reward)]
-                self.buffer.append((obs, acts, reward, terminal))
+                if self.fix_next_state:
+                    index = self.buffer.append_obs(obs)
+                    acts, q_values = self.get_next_actions(
+                        self.buffer.recent_state())
+                    next_obs, reward, terminal, info = self.env.step(
+                        np.copy(acts), q_values, terminal)
+                    self.buffer.append_effect((index, obs, acts, reward, terminal))
+                    self.logger.log(f"Transition from {self.buffer.recent_state()[0,:,15,15,15]} \
+                    to {next_obs[0,15,15,15]} has reward : {reward[0]}, Terminal? : {terminal[0]} at index {len(self.buffer)}")
+                    score = [sum(x) for x in zip(score, reward)]
+                    #self.buffer.append((obs, acts, reward, terminal))
+                    obs = next_obs
+                else:
+                    acts, q_values = self.get_next_actions(
+                        self.buffer.recent_state())
+                    obs, reward, terminal, info = self.env.step(
+                        np.copy(acts), q_values, terminal)
+                    self.logger.log(f"Transition from {self.buffer.recent_state()[0,:,15,15,15]} \
+                    to {obs[0,15,15,15]} has reward : {reward[0]}, Terminal? : {terminal[0]} at index {len(self.buffer)}")
+                    score = [sum(x) for x in zip(score, reward)]
+                    self.buffer.append((obs, acts, reward, terminal))
                 if acc_steps % self.train_freq == 0:
                     mini_batch = self.buffer.sample(self.batch_size)
                     loss = self.dqn.train_q_network(mini_batch, self.gamma)
@@ -126,14 +146,27 @@ class Trainer(object):
         while len(self.buffer) < self.init_memory_size:
             # Reset the environment for the start of the episode.
             obs = self.env.reset()
+            self.logger.log("New episode")
+            if self.fix_init:
+                self.buffer._hist.clear()
             terminal = [False for _ in range(self.agents)]
             steps = 0
             for _ in range(self.steps_per_episode):
                 steps += 1
-                acts, q_values = self.get_next_actions(obs)
-                obs, reward, terminal, info = self.env.step(
-                    acts, q_values, terminal)
-                self.buffer.append((obs, acts, reward, terminal))
+                if self.fix_next_state:
+                    index = self.buffer.append_obs(obs)
+                    acts, q_values = self.get_next_actions(obs)
+                    next_obs, reward, terminal, info = self.env.step(
+                        acts, q_values, terminal)
+                    self.buffer.append_effect((index, obs, acts, reward, terminal))
+                    self.logger.log(f"Transition from {self.buffer.recent_state()[0,:,15,15,15]} \
+                    to {next_obs[0,15,15,15]} has reward : {reward[0]}, Terminal? : {terminal[0]} at index {len(self.buffer)}")
+                    obs = next_obs
+                else:
+                    acts, q_values = self.get_next_actions(obs)
+                    obs, reward, terminal, info = self.env.step(
+                        acts, q_values, terminal)
+                    self.buffer.append((obs, acts, reward, terminal))
                 if all(t for t in terminal):
                     break
             pbar.update(steps)
