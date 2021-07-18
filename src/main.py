@@ -133,8 +133,8 @@ if __name__ == '__main__':
         default=25e3, type=int)
     parser.add_argument("--expl_noise",
                         help='Std of Gaussian exploration noise',
-                        default=0.15)
-                        #default=0.1)
+                        default=0.1)
+                        #default=0.15)
     parser.add_argument(
         '--discount',
         help='Discount factor used in the Bellman equation',
@@ -142,8 +142,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--tau',
         help='Target network update rate',
-        default=0.125)
-        #default=0.005)
+        default=0.005)
+        #default=0.125)
     parser.add_argument(
         '--policy_noise',
         help='Noise added to target policy during critic update',
@@ -221,6 +221,10 @@ if __name__ == '__main__':
         '--reduce_action', help='Reduces max action with scale', dest='reduce_action',
         action='store_true')
     parser.set_defaults(reduce_action=False)
+    parser.add_argument(
+        '--fix_exp_replay', help='Fixes bugs in expreplay', dest='fix_exp_replay',
+        action='store_true')
+    parser.set_defaults(fix_exp_replay=False)
     args = parser.parse_args()
 
     agents = len(args.landmarks)
@@ -334,5 +338,6 @@ if __name__ == '__main__':
                               policy_noise=args.policy_noise,
                               noise_clip=args.noise_clip,
                               policy_freq=args.policy_freq,
-                              reduce_action=args.reduce_action
+                              reduce_action=args.reduce_action,
+                              fix_exp_replay=args.fix_exp_replay
                              ).train()

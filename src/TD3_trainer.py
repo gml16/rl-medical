@@ -38,7 +38,8 @@ class Trainer(object):
                  policy_noise=0.2,
                  noise_clip=0.5,
                  policy_freq=2,
-                 reduce_action=False
+                 reduce_action=False,
+                 fix_exp_replay=False
                 ):
         self.env = env
         self.eval_env = eval_env
@@ -60,6 +61,7 @@ class Trainer(object):
         self.best_val_distance = float('inf')
         self.logger = logger
         self.reduce_action = reduce_action
+        self.fix_exp_replay = fix_exp_replay
 
         self.tau = tau
         self.policy_noise = policy_noise
@@ -88,15 +90,15 @@ class Trainer(object):
         self.policy = TD3(**kwargs)
 
         self.buffer = ReplayBuffer(self.state_dim, self.action_dim, self.agents)
-        '''
-        self.buffer = ReplayMemory(self.replay_buffer_size,
-                                    self.state_dim,
-                                    self.frame_history,
-                                    self.agents,
-                                    action_dim = self.action_dim,
-                                    continuous = True,
-                                    logger = self.logger)
-        '''
+        
+        #self.buffer = ReplayMemory(self.replay_buffer_size,
+        #                            self.state_dim,
+        #                            self.frame_history,
+        #                            self.agents,
+        #                            action_dim = self.action_dim,
+        #                            continuous = True,
+        #                            logger = self.logger)
+    
         self.logger.log(f"Old replay buffer max size {self.replay_buffer_size}")
 
         self.evaluator = Evaluator(eval_env,
@@ -118,6 +120,8 @@ class Trainer(object):
         while episode <= self.max_episodes:
             # Reset the environment for the start of the episode.
             obs = self.env.reset()
+            if self.fix_exp_replay:
+                self.buffer._hist.clear()
             terminal = [False for _ in range(self.agents)]
             losses = []
             score = [0] * self.agents
@@ -132,46 +136,69 @@ class Trainer(object):
 
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
-                #self.logger.log(f"Directly taking last obs : {torch.tensor(obs).unsqueeze(0).unsqueeze(2)}")
-                #self.logger.log(f"Recent state of buffer : {torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0)}")
-                #self.logger.log(f"Are these two equal? : {torch.tensor(obs).unsqueeze(0).unsqueeze(2) == torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0)}")
-                acts = (
-			              self.policy.select_action(torch.tensor(obs).unsqueeze(0).unsqueeze(2))
-		                     + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
-			                 ).clip(-self.max_action, self.max_action)
-                #acts = (
-                #        self.policy.select_action(torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0))
-                #            + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
-                #            ).clip(-self.max_action, self.max_action)
-                with torch.no_grad():
-                    q_values = self.policy.critic.Q1(
-                                torch.tensor(obs).unsqueeze(0).unsqueeze(2),
-                                torch.tensor(acts, dtype=torch.float).unsqueeze(0)).squeeze(0).cpu().data.numpy()
-                    #q_values = self.policy.critic.Q1(
-                    #            torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0),
-                    #            torch.tensor(acts, dtype=torch.float).unsqueeze(0)).squeeze(0).cpu().data.numpy()
+                if self.fix_exp_replay:
+                    index = self.buffer.append_obs(obs)
+                    acts = (
+                            self.policy.select_action(torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0))
+                                + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
+                                ).clip(-self.max_action, self.max_action)
+                    with torch.no_grad():
+                        q_values = self.policy.critic.Q1(
+                                    torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0),
+                                    torch.tensor(acts, dtype=torch.float).unsqueeze(0)).squeeze(0).cpu().data.numpy()
+                    next_obs, reward, terminal, info = \
+                            self.env.step(np.copy(acts), q_values = q_values, isOver = terminal)
+                    score = [sum(x) for x in zip(score, reward)]
+                    self.buffer.append_effect((index, obs, acts, reward, terminal))
+                    #self.logger.log(f"Transition from {self.buffer.recent_state()[0,:,15,15,15]} \
+                    #to {next_obs[0,15,15,15]} has reward : {reward[0]}, Terminal? : {terminal[0]} at index {len(self.buffer)}")
+                    obs = next_obs
+                    if acc_steps % self.train_freq == 0:
+                        loss = self.policy.train(self.buffer, self.batch_size)
+                        losses.append(loss)
+                    if all(t for t in terminal):
+                        break
+                else:
+                    #self.logger.log(f"Directly taking last obs : {torch.tensor(obs).unsqueeze(0).unsqueeze(2)}")
+                    #self.logger.log(f"Recent state of buffer : {torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0)}")
+                    #self.logger.log(f"Are these two equal? : {torch.tensor(obs).unsqueeze(0).unsqueeze(2) == torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0)}")
+                    acts = (
+		    	              self.policy.select_action(torch.tensor(obs).unsqueeze(0).unsqueeze(2))
+		                         + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
+	    	    	                 ).clip(-self.max_action, self.max_action)
+                    #acts = (
+                    #        self.policy.select_action(torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0))
+                    #            + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
+                    #            ).clip(-self.max_action, self.max_action)
+                    with torch.no_grad():
+                        q_values = self.policy.critic.Q1(
+                                    torch.tensor(obs).unsqueeze(0).unsqueeze(2),
+                                    torch.tensor(acts, dtype=torch.float).unsqueeze(0)).squeeze(0).cpu().data.numpy()
+                        #q_values = self.policy.critic.Q1(
+                        #            torch.FloatTensor(self.buffer.recent_state()).unsqueeze(0),
+                        #            torch.tensor(acts, dtype=torch.float).unsqueeze(0)).squeeze(0).cpu().data.numpy()
 
-                # Step the agent once, and get the transition tuple
-                next_obs, reward, terminal, info = \
-                        self.env.step(np.copy(acts), q_values = q_values, isOver = terminal)
-                if self.reduce_action and info["reduce_action"]:
-                    #self.logger.log("Reduced action")
-                    self.max_action -= 2
-                    self.policy.policy_noise = self.max_action * self.policy_noise
-                    self.policy.noise_clip = self.max_action * self.noise_clip
-                    self.policy.max_action = self.max_action
-                    self.policy.actor.max_action = self.max_action
-                score = [sum(x) for x in zip(score, reward)]
-                self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
-                #self.buffer.append((obs, acts, reward, terminal))
-                obs = next_obs
-                if acc_steps % self.train_freq == 0:
-                    #self.logger.log(f"Old exp replay {self.buffer.state[0,:self.buffer._curr_size,15,15,15]}")
-                    #self.logger.log(f"TD3 exp replay {self.buffer1.state[:self.buffer1.size,0,15,15,15]}")
-                    loss = self.policy.train(self.buffer, self.batch_size)
-                    losses.append(loss)
-                if all(t for t in terminal):
-                    break
+                    # Step the agent once, and get the transition tuple
+                    next_obs, reward, terminal, info = \
+                            self.env.step(np.copy(acts), q_values = q_values, isOver = terminal)
+                    if self.reduce_action and info["reduce_action"]:
+                        #self.logger.log("Reduced action")
+                        self.max_action -= 2
+                        self.policy.policy_noise = self.max_action * self.policy_noise
+                        self.policy.noise_clip = self.max_action * self.noise_clip
+                        self.policy.max_action = self.max_action
+                        self.policy.actor.max_action = self.max_action
+                    score = [sum(x) for x in zip(score, reward)]
+                    self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
+                    #self.buffer.append((obs, acts, reward, terminal))
+                    obs = next_obs
+                    if acc_steps % self.train_freq == 0:
+                        #self.logger.log(f"Old exp replay {self.buffer.state[0,:self.buffer._curr_size,15,15,15]}")
+                        #self.logger.log(f"TD3 exp replay {self.buffer1.state[:self.buffer1.size,0,15,15,15]}")
+                        loss = self.policy.train(self.buffer, self.batch_size)
+                        losses.append(loss)
+                    if all(t for t in terminal):
+                        break
             epoch_distances.append([info['distError_' + str(i)]
                                     for i in range(self.agents)])
             self.append_episode_board(info, score, "train", episode)
@@ -195,6 +222,8 @@ class Trainer(object):
         while len(self.buffer) < self.init_memory_size:
             # Reset the environment for the start of the episode.
             obs = self.env.reset()
+            if self.fix_exp_replay:
+                self.buffer._hist.clear()
             terminal = [False for _ in range(self.agents)]
             steps = 0
             if self.reduce_action:
@@ -202,20 +231,32 @@ class Trainer(object):
                 self.max_action = float(self.env.action_space.high[0])
             for _ in range(self.steps_per_episode):
                 steps += 1
-
-                acts = np.random.uniform(low=-self.max_action, high=self.max_action, size=(self.agents, self.action_dim))
-                q_values = np.zeros((self.agents, 1))
-
-                next_obs, reward, terminal, info = \
+                if self.fix_exp_replay:
+                    index = self.buffer.append_obs(obs)
+                    acts = np.random.uniform(low=-self.max_action, high=self.max_action, size=(self.agents, self.action_dim))
+                    q_values = np.zeros((self.agents, 1))
+                    next_obs, reward, terminal, info = \
                         self.env.step(acts, q_values = q_values, isOver = terminal)
-                if self.reduce_action and info["reduce_action"]:
-                    #self.logger.log("Reduced action")
-                    self.max_action -= 2
-                self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
-                #self.buffer.append((next_obs, acts, reward, terminal))
-                obs = next_obs
-                if all(t for t in terminal):
-                    break
+                    self.buffer.append_effect((index, obs, acts, reward, terminal))
+                    #self.logger.log(f"Transition from {self.buffer.recent_state()[0,:,15,15,15]} \
+                    #to {next_obs[0,15,15,15]} has reward : {reward[0]}, Terminal? : {terminal[0]} at index {len(self.buffer)}")
+                    obs = next_obs
+                    if all(t for t in terminal):
+                        break
+                else:
+                    acts = np.random.uniform(low=-self.max_action, high=self.max_action, size=(self.agents, self.action_dim))
+                    q_values = np.zeros((self.agents, 1))
+
+                    next_obs, reward, terminal, info = \
+                        self.env.step(acts, q_values = q_values, isOver = terminal)
+                    if self.reduce_action and info["reduce_action"]:
+                        #self.logger.log("Reduced action")
+                        self.max_action -= 2
+                    self.buffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
+                    #self.buffer.append((next_obs, acts, reward, terminal))
+                    obs = next_obs
+                    if all(t for t in terminal):
+                        break
             pbar.update(steps)
         pbar.close()
         self.logger.log("Memory buffer filled")

@@ -377,7 +377,7 @@ class TD3(object):
         #tstate, taction, tnext_state, treward, tnot_done = TD3_replay_buffer.sample(batch_size, predif_indices = ind)
         #self.logger.log(f"TD3 replay buffer not done {tnot_done}")
 
-        #state, action, reward, next_state, done = replay_buffer.sample(batch_size, predif_indices = ind)
+        #state, action, reward, next_state, done = replay_buffer.sample(batch_size)
         #not_done = 1. - done
         #self.logger.log(f"Old replay buffer not done {not_done}")
         #self.logger.log(f"Are these two the same {not_done == tnot_done.unsqueeze(0)}")
