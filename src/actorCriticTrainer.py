@@ -34,13 +34,10 @@ class Trainer(object):
                  steps_per_episode=50,
                  eps=1,
                  min_eps=0.1,
-                 delta=0.001,
-                 batch_size=4,
                  gamma=0.99,
                  number_actions=6,
                  frame_history=4,
                  logger=None,
-                 train_freq=1,
                  lr=1e-4,
                  gae_lamda=1.00,
                  max_grad_norm=50,
@@ -50,6 +47,7 @@ class Trainer(object):
                  continuous=False,
                  comment='A3C',
                  model_name="A3C",
+                 use_scheduler=False
                 ):
         self.model_name=model_name
         self.seed = seed
@@ -61,7 +59,6 @@ class Trainer(object):
         self.steps_per_episode = steps_per_episode
         self.eps = eps
         self.min_eps = min_eps
-        self.delta = delta
         self.gamma = gamma
         self.gae_lambda = gae_lamda
         self.number_actions = number_actions
@@ -74,6 +71,9 @@ class Trainer(object):
         self.entropy_coef = entropy_coef
         self.logger_comment = comment
         self.continuous = continuous
+        self.use_scheduler = use_scheduler
+        self.scheduler_gamma = scheduler_gamma
+        self.scheduler_step_size = scheduler_step_size
 
         #TODO change to accept 4 frames
         if self.model_name == "A3C_discrete":
@@ -95,9 +95,14 @@ class Trainer(object):
 
         if no_shared:
             optimizer = None
+            scheduler = None
         else:
             optimizer = shared_adam.SharedAdam(shared_model.parameters(), lr=self.lr)
             optimizer.share_memory()
+            #multiply steps by num_processes since every process is going to increase step by 1 every epoch
+            scheduler = torch.optim.lr_scheduler.StepLR(
+                optimizer, step_size=self.scheduler_step_size*num_processes, gamma=self.scheduler_gamma)
+            scheduler.share_memory()
 
         processes = []
 
@@ -116,7 +121,7 @@ class Trainer(object):
         ready_processes.share_memory_()
 
         for rank in range(0, num_processes):
-            p = mp.Process(target=self.train, args=(rank, shared_model, counter, lock, ready_processes, optimizer))
+            p = mp.Process(target=self.train, args=(rank, shared_model, counter, lock, ready_processes, optimizer, scheduler))
             #p = mp.Process(target=self.nothing, args=(1, ))
             p.start()
             processes.append(p)
@@ -141,7 +146,7 @@ class Trainer(object):
                 return
             shared_param._grad = param.grad
 
-    def train(self, rank, shared_model, counter, lock, ready_processes, optimizer=None):
+    def train(self, rank, shared_model, counter, lock, ready_processes, optimizer=None, scheduler=None):
         #if(self.seed):
         #    set_reproducible(self.seed+rank)
         #self.logger.log(self.dqn.q_network)
@@ -191,6 +196,8 @@ class Trainer(object):
         epoch_distances = []
         if optimizer is None:
             optimizer = optim.Adam(shared_model.parameters(), lr=self.lr)
+            scheduler = torch.optim.lr_scheduler.StepLR(
+                optimizer, step_size=self.scheduler_step_size, gamma=self.scheduler_gamma)
 
         model.train()
 
@@ -402,16 +409,16 @@ class Trainer(object):
                                     for i in range(self.agents)])
             self.append_episode_board(info, score, "train", episode, rank)
 
-            self.eps = max(self.min_eps, self.eps - self.delta)
             # Every epoch
             #if episode % 1 == 0:
             if episode % self.epoch_length == 0:
                 lr = self.get_lr(optimizer)
-                self.append_epoch_board(epoch_distances, self.eps, losses,
+                self.append_epoch_board(epoch_distances, losses,
                                         "train", episode, rank, lr)
                 self.validation_epoch(episode, model, evaluator, rank)
                 self.save_model(model, name=f"latest_A3C_sub_agent_{rank}.pt", forced=True)
-                #self.dqn.scheduler.step()
+                if self.use_scheduler:
+                    scheduler.step()
                 epoch_distances = []
 
             episode += 1
@@ -450,11 +457,11 @@ class Trainer(object):
         scores = {str(i): score[i] for i in range(self.agents)}
         self.logger.write_to_board(f"{name}/sub_agent_{rank}/score", scores, episode)
 
-    def append_epoch_board(self, epoch_dists, eps=0, losses=[],
+    def append_epoch_board(self, epoch_dists, losses=[],
                            name="train", episode=0, rank = 0, lr = 0):
         epoch_dists = np.array(epoch_dists)
         if name == "train":
-            self.logger.write_to_board(name, {f"eps_sub_agent_{rank}": eps, f"lr_sub_agent_{rank}": lr}, episode)
+            self.logger.write_to_board(name, {f"lr_{rank}": lr}, episode)
             if len(losses) > 0:
                 loss_dict = {"loss_sub_agent_{rank}": sum(losses) / len(losses)}
                 self.logger.write_to_board(name, loss_dict, episode)

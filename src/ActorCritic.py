@@ -135,13 +135,6 @@ if __name__ == '__main__':
         help="""Threshold value for threshold stopping criterion""",
         default=0.25, type=float)
     parser.add_argument(
-        '--batch_size', help='Size of each batch', default=64, type=int)
-    parser.add_argument(
-        '--memory_size',
-        help="""Number of transitions stored in exp replay buffer.
-                If too much is allocated training may abruptly stop.""",
-        default=1e5, type=int)
-    parser.add_argument(
         '--discount',
         help='Discount factor used in the Bellman equation',
         default=0.99, type=float)
@@ -149,6 +142,10 @@ if __name__ == '__main__':
         '--lr',
         help='Starting learning rate',
         default=1e-4, type=float)
+    parser.add_argument(
+        '--use_scheduler', help='Use scheduler to reduce learning rate', dest='use_scheduler',
+        action='store_true')
+    parser.set_defaults(use_scheduler=False)
     parser.add_argument(
         '--scheduler_gamma',
         help='Multiply the learning rate by this value every scheduler_step_size epochs',
@@ -164,17 +161,8 @@ if __name__ == '__main__':
         '--steps_per_episode', help='Maximum steps per episode',
         default=200, type=int)
     parser.add_argument(
-        '--target_update_freq',
-        help='Number of epochs between each target network update',
-        default=10, type=int)
-    parser.add_argument(
         '--save_freq', help='Saves network every save_freq steps',
         default=1000, type=int)
-    parser.add_argument(
-        '--delta',
-        help="""Amount to decreases epsilon each episode,
-                for the epsilon-greedy policy""",
-        default=1e-4, type=float)
     parser.add_argument(
         '--viz', help='Size of the window, None for no visualisation',
         default=0.01, type=float)
@@ -195,11 +183,6 @@ if __name__ == '__main__':
         action='store_true')
     parser.set_defaults(attention=False)
     parser.add_argument(
-        '--train_freq',
-        help="""Number of agent steps between each training step on one
-                mini-batch""",
-        default=1, type=int)
-    parser.add_argument(
         '--seed',
         help="Random seed for both training and evaluating. If none is provided, no seed will be set", type=int)
     parser.add_argument(
@@ -209,7 +192,7 @@ if __name__ == '__main__':
         '--no-shared', default=False,
         help='use an optimizer without shared momentum for A3C.')
     parser.add_argument(
-        '--num-processes', type=int, default=4,
+        '--num_processes', type=int, default=4,
         help='how many training processes to use for A3C (default: 4)')
     parser.add_argument(
         '--gae-lamda', type=float, default=1.00,
@@ -306,15 +289,12 @@ if __name__ == '__main__':
 
         trainer = Trainer(environment,
                           eval_env=eval_env,
-                          batch_size=args.batch_size,
                           image_size=IMAGE_SIZE,
                           frame_history=FRAME_HISTORY,
                           gamma=args.discount,
                           steps_per_episode=args.steps_per_episode,
                           max_episodes=args.max_episodes,
-                          delta=args.delta,
                           logger=logger,
-                          train_freq=args.train_freq,
                           lr=args.lr,
                           gae_lamda=args.gae_lamda,
                           max_grad_norm=args.max_grad_norm,
@@ -323,5 +303,8 @@ if __name__ == '__main__':
                           num_processes=args.num_processes,
                           continuous=continuous,
                           comment=args.log_comment,
-                          model_name=args.model_name
+                          model_name=args.model_name,
+                          use_scheduler=args.use_scheduler,
+                          scheduler_gamma=args.scheduler_gamma,
+                          scheduler_step_size=args.scheduler_step_size
                          )
