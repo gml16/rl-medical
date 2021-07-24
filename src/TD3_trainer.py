@@ -89,15 +89,15 @@ class Trainer(object):
 
         self.policy = TD3(**kwargs)
 
-        self.buffer = ReplayBuffer(self.state_dim, self.action_dim, self.agents)
+        #self.tbuffer = ReplayBuffer(self.state_dim, self.action_dim, self.agents)
         
-        #self.buffer = ReplayMemory(self.replay_buffer_size,
-        #                            self.state_dim,
-        #                            self.frame_history,
-        #                            self.agents,
-        #                            action_dim = self.action_dim,
-        #                            continuous = True,
-        #                            logger = self.logger)
+        self.buffer = ReplayMemory(self.replay_buffer_size,
+                                    self.state_dim,
+                                    self.frame_history,
+                                    self.agents,
+                                    action_dim = self.action_dim,
+                                    continuous = True,
+                                    logger = self.logger)
     
         self.logger.log(f"Old replay buffer max size {self.replay_buffer_size}")
 
@@ -150,11 +150,14 @@ class Trainer(object):
                             self.env.step(np.copy(acts), q_values = q_values, isOver = terminal)
                     score = [sum(x) for x in zip(score, reward)]
                     self.buffer.append_effect((index, obs, acts, reward, terminal))
+                    #self.tbuffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
+                    #self.logger.log(f"Old buffer states : {self.buffer.state[0,:10,15,15,15]}, actions : {self.buffer.action[0,:10,:]}, rewards : {self.buffer.reward[0,:10]}, terminal : {self.buffer.isOver[0,:10]}")
+                    #self.logger.log(f"TD3 buffer states : {self.tbuffer.state[:10,0,15,15,15]}, actions : {self.tbuffer.action[:10,0,:]}, rewards : {self.tbuffer.reward[:10,0,0]}, terminal : {self.tbuffer.not_done[:10,0,0]}")
                     #self.logger.log(f"Transition from {self.buffer.recent_state()[0,:,15,15,15]} \
                     #to {next_obs[0,15,15,15]} has reward : {reward[0]}, Terminal? : {terminal[0]} at index {len(self.buffer)}")
                     obs = next_obs
                     if acc_steps % self.train_freq == 0:
-                        loss = self.policy.train(self.buffer, self.batch_size)
+                        loss = self.policy.train(self.buffer, self.batch_size)#, self.tbuffer)
                         losses.append(loss)
                     if all(t for t in terminal):
                         break
@@ -238,6 +241,7 @@ class Trainer(object):
                     next_obs, reward, terminal, info = \
                         self.env.step(acts, q_values = q_values, isOver = terminal)
                     self.buffer.append_effect((index, obs, acts, reward, terminal))
+                    #self.tbuffer.add(obs, acts, next_obs, reward, np.array([float(x) for x in terminal]))
                     #self.logger.log(f"Transition from {self.buffer.recent_state()[0,:,15,15,15]} \
                     #to {next_obs[0,15,15,15]} has reward : {reward[0]}, Terminal? : {terminal[0]} at index {len(self.buffer)}")
                     obs = next_obs

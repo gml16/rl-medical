@@ -128,7 +128,7 @@ class ReplayMemory(object):
         idxes = [np.random.randint(0, len(self) - 1)
                  for _ in range(batch_size)]
         if predif_indices is not None:
-            ind = predif_indices
+            idxes = predif_indices
         states = []
         next_states = []
         rewards = []
