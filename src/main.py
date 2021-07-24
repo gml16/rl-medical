@@ -221,10 +221,7 @@ if __name__ == '__main__':
         '--reduce_action', help='Reduces max action with scale', dest='reduce_action',
         action='store_true')
     parser.set_defaults(reduce_action=False)
-    parser.add_argument(
-        '--fix_exp_replay', help='Fixes bugs in expreplay', dest='fix_exp_replay',
-        action='store_true')
-    parser.set_defaults(fix_exp_replay=False)
+
     args = parser.parse_args()
 
     agents = len(args.landmarks)
@@ -338,6 +335,5 @@ if __name__ == '__main__':
                               policy_noise=args.policy_noise,
                               noise_clip=args.noise_clip,
                               policy_freq=args.policy_freq,
-                              reduce_action=args.reduce_action,
-                              fix_exp_replay=args.fix_exp_replay
+                              reduce_action=args.reduce_action
                              ).train()
