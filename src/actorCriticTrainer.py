@@ -47,7 +47,9 @@ class Trainer(object):
                  continuous=False,
                  comment='A3C',
                  model_name="A3C",
-                 use_scheduler=False
+                 use_scheduler=False,
+                 scheduler_gamma=0.5,
+                 scheduler_step_size=100
                 ):
         self.model_name=model_name
         self.seed = seed
@@ -95,14 +97,9 @@ class Trainer(object):
 
         if no_shared:
             optimizer = None
-            scheduler = None
         else:
             optimizer = shared_adam.SharedAdam(shared_model.parameters(), lr=self.lr)
             optimizer.share_memory()
-            #multiply steps by num_processes since every process is going to increase step by 1 every epoch
-            scheduler = torch.optim.lr_scheduler.StepLR(
-                optimizer, step_size=self.scheduler_step_size*num_processes, gamma=self.scheduler_gamma)
-            scheduler.share_memory()
 
         processes = []
 
@@ -111,7 +108,6 @@ class Trainer(object):
         lock = mp.Lock()
 
         self.logger = logger
-        self.train_freq = train_freq
 
         # p = mp.Process(target=test, args=(args.num_processes, args, shared_model, counter))
         # p.start()
@@ -121,7 +117,7 @@ class Trainer(object):
         ready_processes.share_memory_()
 
         for rank in range(0, num_processes):
-            p = mp.Process(target=self.train, args=(rank, shared_model, counter, lock, ready_processes, optimizer, scheduler))
+            p = mp.Process(target=self.train, args=(rank, shared_model, counter, lock, ready_processes, optimizer))
             #p = mp.Process(target=self.nothing, args=(1, ))
             p.start()
             processes.append(p)
@@ -146,7 +142,7 @@ class Trainer(object):
                 return
             shared_param._grad = param.grad
 
-    def train(self, rank, shared_model, counter, lock, ready_processes, optimizer=None, scheduler=None):
+    def train(self, rank, shared_model, counter, lock, ready_processes, optimizer=None):
         #if(self.seed):
         #    set_reproducible(self.seed+rank)
         #self.logger.log(self.dqn.q_network)
@@ -194,7 +190,11 @@ class Trainer(object):
         episode = 1
         acc_steps = 0
         epoch_distances = []
-        if optimizer is None:
+        if optimizer is not None:
+            num_processes = ready_processes.shape[0]
+            scheduler = torch.optim.lr_scheduler.StepLR(
+                optimizer, step_size=self.scheduler_step_size, gamma=(self.scheduler_gamma**(1. / num_processes)))
+        elif optimizer is None:
             optimizer = optim.Adam(shared_model.parameters(), lr=self.lr)
             scheduler = torch.optim.lr_scheduler.StepLR(
                 optimizer, step_size=self.scheduler_step_size, gamma=self.scheduler_gamma)
