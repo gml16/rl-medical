@@ -1,5 +1,8 @@
 import torch
 import torch.nn as nn
+import numpy as np
+import torch.nn.functional as F
+
 
 from attention_module import AttentionModule
 
@@ -109,7 +112,7 @@ class AttentionCommNet(nn.Module):
                 n_att_stack = 2,
                 att_emb_size=128,
                 n_heads=2):
-        super(CommNet, self).__init__()
+        super(AttentionCommNet, self).__init__()
 
         self.agents = agents
         self.frame_history = frame_history
@@ -482,6 +485,19 @@ class DQN:
                 attention=attention).to(
                 self.device)
             self.target_network = CommNet(
+                agents,
+                frame_history,
+                number_actions,
+                attention=attention).to(
+                self.device)
+        elif type == "AttentionCommNet":
+            self.q_network = AttentionCommNet(
+                agents,
+                frame_history,
+                number_actions,
+                attention=attention).to(
+                self.device)
+            self.target_network = AttentionCommNet(
                 agents,
                 frame_history,
                 number_actions,
