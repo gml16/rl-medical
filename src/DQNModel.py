@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from attention_module import AttentionModule
+
 class Network3D(nn.Module):
 
     def __init__(self, agents, frame_history, number_actions, xavier=True):
@@ -96,6 +98,202 @@ class Network3D(nn.Module):
         output = torch.stack(output, dim=1)
         return output.cpu()
 
+class AttentionCommNet(nn.Module):
+
+    def __init__(self,
+                agents,
+                frame_history,
+                number_actions,
+                xavier=True,
+                attention=False,
+                n_att_stack = 2,
+                att_emb_size=128,
+                n_heads=2):
+        super(CommNet, self).__init__()
+
+        self.agents = agents
+        self.frame_history = frame_history
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
+
+        self.conv0 = nn.Conv3d(
+            in_channels=frame_history,
+            out_channels=32,
+            kernel_size=(5, 5, 5),
+            padding=1).to(
+            self.device)
+        self.maxpool0 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
+        self.prelu0 = nn.PReLU().to(self.device)
+        self.conv1 = nn.Conv3d(
+            in_channels=32,
+            out_channels=32,
+            kernel_size=(5, 5, 5),
+            padding=1).to(
+            self.device)
+        self.maxpool1 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
+        self.prelu1 = nn.PReLU().to(self.device)
+        self.conv2 = nn.Conv3d(
+            in_channels=32,
+            out_channels=64,
+            kernel_size=(4, 4, 4),
+            padding=1).to(
+            self.device)
+        self.maxpool2 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
+        self.prelu2 = nn.PReLU().to(self.device)
+        self.conv3 = nn.Conv3d(
+            in_channels=64,
+            out_channels=64,
+            kernel_size=(3, 3, 3),
+            padding=0).to(
+            self.device)
+        self.prelu3 = nn.PReLU().to(self.device)
+
+        conv3w = 2
+        conv3h = 2
+        conv3z = 2
+
+        '''
+        # create x,y,z coordinate matrices to append to convolution output
+        xmap = np.linspace(-np.ones(conv2h), np.ones(conv2h), num=conv2w, endpoint=True, axis=0)
+        xmap = torch.tensor(np.expand_dims(np.expand_dims(xmap,0),0), dtype=torch.float32, requires_grad=False)
+        ymap = np.linspace(-np.ones(conv2w), np.ones(conv2w), num=conv2h, endpoint=True, axis=1)
+        ymap = torch.tensor(np.expand_dims(np.expand_dims(ymap,0),0), dtype=torch.float32, requires_grad=False)
+        self.register_buffer("xymap", torch.cat((xmap,ymap),dim=1)) # shape (1, 2, conv2w, conv2h)
+        '''
+
+        x = np.linspace(-1,1,conv3w)
+        y = np.linspace(-1,1,conv3h)
+        z = np.linspace(-1,1,conv3z)
+
+        xv, yv, zv = np.meshgrid(x, y, z, sparse=False, indexing='ij')
+
+        xv= torch.tensor(np.expand_dims(np.expand_dims(xv,0),0), dtype=torch.float32, requires_grad=False)
+        yv = torch.tensor(np.expand_dims(np.expand_dims(yv,0),0), dtype=torch.float32, requires_grad=False)
+        zv = torch.tensor(np.expand_dims(np.expand_dims(zv,0),0), dtype=torch.float32, requires_grad=False)
+
+        self.register_buffer("xyzmap", torch.cat((xv,yv,zv),dim=1)) # shape (1, 3, conv3w, conv3h, conv3h)
+
+        # an "attendable" entity has 64 CNN channels + 3 coordinate channels = 67 features
+        self.att_elem_size = 64 + 3
+        # create attention module with n_heads heads and remember how many times to stack it
+        self.n_att_stack = n_att_stack #how many times the attentional module is to be stacked (weight-sharing -> reuse)
+        self.attMod = AttentionModule(conv3w*conv3h*conv3z, self.att_elem_size, att_emb_size, n_heads)
+
+        self.fc1 = nn.ModuleList(
+            [nn.Linear(
+                in_features=self.att_elem_size * 2,
+                out_features=256).to(
+                self.device) for _ in range(
+                self.agents)])
+        self.prelu4 = nn.ModuleList(
+            [nn.PReLU().to(self.device) for _ in range(self.agents)])
+        self.fc2 = nn.ModuleList(
+            [nn.Linear(
+                in_features=256 * 2,
+                out_features=128).to(
+                self.device) for _ in range(
+                self.agents)])
+        self.prelu5 = nn.ModuleList(
+            [nn.PReLU().to(self.device) for _ in range(self.agents)])
+        self.fc3 = nn.ModuleList(
+            [nn.Linear(
+                in_features=128 * 2,
+                out_features=number_actions).to(
+                self.device) for _ in range(
+                self.agents)])
+
+        self.attention = attention
+        if self.attention:
+                self.comm_att1 = nn.ParameterList([nn.Parameter(torch.randn(agents)) for _ in range(agents)])
+                self.comm_att2 = nn.ParameterList([nn.Parameter(torch.randn(agents)) for _ in range(agents)])
+                self.comm_att3 = nn.ParameterList([nn.Parameter(torch.randn(agents)) for _ in range(agents)])
+
+        if xavier:
+            for module in self.modules():
+                if type(module) in [nn.Conv3d, nn.Linear]:
+                    torch.nn.init.xavier_uniform(module.weight)
+
+    def forward(self, input):
+        """
+        # Input is a tensor of size
+        (batch_size, agents, frame_history, *image_size)
+        # Output is a tensor of size
+        (batch_size, agents, number_actions)
+        """
+        input1 = input.to(self.device) / 255.0
+
+        # Shared layers
+        input2 = []
+        for i in range(self.agents):
+            x = input1[:, i]
+            x = self.conv0(x)
+            x = self.prelu0(x)
+            x = self.maxpool0(x)
+            x = self.conv1(x)
+            x = self.prelu1(x)
+            x = self.maxpool1(x)
+            x = self.conv2(x)
+            x = self.prelu2(x)
+            x = self.maxpool2(x)
+            x = self.conv3(x)
+            x = self.prelu3(x)
+            #Attention mechanism
+            batchsize = x.size(0)
+            batch_maps = self.xyzmap.repeat(batchsize,1,1,1,1,)
+            x = torch.cat((x,batch_maps),1)
+            x = x.view(x.size(0),x.size(1), -1).transpose(1,2)
+            for i_att in range(self.n_att_stack):
+                x = self.attMod(x)
+            kernelsize = x.shape[1]
+            if type(kernelsize) == torch.Tensor:
+                kernelsize = kernelsize.item()
+            x = F.max_pool1d(x.transpose(1,2), kernel_size=kernelsize)
+            x = x.view(-1, self.att_elem_size)
+            input2.append(x)
+        input2 = torch.stack(input2, dim=1)
+
+        # Communication layers
+        if self.attention:
+            comm = torch.cat([torch.sum((input2.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att1[i])), axis=2).unsqueeze(0)
+                              for i in range(self.agents)])
+
+        else:
+            comm = torch.mean(input2, axis=1)
+            comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
+        input3 = []
+        for i in range(self.agents):
+            x = input2[:, i]
+            x = self.fc1[i](torch.cat((x, comm[i]), axis=-1))
+            input3.append(self.prelu4[i](x))
+        input3 = torch.stack(input3, dim=1)
+
+        if self.attention:
+            comm = torch.cat([torch.sum((input3.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att2[i])), axis=2).unsqueeze(0)
+                              for i in range(self.agents)])
+        else:
+            comm = torch.mean(input3, axis=1)
+            comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
+        input4 = []
+        for i in range(self.agents):
+            x = input3[:, i]
+            x = self.fc2[i](torch.cat((x, comm[i]), axis=-1))
+            input4.append(self.prelu5[i](x))
+        input4 = torch.stack(input4, dim=1)
+
+        if self.attention:
+            comm = torch.cat([torch.sum((input4.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att3[i])), axis=2).unsqueeze(0)
+                              for i in range(self.agents)])
+        else:
+            comm = torch.mean(input4, axis=1)
+            comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
+        output = []
+        for i in range(self.agents):
+            x = input4[:, i]
+            x = self.fc3[i](torch.cat((x, comm[i]), axis=-1))
+            output.append(x)
+        output = torch.stack(output, dim=1)
+
+        return output.cpu()
 
 class CommNet(nn.Module):
 
@@ -200,12 +398,12 @@ class CommNet(nn.Module):
             x = x.view(-1, 512)
             input2.append(x)
         input2 = torch.stack(input2, dim=1)
-         
+
         # Communication layers
         if self.attention:
             comm = torch.cat([torch.sum((input2.transpose(1, 2) * nn.Softmax(dim=0)(self.comm_att1[i])), axis=2).unsqueeze(0)
                               for i in range(self.agents)])
-            
+
         else:
             comm = torch.mean(input2, axis=1)
             comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
