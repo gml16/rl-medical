@@ -178,6 +178,10 @@ if __name__ == '__main__':
         action='store_true')
     parser.set_defaults(attention=False)
     parser.add_argument(
+        '--no_max_pool', help='Do not use maxpool after attention in AttentionCommNet', dest='no_max_pool',
+        action='store_true')
+    parser.set_defaults(no_max_pool=False)
+    parser.add_argument(
         '--train_freq',
         help="""Number of agent steps between each training step on one
                 mini-batch""",
@@ -267,5 +271,6 @@ if __name__ == '__main__':
                           attention=args.attention,
                           lr=args.lr,
                           scheduler_gamma=args.scheduler_gamma,
-                          scheduler_step_size=args.scheduler_step_size
+                          scheduler_step_size=args.scheduler_step_size,
+                          no_max_pool=args.no_max_pool
                          ).train()

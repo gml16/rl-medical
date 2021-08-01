@@ -111,13 +111,15 @@ class AttentionCommNet(nn.Module):
                 attention=False,
                 n_att_stack = 2,
                 att_emb_size=128,
-                n_heads=2):
+                n_heads=2,
+                no_max_pool=False):
         super(AttentionCommNet, self).__init__()
 
         self.agents = agents
         self.frame_history = frame_history
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
+        self.no_max_pool = no_max_pool
 
         self.conv0 = nn.Conv3d(
             in_channels=frame_history,
@@ -181,13 +183,21 @@ class AttentionCommNet(nn.Module):
         # create attention module with n_heads heads and remember how many times to stack it
         self.n_att_stack = n_att_stack #how many times the attentional module is to be stacked (weight-sharing -> reuse)
         self.attMod = AttentionModule(conv3w*conv3h*conv3z, self.att_elem_size, att_emb_size, n_heads)
-
-        self.fc1 = nn.ModuleList(
-            [nn.Linear(
-                in_features=self.att_elem_size * 2,
-                out_features=256).to(
-                self.device) for _ in range(
-                self.agents)])
+        
+        if not self.no_max_pool:
+            self.fc1 = nn.ModuleList(
+                [nn.Linear(
+                    in_features=self.att_elem_size * 2,
+                    out_features=256).to(
+                    self.device) for _ in range(
+                    self.agents)])
+        else:
+            self.fc1 = nn.ModuleList(
+                [nn.Linear(
+                    in_features=self.att_elem_size * conv3w * conv3h * conv3z * 2,
+                    out_features=256).to(
+                    self.device) for _ in range(
+                    self.agents)])
         self.prelu4 = nn.ModuleList(
             [nn.PReLU().to(self.device) for _ in range(self.agents)])
         self.fc2 = nn.ModuleList(
@@ -247,11 +257,15 @@ class AttentionCommNet(nn.Module):
             x = x.view(x.size(0),x.size(1), -1).transpose(1,2)
             for i_att in range(self.n_att_stack):
                 x = self.attMod(x)
-            kernelsize = x.shape[1]
-            if type(kernelsize) == torch.Tensor:
-                kernelsize = kernelsize.item()
-            x = F.max_pool1d(x.transpose(1,2), kernel_size=kernelsize)
-            x = x.view(-1, self.att_elem_size)
+            if not self.no_max_pool:
+                kernelsize = x.shape[1]
+                if type(kernelsize) == torch.Tensor:
+                    kernelsize = kernelsize.item()
+                x = F.max_pool1d(x.transpose(1,2), kernel_size=kernelsize)
+                x = x.view(-1, self.att_elem_size)
+            else:
+                x = x.view(x.shape[0],-1)
+                print(x.shape)
             input2.append(x)
         input2 = torch.stack(input2, dim=1)
 
@@ -459,7 +473,8 @@ class DQN:
             attention=False,
             lr=1e-3,
             scheduler_gamma=0.9,
-            scheduler_step_size=100):
+            scheduler_step_size=100,
+            no_max_pool=False):
         self.agents = agents
         self.number_actions = number_actions
         self.frame_history = frame_history
@@ -495,13 +510,15 @@ class DQN:
                 agents,
                 frame_history,
                 number_actions,
-                attention=attention).to(
+                attention=attention,
+                no_max_pool=no_max_pool).to(
                 self.device)
             self.target_network = AttentionCommNet(
                 agents,
                 frame_history,
                 number_actions,
-                attention=attention).to(
+                attention=attention,
+                no_max_pool=no_max_pool).to(
                 self.device)
         if collective_rewards == "attention":
             self.q_network.rew_att = nn.Parameter(torch.randn(agents, agents))

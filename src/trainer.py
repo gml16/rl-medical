@@ -30,7 +30,8 @@ class Trainer(object):
                  attention=False,
                  lr=1e-3,
                  scheduler_gamma=0.5,
-                 scheduler_step_size=100
+                 scheduler_step_size=100,
+                 no_max_pool=False
                 ):
         self.env = env
         self.eval_env = eval_env
@@ -64,7 +65,8 @@ class Trainer(object):
             attention=attention,
             lr=lr,
             scheduler_gamma=scheduler_gamma,
-            scheduler_step_size=scheduler_step_size)
+            scheduler_step_size=scheduler_step_size,
+            no_max_pool=no_max_pool)
         self.dqn.q_network.train(True)
         self.evaluator = Evaluator(eval_env,
                                    self.dqn.q_network,
@@ -169,6 +171,8 @@ class Trainer(object):
         epoch_dists = np.array(epoch_dists)
         if name == "train":
             lr = self.dqn.scheduler.state_dict()["_last_lr"]
+            if isinstance(lr, list):
+                lr = lr[0]
             self.logger.write_to_board(name, {"eps": eps, "lr": lr}, episode)
             if len(losses) > 0:
                 loss_dict = {"loss": sum(losses) / len(losses)}
