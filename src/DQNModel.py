@@ -335,20 +335,10 @@ class DQN:
         curr_state = torch.tensor(transitions[0])
         next_state = torch.tensor(transitions[3])
         terminal = torch.tensor(transitions[4]).type(torch.int)
-
-        #rewards = torch.tensor(transitions[2], dtype=torch.float32)
-        #indices = transitions[5]
-        #self.logger.log(f"In buffer transition from {curr_state[0,0,:,15,15,15]} \
-        #to {next_state[0,0,:,15,15,15]} has reward : {rewards[0][0]}, Terminal? : {terminal[0][0]} at index {indices[0]}")
         
         rewards = torch.clamp(
             torch.tensor(
                 transitions[2], dtype=torch.float32), -1, 1)
-        
-        #self.logger.log(f"current state shape {curr_state.shape}")
-        #self.logger.log(f"next state shape {next_state.shape}")
-        #self.logger.log(f"terminal shape {terminal.shape}")
-        #self.logger.log(f"rewards shape {rewards.shape}")
 
         # Collective rewards here refers to adding the (potentially weighted) average reward of all agents
         if self.collective_rewards == "mean":

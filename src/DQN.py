@@ -188,14 +188,6 @@ if __name__ == '__main__':
     parser.add_argument(
         '--fixed_spawn', nargs='*',  type=float,
         help='Starting position of the agents during rollout. Randomised if not specified.',)
-    parser.add_argument(
-        '--fix_next_state', help='Fixes potential bug where we append wrong state to buffer', dest='fix_next_state',
-        action='store_true')
-    parser.set_defaults(fix_next_state=False)
-    parser.add_argument(
-        '--fix_init', help='Fixes potential bug where we start with random states from buffer', dest='fix_init',
-        action='store_true')
-    parser.set_defaults(fix_init=False)
     args = parser.parse_args()
 
     agents = len(args.landmarks)
@@ -275,7 +267,5 @@ if __name__ == '__main__':
                           attention=args.attention,
                           lr=args.lr,
                           scheduler_gamma=args.scheduler_gamma,
-                          scheduler_step_size=args.scheduler_step_size,
-                          fix_next_state=args.fix_next_state,
-                          fix_init=args.fix_init
+                          scheduler_step_size=args.scheduler_step_size
                          ).train()

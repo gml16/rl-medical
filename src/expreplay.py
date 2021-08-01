@@ -23,24 +23,6 @@ class ReplayMemory(object):
         self._curr_size = 0
         self._hist = deque(maxlen=history_len)
 
-    def append(self, exp):
-        """Append the replay memory with experience sample
-        Args:
-            exp (Experience): contains (state, action, reward, isOver)
-        """
-        # increase current memory size if it is not full yet
-        if self._curr_size < self.max_size:
-            self._assign(self._curr_pos, exp)
-            self._curr_pos = (self._curr_pos + 1) % self.max_size
-            self._curr_size += 1
-        else:
-            self._assign(self._curr_pos, exp)
-            self._curr_pos = (self._curr_pos + 1) % self.max_size
-        if np.all(exp[3]):
-            self._hist.clear()
-        else:
-            self._hist.append(exp)
-
     def append_obs(self, obs):
         """Append the replay memory with most recent state
         Args:
@@ -137,7 +119,7 @@ class ReplayMemory(object):
         # Only get most recent terminal state
         return (np.array(states), np.array(actions)[:, :, -1],
                 np.array(rewards)[:, :, -1], np.array(next_states),
-                np.array(isOver)[:, :, -1]) #idxes)
+                np.array(isOver)[:, :, -1])
 
     # the next_state is a different episode if current_state.isOver==True
     def _pad_sample(self, states, isOver):
