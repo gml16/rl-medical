@@ -111,8 +111,8 @@ if __name__ == '__main__':
         '--landmarks', nargs='*', help='Landmarks to use in the images',
         type=int, default=[1])
     parser.add_argument(
-        '--model_name', help='Models implemented are: Network3d, CommNet, AttentionCommNet',
-        default="CommNet", choices=['CommNet', 'Network3d', 'AttentionCommNet'], type=str)
+        '--model_name', help='Models implemented are: Network3d, CommNet, AttentionCommNet, CommAttentionNet',
+        default="CommNet", choices=['CommNet', 'Network3d', 'AttentionCommNet', 'CommAttentionNet'], type=str)
     parser.add_argument(
         '--batch_size', help='Size of each batch', default=64, type=int)
     parser.add_argument(

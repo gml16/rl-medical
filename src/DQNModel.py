@@ -183,7 +183,7 @@ class AttentionCommNet(nn.Module):
         # create attention module with n_heads heads and remember how many times to stack it
         self.n_att_stack = n_att_stack #how many times the attentional module is to be stacked (weight-sharing -> reuse)
         self.attMod = AttentionModule(conv3w*conv3h*conv3z, self.att_elem_size, att_emb_size, n_heads)
-        
+
         if not self.no_max_pool:
             self.fc1 = nn.ModuleList(
                 [nn.Linear(
@@ -265,7 +265,6 @@ class AttentionCommNet(nn.Module):
                 x = x.view(-1, self.att_elem_size)
             else:
                 x = x.view(x.shape[0],-1)
-                print(x.shape)
             input2.append(x)
         input2 = torch.stack(input2, dim=1)
 
@@ -303,6 +302,227 @@ class AttentionCommNet(nn.Module):
         else:
             comm = torch.mean(input4, axis=1)
             comm = comm.unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
+        output = []
+        for i in range(self.agents):
+            x = input4[:, i]
+            x = self.fc3[i](torch.cat((x, comm[i]), axis=-1))
+            output.append(x)
+        output = torch.stack(output, dim=1)
+
+        return output.cpu()
+
+class CommAttentionNet(nn.Module):
+
+    def __init__(self,
+                agents,
+                frame_history,
+                number_actions,
+                xavier=True,
+                attention=False,
+                n_att_stack = 2,
+                att_emb_size=512,
+                n_heads=2,
+                no_max_pool=False):
+        super(CommAttentionNet, self).__init__()
+
+        self.agents = agents
+        self.frame_history = frame_history
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
+        self.no_max_pool = no_max_pool
+
+        self.conv0 = nn.Conv3d(
+            in_channels=frame_history,
+            out_channels=32,
+            kernel_size=(5, 5, 5),
+            padding=1).to(
+            self.device)
+        self.maxpool0 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
+        self.prelu0 = nn.PReLU().to(self.device)
+        self.conv1 = nn.Conv3d(
+            in_channels=32,
+            out_channels=32,
+            kernel_size=(5, 5, 5),
+            padding=1).to(
+            self.device)
+        self.maxpool1 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
+        self.prelu1 = nn.PReLU().to(self.device)
+        self.conv2 = nn.Conv3d(
+            in_channels=32,
+            out_channels=64,
+            kernel_size=(4, 4, 4),
+            padding=1).to(
+            self.device)
+        self.maxpool2 = nn.MaxPool3d(kernel_size=(2, 2, 2)).to(self.device)
+        self.prelu2 = nn.PReLU().to(self.device)
+        self.conv3 = nn.Conv3d(
+            in_channels=64,
+            out_channels=64,
+            kernel_size=(3, 3, 3),
+            padding=0).to(
+            self.device)
+        self.prelu3 = nn.PReLU().to(self.device)
+
+        self.n_att_stack = n_att_stack #how many times the attentional module is to be stacked (weight-sharing -> reuse)
+
+
+        conv3w = 2
+        conv3h = 2
+        conv3z = 2
+
+        #Initially an "attendable" agent has 64 CNN channels with feature maps of size 2*2*2 = 64 * 8 = 512 features
+        self.att_elem_size_1 = 64 * conv3h * conv3w * conv3z
+        self.attMod1 = AttentionModule(agents, self.att_elem_size_1, att_emb_size, n_heads)
+
+        if not self.no_max_pool:
+            self.fc1 = nn.ModuleList(
+                [nn.Linear(
+                    in_features=self.att_elem_size_1 * 2,
+                    out_features=256).to(
+                    self.device) for _ in range(
+                    self.agents)])
+        else:
+            self.fc1 = nn.ModuleList(
+                [nn.Linear(
+                    in_features=self.att_elem_size_1 * agents * 2,
+                    out_features=256).to(
+                    self.device) for _ in range(
+                    self.agents)])
+        self.prelu4 = nn.ModuleList(
+            [nn.PReLU().to(self.device) for _ in range(self.agents)])
+
+        #After the first fc layer an "attendable" agent has 256 features
+        self.att_elem_size_2 = 256
+        self.attMod2 = AttentionModule(agents, self.att_elem_size_2, att_emb_size/2, n_heads)
+
+        if not self.no_max_pool:
+            self.fc2 = nn.ModuleList(
+                [nn.Linear(
+                    in_features=256 * 2,
+                    out_features=128).to(
+                    self.device) for _ in range(
+                    self.agents)])
+        else:
+            self.fc2 = nn.ModuleList(
+                [nn.Linear(
+                    in_features=256 * agents * 2,
+                    out_features=128).to(
+                    self.device) for _ in range(
+                    self.agents)])
+        self.prelu5 = nn.ModuleList(
+            [nn.PReLU().to(self.device) for _ in range(self.agents)])
+
+        #After the second fc layer an "attendable" agent has 128 features
+        self.att_elem_size_3 = 128
+        self.attMod3 = AttentionModule(agents, self.att_elem_size_3, att_emb_size/4, n_heads)
+
+        if not self.no_max_pool:
+            self.fc3 = nn.ModuleList(
+                [nn.Linear(
+                    in_features=128 * 2,
+                    out_features=number_actions).to(
+                    self.device) for _ in range(
+                    self.agents)])
+        else:
+            self.fc3 = nn.ModuleList(
+                [nn.Linear(
+                    in_features=128 * agents * 2,
+                    out_features=number_actions).to(
+                    self.device) for _ in range(
+                    self.agents)])
+
+        self.attention = attention
+        if self.attention:
+                self.comm_att1 = nn.ParameterList([nn.Parameter(torch.randn(agents)) for _ in range(agents)])
+                self.comm_att2 = nn.ParameterList([nn.Parameter(torch.randn(agents)) for _ in range(agents)])
+                self.comm_att3 = nn.ParameterList([nn.Parameter(torch.randn(agents)) for _ in range(agents)])
+
+        if xavier:
+            for module in self.modules():
+                if type(module) in [nn.Conv3d, nn.Linear]:
+                    torch.nn.init.xavier_uniform(module.weight)
+
+    def forward(self, input):
+        """
+        # Input is a tensor of size
+        (batch_size, agents, frame_history, *image_size)
+        # Output is a tensor of size
+        (batch_size, agents, number_actions)
+        """
+        input1 = input.to(self.device) / 255.0
+
+        # Shared layers
+        input2 = []
+        for i in range(self.agents):
+            x = input1[:, i]
+            x = self.conv0(x)
+            x = self.prelu0(x)
+            x = self.maxpool0(x)
+            x = self.conv1(x)
+            x = self.prelu1(x)
+            x = self.maxpool1(x)
+            x = self.conv2(x)
+            x = self.prelu2(x)
+            x = self.maxpool2(x)
+            x = self.conv3(x)
+            x = self.prelu3(x)
+            x = x.view(-1, 512)
+            input2.append(x)
+        input2 = torch.stack(input2, dim=1)
+
+        comm = self.attMod1(input2)
+        for i_att in range(self.n_att_stack-1):
+            comm = self.attMod1(comm)
+
+        if not self.no_max_pool:
+            kernelsize = comm.shape[1]
+            if type(kernelsize) == torch.Tensor:
+                kernelsize = kernelsize.item()
+            comm = F.max_pool1d(comm.transpose(1,2), kernel_size=kernelsize)
+            comm = comm.view(-1, self.att_elem_size_1).unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
+        else:
+            comm = comm.view(comm.shape[0], self.att_elem_size_1, self.agents).permute(2,0,1)
+
+        input3 = []
+        for i in range(self.agents):
+            x = input2[:, i]
+            x = self.fc1[i](torch.cat((x, comm[i]), axis=-1))
+            input3.append(self.prelu4[i](x))
+        input3 = torch.stack(input3, dim=1)
+
+        comm = self.attMod2(input3)
+        for i_att in range(self.n_att_stack-1):
+            comm = self.attMod2(comm)
+
+        if not self.no_max_pool:
+            kernelsize = comm.shape[1]
+            if type(kernelsize) == torch.Tensor:
+                kernelsize = kernelsize.item()
+            comm = F.max_pool1d(comm.transpose(1,2), kernel_size=kernelsize)
+            comm = comm.view(-1, self.att_elem_size_2).unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
+        else:
+            comm = comm.view(comm.shape[0], self.att_elem_size_2, self.agents).permute(2,0,1)
+
+        input4 = []
+        for i in range(self.agents):
+            x = input3[:, i]
+            x = self.fc2[i](torch.cat((x, comm[i]), axis=-1))
+            input4.append(self.prelu5[i](x))
+        input4 = torch.stack(input4, dim=1)
+
+        comm = self.attMod3(input4)
+        for i_att in range(self.n_att_stack-1):
+            comm = self.attMod3(comm)
+            
+        if not self.no_max_pool:
+            kernelsize = comm.shape[1]
+            if type(kernelsize) == torch.Tensor:
+                kernelsize = kernelsize.item()
+            comm = F.max_pool1d(comm.transpose(1,2), kernel_size=kernelsize)
+            comm = comm.view(-1, self.att_elem_size_3).unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
+        else:
+            comm = comm.view(comm.shape[0], self.att_elem_size_3, self.agents).permute(2,0,1)
+
         output = []
         for i in range(self.agents):
             x = input4[:, i]
@@ -514,6 +734,21 @@ class DQN:
                 no_max_pool=no_max_pool).to(
                 self.device)
             self.target_network = AttentionCommNet(
+                agents,
+                frame_history,
+                number_actions,
+                attention=attention,
+                no_max_pool=no_max_pool).to(
+                self.device)
+        elif type == "CommAttentionNet":
+            self.q_network = CommAttentionNet(
+                agents,
+                frame_history,
+                number_actions,
+                attention=attention,
+                no_max_pool=no_max_pool).to(
+                self.device)
+            self.target_network = CommAttentionNet(
                 agents,
                 frame_history,
                 number_actions,
