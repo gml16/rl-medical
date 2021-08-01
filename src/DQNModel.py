@@ -374,62 +374,40 @@ class CommAttentionNet(nn.Module):
         self.att_elem_size_1 = 64 * conv3h * conv3w * conv3z
         self.attMod1 = AttentionModule(agents, self.att_elem_size_1, att_emb_size, n_heads)
 
-        if not self.no_max_pool:
-            self.fc1 = nn.ModuleList(
-                [nn.Linear(
-                    in_features=self.att_elem_size_1 * 2,
-                    out_features=256).to(
-                    self.device) for _ in range(
-                    self.agents)])
-        else:
-            self.fc1 = nn.ModuleList(
-                [nn.Linear(
-                    in_features=self.att_elem_size_1 * agents * 2,
-                    out_features=256).to(
-                    self.device) for _ in range(
-                    self.agents)])
+        self.fc1 = nn.ModuleList(
+            [nn.Linear(
+                in_features=self.att_elem_size_1 * 2,
+                out_features=256).to(
+                self.device) for _ in range(
+                self.agents)])
+
         self.prelu4 = nn.ModuleList(
             [nn.PReLU().to(self.device) for _ in range(self.agents)])
 
         #After the first fc layer an "attendable" agent has 256 features
         self.att_elem_size_2 = 256
-        self.attMod2 = AttentionModule(agents, self.att_elem_size_2, att_emb_size/2, n_heads)
+        self.attMod2 = AttentionModule(agents, self.att_elem_size_2, att_emb_size//2, n_heads)
 
-        if not self.no_max_pool:
-            self.fc2 = nn.ModuleList(
-                [nn.Linear(
-                    in_features=256 * 2,
-                    out_features=128).to(
-                    self.device) for _ in range(
-                    self.agents)])
-        else:
-            self.fc2 = nn.ModuleList(
-                [nn.Linear(
-                    in_features=256 * agents * 2,
-                    out_features=128).to(
-                    self.device) for _ in range(
-                    self.agents)])
+        self.fc2 = nn.ModuleList(
+            [nn.Linear(
+                in_features=256 * 2,
+                out_features=128).to(
+                self.device) for _ in range(
+                self.agents)])
+        
         self.prelu5 = nn.ModuleList(
             [nn.PReLU().to(self.device) for _ in range(self.agents)])
 
         #After the second fc layer an "attendable" agent has 128 features
         self.att_elem_size_3 = 128
-        self.attMod3 = AttentionModule(agents, self.att_elem_size_3, att_emb_size/4, n_heads)
+        self.attMod3 = AttentionModule(agents, self.att_elem_size_3, att_emb_size//4, n_heads)
 
-        if not self.no_max_pool:
-            self.fc3 = nn.ModuleList(
-                [nn.Linear(
-                    in_features=128 * 2,
-                    out_features=number_actions).to(
-                    self.device) for _ in range(
-                    self.agents)])
-        else:
-            self.fc3 = nn.ModuleList(
-                [nn.Linear(
-                    in_features=128 * agents * 2,
-                    out_features=number_actions).to(
-                    self.device) for _ in range(
-                    self.agents)])
+        self.fc3 = nn.ModuleList(
+            [nn.Linear(
+                in_features=128 * 2,
+                out_features=number_actions).to(
+                self.device) for _ in range(
+                self.agents)])
 
         self.attention = attention
         if self.attention:
@@ -478,7 +456,7 @@ class CommAttentionNet(nn.Module):
             kernelsize = comm.shape[1]
             if type(kernelsize) == torch.Tensor:
                 kernelsize = kernelsize.item()
-            comm = F.max_pool1d(comm.transpose(1,2), kernel_size=kernelsize)
+            comm = F.max_pool1d(comm.transpose(1,2), kernel_size=kernelsize).squeeze(-1)
             comm = comm.view(-1, self.att_elem_size_1).unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
         else:
             comm = comm.view(comm.shape[0], self.att_elem_size_1, self.agents).permute(2,0,1)
@@ -498,7 +476,7 @@ class CommAttentionNet(nn.Module):
             kernelsize = comm.shape[1]
             if type(kernelsize) == torch.Tensor:
                 kernelsize = kernelsize.item()
-            comm = F.max_pool1d(comm.transpose(1,2), kernel_size=kernelsize)
+            comm = F.max_pool1d(comm.transpose(1,2), kernel_size=kernelsize).squeeze(-1)
             comm = comm.view(-1, self.att_elem_size_2).unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
         else:
             comm = comm.view(comm.shape[0], self.att_elem_size_2, self.agents).permute(2,0,1)
@@ -518,7 +496,7 @@ class CommAttentionNet(nn.Module):
             kernelsize = comm.shape[1]
             if type(kernelsize) == torch.Tensor:
                 kernelsize = kernelsize.item()
-            comm = F.max_pool1d(comm.transpose(1,2), kernel_size=kernelsize)
+            comm = F.max_pool1d(comm.transpose(1,2), kernel_size=kernelsize).squeeze(-1)
             comm = comm.view(-1, self.att_elem_size_3).unsqueeze(0).repeat(self.agents, *[1]*len(comm.shape))
         else:
             comm = comm.view(comm.shape[0], self.att_elem_size_3, self.agents).permute(2,0,1)
