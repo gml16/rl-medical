@@ -335,11 +335,10 @@ class DQN:
         curr_state = torch.tensor(transitions[0])
         next_state = torch.tensor(transitions[3])
         terminal = torch.tensor(transitions[4]).type(torch.int)
-        
+
         rewards = torch.clamp(
             torch.tensor(
                 transitions[2], dtype=torch.float32), -1, 1)
-
         # Collective rewards here refers to adding the (potentially weighted) average reward of all agents
         if self.collective_rewards == "mean":
             rewards += torch.mean(rewards, axis=1).unsqueeze(1).repeat(1, rewards.shape[1])

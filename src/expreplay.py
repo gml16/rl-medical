@@ -147,14 +147,12 @@ class ReplayMemory(object):
             self.isOver[i, pos] = exp[3][i]
 
     def _assign_state(self, pos, obs):
-        for i in range(self.agents):
-            self.state[i, pos] = obs[i]
+        self.state[:, pos] = obs
 
     def _assign_effect(self, pos, effect):
-        for i in range(self.agents):
-            self.action[i, pos] = effect[2][i]
-            self.reward[i, pos] = effect[3][i]
-            self.isOver[i, pos] = effect[4][i]
+        self.action[:, pos] = effect[2]
+        self.reward[:, pos] = effect[3]
+        self.isOver[:, pos] = effect[4]
 
     def __str__(self):
         return f"""Replay buffer:
