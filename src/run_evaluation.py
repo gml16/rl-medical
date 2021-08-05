@@ -21,11 +21,15 @@ if __name__ == "__main__":
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument(
-        '--files', type=argparse.FileType('r'), nargs='+',
+        '--model_files', type=argparse.FileType('r'), nargs='+',
         help="Filepath to the models that must be evaluated")
-    # parser.add_argument(
-    #     '--fixed_spawn', nargs='*',  type=float,
-    #     help='Starting position of the agents during rollout. Randomised if not specified.',)
+
+    parser.add_argument(
+        '--files', type=argparse.FileType('r'), nargs='+',
+        help="""Filepath to the text file that contains list of images.
+                Each line of this file is a full path to an image scan.
+                For (task == train or eval) there should be two input files
+                ['images', 'landmarks']""")
 
     args = parser.parse_args()
     logger = Logger(None, False, None)
@@ -34,16 +38,16 @@ if __name__ == "__main__":
     z = [0.5,0.25,0.75]
     fixed_spawn = list(np.array(list(itertools.product(x, y, z))).flatten())
 
-    for f in args.files:
+    for f in args.model_files:
         # mypath = os.path.normpath(f)
 
         # python DQN.py --task eval --load runs/Mar01_04-16-35_monal03.doc.ic.ac.ukbrain10DefaultNetwork3d/best_dqn.pt --files /vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/brain_test_files.txt /vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/brain_test_landmarks.txt --file_type brain --landmarks 13 14 0 1 2 3 4 5 6 7 --model_name Network3d --viz 0
-        fullName = f.split("/")[-2] # e.g. Mar01_04-16-35_monal03.doc.ic.ac.ukbrain10DefaultNetwork3d
+        fullName = f.name.split("/")[-2] # e.g. Mar01_04-16-35_monal03.doc.ic.ac.ukbrain10DefaultNetwork3d
         name = fullName.split("doc.ic.ac.uk")[-1]
         if "CommNet" in name:
             model_name = "CommNet"
         elif "Network3d" in name:
-            model_name = "Network3d"
+            model_name = "Network3D"
 
         if "3" in name:
             agents = 3
@@ -66,17 +70,17 @@ if __name__ == "__main__":
             landmarks = [10, 11, 12, 1, 2, 3, 4, 5, 6, 7]
         landmarks = landmarks[:agents]
         
-        files = [f"/vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/{file_type2}_test_files.txt", 
-                 f"/vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/{file_type2}_test_landmarks.txt"]
-    
+        files = args.files
+
         if "team" in name:
             collective_rewards = "attention"
-
+        else:
+            collective_rewards = False
         
         dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
                   type=model_name, collective_rewards=collective_rewards)
         model = dqn.q_network
-        model.load_state_dict(torch.load(f, map_location=model.device))
+        model.load_state_dict(torch.load(f.name, map_location=model.device))
         environment = get_player(files_list=files,
                                  file_type=file_type,
                                  landmark_ids=landmarks,
