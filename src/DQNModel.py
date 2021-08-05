@@ -333,33 +333,42 @@ class DQN:
         (states, actions, rewards, next_states, dones)
         '''
         curr_state = torch.tensor(transitions[0])
-        next_state = torch.tensor(transitions[3])
-        terminal = torch.tensor(transitions[4]).type(torch.int)
+        curr_state_aug = torch.tensor(transitions[1])
+        next_state = torch.tensor(transitions[4])
+        next_state_aug = torch.tensor(transitions[5])
+        terminal = torch.tensor(transitions[6]).type(torch.int)
 
         rewards = torch.clamp(
             torch.tensor(
-                transitions[2], dtype=torch.float32), -1, 1)
+                transitions[3], dtype=torch.float32), -1, 1)
         # Collective rewards here refers to adding the (potentially weighted) average reward of all agents
         if self.collective_rewards == "mean":
             rewards += torch.mean(rewards, axis=1).unsqueeze(1).repeat(1, rewards.shape[1])
         elif self.collective_rewards == "attention":
             rewards = rewards + torch.matmul(rewards, nn.Softmax(dim=0)(self.q_network.rew_att))
 
-        y = self.target_network.forward(next_state)
+        y1 = self.target_network.forward(next_state)
+        y2 = self.target_network.forward(next_state_aug)
+
+        y= (y1 + y2) / 2
+
         # dim (batch_size, agents, number_actions)
         y = y.view(-1, self.agents, self.number_actions)
         # Get the maximum prediction for the next state from the target network
         max_target_net = y.max(-1)[0]
 
         # dim (batch_size, agents, number_actions)
-        network_prediction = self.q_network.forward(curr_state).view(
+        network_prediction_1 = self.q_network.forward(curr_state).view(
             -1, self.agents, self.number_actions)
+        network_prediction_2 = self.q_network.forward(curr_state_aug).view(
+            -1, self.agents, self.number_actions)
+        network_prediction = (network_prediction_1 + network_prediction_2) / 2
         isNotOver = (torch.ones(*terminal.shape) - terminal)
         # Bellman equation
         batch_labels_tensor = rewards + isNotOver * \
             (discount_factor * max_target_net.detach())
 
-        actions = torch.tensor(transitions[1], dtype=torch.long).unsqueeze(-1)
+        actions = torch.tensor(transitions[2], dtype=torch.long).unsqueeze(-1)
         y_pred = torch.gather(network_prediction, -1, actions).squeeze()
 
         return torch.nn.SmoothL1Loss()(batch_labels_tensor.flatten(), y_pred.flatten())

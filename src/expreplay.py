@@ -1,14 +1,20 @@
 import numpy as np
 import copy
 from collections import deque
-
+import kornia
+import torch
 
 class ReplayMemory(object):
-    def __init__(self, max_size, state_shape, history_len, agents):
+    def __init__(self, max_size, state_shape, history_len, agents, image_pad = 4):
         self.max_size = int(max_size)
         self.state_shape = state_shape
         self.history_len = int(history_len)
         self.agents = agents
+
+        self.aug_trans = torch.nn.Sequential(
+            torch.nn.ReplicationPad3d(image_pad),
+            kornia.augmentation.augmentation3d.RandomCrop3D((state_shape[-1], state_shape[-1], state_shape[-1])))
+
         try:
             self.state = np.zeros(
                 (self.agents, self.max_size) + state_shape, dtype='uint8')
@@ -117,8 +123,42 @@ class ReplayMemory(object):
             next_states.append(exp[3])
             isOver.append(exp[4])
         # Only get most recent terminal state
-        return (np.array(states), np.array(actions)[:, :, -1],
-                np.array(rewards)[:, :, -1], np.array(next_states),
+
+        states = np.array(states)
+        states_aug = states.copy()
+
+        next_states = np.array(next_states)
+        next_states_aug = next_states.copy()
+
+        states_shape = states.shape
+
+        states = torch.as_tensor(states).float()
+        next_states = torch.as_tensor(next_states).float()
+        states_aug = torch.as_tensor(states_aug).float()
+        next_states_aug = torch.as_tensor(next_states_aug).float()
+
+        states = states.reshape(states_shape[0], -1, states_shape[3], states_shape[4], states_shape[5])
+        states = self.aug_trans(states)
+        states = states.reshape(states_shape)
+        #states = states.detach().numpy()
+
+        next_states = next_states.reshape(states_shape[0], -1, states_shape[3], states_shape[4], states_shape[5])
+        next_states = self.aug_trans(next_states)
+        next_states = next_states.reshape(states_shape)
+        #next_states = next_states.detach().numpy()
+
+        states_aug = states_aug.reshape(states_shape[0], -1, states_shape[3], states_shape[4], states_shape[5])
+        states_aug = self.aug_trans(states_aug)
+        states_aug = states_aug.reshape(states_shape)
+        #states_aug = states_aug.detach().numpy()
+
+        next_states_aug = next_states_aug.reshape(states_shape[0], -1, states_shape[3], states_shape[4], states_shape[5])
+        next_states_aug = self.aug_trans(next_states_aug)
+        next_states_aug = next_states_aug.reshape(states_shape)
+        #next_states_aug = next_states_aug.detach().numpy()
+
+        return (states, states_aug, np.array(actions)[:, :, -1],
+                np.array(rewards)[:, :, -1], next_states, next_states_aug,
                 np.array(isOver)[:, :, -1])
 
     # the next_state is a different episode if current_state.isOver==True
