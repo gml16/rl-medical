@@ -23,23 +23,37 @@ class ReplayMemory(object):
         self._curr_size = 0
         self._hist = deque(maxlen=history_len)
 
-    def append(self, exp):
-        """Append the replay memory with experience sample
+    def append_obs(self, obs):
+        """Append the replay memory with most recent state
         Args:
-            exp (Experience): contains (state, action, reward, isOver)
+            obs: latest_state
         """
         # increase current memory size if it is not full yet
+        index = self._curr_pos
         if self._curr_size < self.max_size:
-            self._assign(self._curr_pos, exp)
+            self._assign_state(self._curr_pos, obs)
             self._curr_pos = (self._curr_pos + 1) % self.max_size
             self._curr_size += 1
         else:
-            self._assign(self._curr_pos, exp)
+            self._assign_state(self._curr_pos, obs)
             self._curr_pos = (self._curr_pos + 1) % self.max_size
-        if np.all(exp[3]):
+        self._hist.append((obs,))
+        return index
+
+    def append_effect(self, effect):
+        """Assign to the state the action, reward and terminal flag
+        Args:
+            effect: contains (index, acts, reward, terminal)
+        """
+        # increase current memory size if it is not full yet
+        index = effect[0]
+        self._assign_effect(index, effect)
+        
+        if np.all(effect[4]):
             self._hist.clear()
         else:
-            self._hist.append(exp)
+            self._hist.pop()
+            self._hist.append((effect[1],effect[2],effect[3],effect[4]))
 
     def recent_state(self):
         """ return a list of (hist_len,) + STATE_SIZE """
@@ -131,6 +145,14 @@ class ReplayMemory(object):
             self.action[i, pos] = exp[1][i]
             self.reward[i, pos] = exp[2][i]
             self.isOver[i, pos] = exp[3][i]
+
+    def _assign_state(self, pos, obs):
+        self.state[:, pos] = obs
+
+    def _assign_effect(self, pos, effect):
+        self.action[:, pos] = effect[2]
+        self.reward[:, pos] = effect[3]
+        self.isOver[:, pos] = effect[4]
 
     def __str__(self):
         return f"""Replay buffer:
