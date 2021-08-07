@@ -272,5 +272,5 @@ if __name__ == '__main__':
                           lr=args.lr,
                           scheduler_gamma=args.scheduler_gamma,
                           scheduler_step_size=args.scheduler_step_size,
-                          padding=padding
+                          padding=args.padding
                          ).train()
