@@ -5,7 +5,7 @@ import kornia
 import torch
 
 class ReplayMemory(object):
-    def __init__(self, max_size, state_shape, history_len, agents, image_pad = 4):
+    def __init__(self, max_size, state_shape, history_len, agents, image_pad = 2):
         self.max_size = int(max_size)
         self.state_shape = state_shape
         self.history_len = int(history_len)

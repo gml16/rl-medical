@@ -30,7 +30,8 @@ class Trainer(object):
                  attention=False,
                  lr=1e-3,
                  scheduler_gamma=0.5,
-                 scheduler_step_size=100
+                 scheduler_step_size=100,
+                 padding=2
                 ):
         self.env = env
         self.eval_env = eval_env
@@ -54,7 +55,8 @@ class Trainer(object):
             self.replay_buffer_size,
             self.image_size,
             self.frame_history,
-            self.agents)
+            self.agents,
+            image_pad=padding)
         self.dqn = DQN(
             self.agents,
             self.frame_history,

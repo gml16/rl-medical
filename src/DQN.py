@@ -188,6 +188,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '--fixed_spawn', nargs='*',  type=float,
         help='Starting position of the agents during rollout. Randomised if not specified.',)
+    parser.add_argument(
+        '--padding',
+        help="""Padding applied in random shift""",
+        default=2, type=int)
     args = parser.parse_args()
 
     agents = len(args.landmarks)
@@ -267,5 +271,6 @@ if __name__ == '__main__':
                           attention=args.attention,
                           lr=args.lr,
                           scheduler_gamma=args.scheduler_gamma,
-                          scheduler_step_size=args.scheduler_step_size
+                          scheduler_step_size=args.scheduler_step_size,
+                          padding=padding
                          ).train()
