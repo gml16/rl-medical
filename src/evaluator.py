@@ -69,8 +69,8 @@ class Evaluator(object):
             using greedy policy.
             """
 
-            inputs = torch.tensor(inputs[0]).permute(
-                0, 4, 1, 2, 3).unsqueeze(0), torch.tensor(inputs[1]).unsqueeze(0)
+            inputs = torch.tensor(inputs).permute(
+                0, 4, 1, 2, 3).unsqueeze(0)
             q_vals = self.model.forward(inputs).detach().squeeze(0)
             idx = torch.max(q_vals, -1)[1]
             greedy_steps = np.array(idx, dtype=np.int32).flatten()
