@@ -72,7 +72,8 @@ class Network3D(nn.Module):
         Output is a tensor of size
         (batch_size, agents, number_actions)
         """
-        input = input[0].to(self.device) / 255.0
+        #input = input[0].to(self.device) / 255.0
+        input = input.to(self.device) / 255.0
         output = []
         for i in range(self.agents):
             # Shared layers
@@ -285,7 +286,8 @@ class CommNet(nn.Module):
         # Output is a tensor of size
         (batch_size, agents, number_actions)
         """
-        input1 = input[0].to(self.device) / 255.0
+        #input1 = input[0].to(self.device) / 255.0
+        input1 = input.to(self.device) / 255.0
 
         # Shared layers
         input2 = []
@@ -441,7 +443,8 @@ class GraphNet(nn.Module):
         # Output is a tensor of size
         (batch_size, agents, number_actions)
         """
-        input1 = input[0].to(self.device) / 255.0
+        #input1 = input[0].to(self.device) / 255.0
+        input1 = input.to(self.device) / 255.0
 
         # Shared layers
         input2 = []
@@ -550,7 +553,9 @@ class SemGCN(nn.Module):
         # Output is a tensor of size
         (batch_size, agents, number_actions)
         """
-        input1 = input[0].to(self.device) / 255.0
+        #input1 = input[0].to(self.device) / 255.0
+        input1 = input.to(self.device) / 255.0
+
 
         # Shared layers
         input2 = []
@@ -671,7 +676,8 @@ class SemGCN_v2(nn.Module):
         # Output is a tensor of size
         (batch_size, agents, number_actions)
         """
-        input1 = input[0].to(self.device) / 255.0
+        #input1 = input[0].to(self.device) / 255.0
+        input1 = input.to(self.device) / 255.0
 
         # Shared layers
         input2 = []
@@ -854,7 +860,9 @@ class GraphNet_v2(nn.Module):
         # Output is a tensor of size
         (batch_size, agents, number_actions)
         """
-        input1 = input[0].to(self.device) / 255.0
+        #input1 = input[0].to(self.device) / 255.0
+        input1 = input.to(self.device) / 255.0
+
 
         # Shared layers
         input2 = []
@@ -1036,8 +1044,12 @@ class DQN:
         (states, actions, rewards, next_states, dones)
         '''
         # States are a tuple of the stacked RoI around the agents and the previous actions
-        curr_state = torch.tensor(transitions[0][0]), torch.tensor(transitions[0][1])
-        next_state = torch.tensor(transitions[3][0]), torch.tensor(transitions[3][1])
+        # curr_state = torch.tensor(transitions[0][0]), torch.tensor(transitions[0][1])
+        # next_state = torch.tensor(transitions[3][0]), torch.tensor(transitions[3][1])
+        # terminal = torch.tensor(transitions[4]).type(torch.int)
+
+        curr_state = torch.tensor(transitions[0])
+        next_state = torch.tensor(transitions[3])
         terminal = torch.tensor(transitions[4]).type(torch.int)
 
         if self.collective_rewards != "physical":

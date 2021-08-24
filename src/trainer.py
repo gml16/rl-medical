@@ -87,27 +87,30 @@ class Trainer(object):
         while episode <= self.max_episodes:
             # Reset the environment for the start of the episode.
             obs = self.env.reset()
+            self.buffer._hist.clear()
             terminal = [False for _ in range(self.agents)]
             losses = []
             score = [0] * self.agents
             for step_num in range(self.steps_per_episode):
                 acc_steps += 1
+                # Step the agent once, and get the transition tuple
+                index = self.buffer.append_obs(obs)
                 acts, q_values = self.get_next_actions(
                     self.buffer.recent_state())
-                # Step the agent once, and get the transition tuple
-                obs, reward, terminal, info = self.env.step(
+                next_obs, reward, terminal, info = self.env.step(
                     np.copy(acts), q_values, terminal)
+                self.buffer.append_effect((index, obs, acts, reward, terminal))
                 score = [sum(x) for x in zip(score, reward)]
-                self.buffer.append((obs, acts, reward, terminal))
+                obs = next_obs
                 if acc_steps % self.train_freq == 0:
-                    mini_batch = self.buffer.sample_stacked_actions(self.batch_size)
+                    mini_batch = self.buffer.sample(self.batch_size)
                     loss = self.dqn.train_q_network(mini_batch, self.gamma)
                     losses.append(loss)
                 if all(t for t in terminal):
                     break
             epoch_distances.append([info['distError_' + str(i)]
                                     for i in range(self.agents)])
-            
+
             self.append_episode_board(info, score, "train", episode)
             if (episode * self.epoch_length) % self.update_frequency == 0:
                 self.dqn.copy_to_target_network()
@@ -128,15 +131,17 @@ class Trainer(object):
         while len(self.buffer) < self.init_memory_size:
             # Reset the environment for the start of the episode.
             obs = self.env.reset()
+            self.buffer._hist.clear()
             terminal = [False for _ in range(self.agents)]
             steps = 0
             for _ in range(self.steps_per_episode):
                 steps += 1
-                last_trans = self.buffer.recent_state()
-                acts, q_values = self.get_next_actions(last_trans)
-                obs, reward, terminal, info = self.env.step(
+                index = self.buffer.append_obs(obs)
+                acts, q_values = self.get_next_actions(obs)
+                next_obs, reward, terminal, info = self.env.step(
                     acts, q_values, terminal)
-                self.buffer.append((obs, acts, reward, terminal))
+                self.buffer.append_effect((index, obs, acts, reward, terminal))
+                obs = next_obs
                 if all(t for t in terminal):
                     break
             pbar.update(steps)

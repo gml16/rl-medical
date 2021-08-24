@@ -23,15 +23,13 @@ if __name__ == "__main__":
     parser.add_argument(
         '--model_files', type=argparse.FileType('r'), nargs='+',
         help="Filepath to the models that must be evaluated")
+
     parser.add_argument(
         '--files', type=argparse.FileType('r'), nargs='+',
         help="""Filepath to the text file that contains list of images.
                 Each line of this file is a full path to an image scan.
                 For (task == train or eval) there should be two input files
                 ['images', 'landmarks']""")
-    # parser.add_argument(
-    #     '--fixed_spawn', nargs='*',  type=float,
-    #     help='Starting position of the agents during rollout. Randomised if not specified.',)
 
     args = parser.parse_args()
     logger = Logger(None, False, None)
@@ -50,7 +48,7 @@ if __name__ == "__main__":
         if "CommNet" in name:
             model_name = "CommNet"
         elif "Network3d" in name:
-            model_name = "Network3d"
+            model_name = "Network3D"
         elif "SemGCNV2" in name:
             model_name = "SemGCN_v2"
         elif "SemGCN" in name:
@@ -67,7 +65,7 @@ if __name__ == "__main__":
             agents = 5
         elif "10" in name:
             agents = 10
-        
+
         adj = None
         if "SemGCN" or "PR" in name:
             adj = torch.ones((agents, agents))
@@ -85,18 +83,16 @@ if __name__ == "__main__":
             file_type2 = "fetalUS"
             landmarks = [10, 11, 12, 1, 2, 3, 4, 5, 6, 7]
         landmarks = landmarks[:agents]
-        
-        #files = [f"/vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/{file_type2}_test_files.txt", 
-        #        f"/vol/biomedic2/aa16914/shared/RL_Guy/rl-medical/examples/LandmarkDetection/DQN/data/filenames/{file_type2}_test_landmarks.txt"]
+
         files = args.files
-        
+
         if "AR" in name:
             collective_rewards = "attention"
         elif "MR" in name:
             collective_rewards = "mean"
         else:
             collective_rewards = False
-        
+
         dqn = DQN(
             agents,
             frame_history=FRAME_HISTORY,

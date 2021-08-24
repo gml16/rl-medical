@@ -23,20 +23,24 @@ class ReplayMemory(object):
         self._curr_size = 0
         self._hist = deque(maxlen=history_len)
 
-    def append(self, exp):
-        """Append the replay memory with experience sample
+    def append_obs(self, obs):
+        """Append the replay memory with most recent state
         Args:
-            exp (Experience): contains (state, action, reward, isOver)
+            obs: latest_state
         """
         # increase current memory size if it is not full yet
+        index = self._curr_pos
         if self._curr_size < self.max_size:
-            self._assign(self._curr_pos, exp)
+            self._assign_state(self._curr_pos, obs)
             self._curr_pos = (self._curr_pos + 1) % self.max_size
             self._curr_size += 1
         else:
-            self._assign(self._curr_pos, exp)
+            self._assign_state(self._curr_pos, obs)
             self._curr_pos = (self._curr_pos + 1) % self.max_size
+        self._hist.append((obs,))
+        return index
 
+    '''
     def recent_transition(self):
         """ Return hist_len transitions, padded with zeros if needed
         Most recent transition is at the end of the arrays """
@@ -45,12 +49,42 @@ class ReplayMemory(object):
         # print("self.action", self.action)
         # print("isOver", self.isOver)
         return self._encode_sample(self._curr_pos)
+    '''
 
+    def append_effect(self, effect):
+        """Assign to the state the action, reward and terminal flag
+        Args:
+            effect: contains (index, acts, reward, terminal)
+        """
+        # increase current memory size if it is not full yet
+        index = effect[0]
+        self._assign_effect(index, effect)
+
+        if np.all(effect[4]):
+            self._hist.clear()
+        else:
+            self._hist.pop()
+            self._hist.append((effect[1],effect[2],effect[3],effect[4]))
+    '''
     def recent_state(self):
         """ Return a tuple of previous RoI and actions """
         transition = self.recent_transition()
         return transition[0], transition[1]
+    '''
 
+    def recent_state(self):
+        """ return a list of (hist_len,) + STATE_SIZE """
+        lst = list(self._hist)
+        states = []
+        for i in range(self.agents):
+            states_temp = [np.zeros(self.state_shape,
+                                    dtype='uint8')] \
+                                    * (self._hist.maxlen - len(lst))
+            states_temp.extend([k[0][i] for k in lst])
+            states.append(states_temp)
+        return np.array(states)
+
+    '''
     def _encode_sample(self, idx):
         """ Sample an experience replay from memory with index idx
         :returns: a tuple of (state, next_state, reward, action, isOver)
@@ -67,7 +101,43 @@ class ReplayMemory(object):
         next_states = self._pad_sample(next_states, isOver)
 
         return states, actions, rewards, next_states, isOver, next_actions
+    '''
 
+    def _encode_sample(self, idx):
+        """ Sample an experience replay from memory with index idx
+        :returns: a tuple of (state, next_state, reward, action, isOver)
+                  where state is of shape STATE_SIZE + (history_length,)
+        """
+        idx = (self._curr_pos + idx) % self._curr_size
+        k = self.history_len
+
+        states = []
+        next_states = []
+        rewards = []
+        actions = []
+        isOver = []
+        for i in range(self.agents):
+            if idx + k < self._curr_size:
+                states.append(self.state[i, idx: idx + k])
+                next_states.append(self.state[i, idx + 1: idx + k + 1])
+                isOver.append(self.isOver[i, idx: idx + k])
+                rewards.append(self.reward[i, idx: idx + k])
+                actions.append(self.action[i, idx: idx + k])
+            else:
+                end = idx + k - self._curr_size
+                states.append(self._slice(self.state[i], idx, end))
+                next_states.append(
+                    self._slice(
+                        self.state[i],
+                        idx + 1,
+                        end + 1))
+                isOver.append(self._slice(self.isOver[i], idx, end))
+                rewards.append(self._slice(self.reward[i], idx, end))
+                actions.append(self._slice(self.action[i], idx, end))
+        states_padded = self._pad_sample(states, isOver)
+        return states_padded, actions, rewards, next_states, isOver
+
+    '''
     def sample_stacked_actions(self, batch_size):
         idxes = [np.random.randint(0, len(self) - 1)
                  for _ in range(batch_size)]
@@ -88,6 +158,7 @@ class ReplayMemory(object):
         return ((np.array(states), np.array(actions)), np.array(actions)[:, :, -1],
                 np.array(rewards)[:, :, -1], (np.array(next_states), np.array(next_actions)),
                 np.array(isOver)[:, :, -1])
+    '''
 
     def sample(self, batch_size):
         idxes = [np.random.randint(0, len(self) - 1)
@@ -119,12 +190,19 @@ class ReplayMemory(object):
             break
         return arr
 
+    '''
     def _slice(self, arr, idx):
         if idx >= self.history_len:
             return arr[:, idx-self.history_len: idx]
         s1 = arr[:, -self.history_len+idx:]
         s2 = arr[:, :idx]
         return np.concatenate((s1, s2), axis=1)
+    '''
+
+    def _slice(self, arr, start, end):
+        s1 = arr[start:self._curr_size]
+        s2 = arr[:end]
+        return np.concatenate((s1, s2), axis=0)
 
     def __len__(self):
         return self._curr_size
@@ -135,6 +213,14 @@ class ReplayMemory(object):
             self.action[i, pos] = exp[1][i]
             self.reward[i, pos] = exp[2][i]
             self.isOver[i, pos] = exp[3][i]
+
+    def _assign_state(self, pos, obs):
+        self.state[:, pos] = obs
+
+    def _assign_effect(self, pos, effect):
+        self.action[:, pos] = effect[2]
+        self.reward[:, pos] = effect[3]
+        self.isOver[:, pos] = effect[4]
 
     def __str__(self):
         return f"""Replay buffer:
