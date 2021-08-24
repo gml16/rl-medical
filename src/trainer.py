@@ -217,7 +217,7 @@ class Trainer(object):
         return actions, q_values
 
     def get_greedy_actions(self, obs_stack, doubleLearning=True):
-        inputs = torch.tensor(obs_stack[0]).unsqueeze(0), torch.tensor(obs_stack[1]).unsqueeze(0)
+        inputs = torch.tensor(obs_stack).unsqueeze(0)
         if doubleLearning:
             q_vals = self.dqn.q_network.forward(inputs).detach().squeeze(0)
         else:
