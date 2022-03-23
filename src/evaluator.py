@@ -39,9 +39,12 @@ class Evaluator(object):
             [f"Distance {i}" for i in range(self.agents)])))
         self.logger.write_locations(headers)
         distances = []
+        curr_fixed_spawn = None
         for j in range(num_runs):
+            if fixed_spawn is not None:
+                curr_fixed_spawn = fixed_spawn[j]
             for k in range(num_files):
-                score, start_dists, q_values, info = self.play_one_episode(render, fixed_spawn=fixed_spawn[j])
+                score, start_dists, q_values, info = self.play_one_episode(render, fixed_spawn=curr_fixed_spawn)
                 row = [j * num_files + k + 1] + list(chain.from_iterable(zip(
                     [info[f"filename_{i}"] for i in range(self.agents)],
                     [info[f"agent_xpos_{i}"] for i in range(self.agents)],
