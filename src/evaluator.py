@@ -18,6 +18,7 @@ class Evaluator(object):
         """
         if fixed_spawn is None:
             num_runs = 1 
+            fixed_spawn = [None]
         else:
             # fixed_spawn should be, for example, [0.5 , 0.5 , 0.5, 0, 0, 0] for 2 runs
             # In the first run agents spawn in the middle and in the second they will spawn from the corner
