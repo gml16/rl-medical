@@ -175,6 +175,15 @@ optional arguments:
                         is provided, no seed will be set (default: None)
 ```
 
+## Visualiser
+
+To help debug/visualise the images with their landmarks, you can use the `visualise.py` script. It will show each image with the agents positioned at the landmarks' locations. Pressing Enter will go to the next image in the dataset.
+
+Example usage:
+```
+python visualiser.py --files data/filenames/image_files.txt data/filenames/landmark_files.txt --file_type brain --landmarks 0 1 2 3
+```
+
 ## Contributing
 
 Issues and pull requests are very welcomed.

@@ -236,6 +236,9 @@ class MedicalPlayer(gym.Env):
                     skip_thickness[2],
                     self._image_dims[2] - skip_thickness[2],
                     self.agents)
+        elif fixed_spawn == "on_landmark":
+            transposed_loc = [tuple(map(int, target)) for target in self._target_loc]
+            x, y, z  = [list(x) for x in zip(*transposed_loc)]
         else:
             x, y, z = [[int(fixed_spawn[i][j]*(self._image_dims[i]-1)) for j in range(self.agents)] for i in range(len(fixed_spawn))]
 
