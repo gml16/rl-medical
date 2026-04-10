@@ -67,18 +67,19 @@ class Evaluator(object):
         return mean, std
 
     def play_one_episode(self, render=False, frame_history=4, fixed_spawn=None):
-
+        device = next(self.model.parameters()).device
         def predict(obs_stack):
             """
             Run a full episode, mapping observation to action,
             using greedy policy.
             """
-            inputs = torch.tensor(obs_stack).permute(
-                0, 4, 1, 2, 3).unsqueeze(0)
-            q_vals = self.model.forward(inputs).detach().squeeze(0)
+            inputs = torch.from_numpy(obs_stack).float().permute(
+                0, 4, 1, 2, 3).unsqueeze(0).to(device)
+            with torch.no_grad(): 
+                q_vals = self.model(inputs)
             idx = torch.max(q_vals, -1)[1]
             greedy_steps = np.array(idx, dtype=np.int32).flatten()
-            return greedy_steps, q_vals.data.numpy()
+            return greedy_steps, q_vals.detach().cpu().numpy()
 
         obs_stack = self.env.reset(fixed_spawn)
         # Here obs have shape (agent, *image_size, frame_history)

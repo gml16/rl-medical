@@ -217,8 +217,11 @@ if __name__ == '__main__':
     if args.task != 'train':
         dqn = DQN(agents, frame_history=FRAME_HISTORY, logger=logger,
                   type=args.model_name, collective_rewards=args.team_reward, attention=args.attention)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = dqn.q_network
-        model.load_state_dict(torch.load(args.load, map_location=model.device))
+        model.load_state_dict(torch.load(args.load, map_location=device))
+        model.to(device)
+        model.eval()
         environment = get_player(files_list=args.files,
                                  file_type=args.file_type,
                                  landmark_ids=args.landmarks,
