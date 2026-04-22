@@ -308,6 +308,18 @@ class DQN:
     def copy_to_target_network(self):
         self.target_network.load_state_dict(self.q_network.state_dict())
 
+    def save_checkpoint(self, name="checkpoint.pt", episode=0, eps=1.0, acc_steps=0, forced=False):
+        checkpoint = {
+            'q_network_state_dict': self.q_network.state_dict(),
+            'target_network_state_dict': self.target_network.state_dict(),
+            'optimiser_state_dict': self.optimiser.state_dict(),
+            'scheduler_state_dict': self.scheduler.state_dict(),
+            'episode': episode,
+            'eps': eps,
+            'acc_steps': acc_steps,
+        }
+        self.logger.save_model(checkpoint, name, forced)
+
     def save_model(self, name="dqn.pt", forced=False):
         self.logger.save_model(self.q_network.state_dict(), name, forced)
 

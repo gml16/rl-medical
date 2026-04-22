@@ -78,6 +78,10 @@ if __name__ == '__main__':
 
     parser.add_argument('--load', help='Path to the model to load')
     parser.add_argument(
+        '--resume',
+        help='Path to a checkpoint file to resume training from',
+        default=None, type=str)
+    parser.add_argument(
         '--task',
         help='''task to perform,
                 must load a pretrained model if task is "play" or "eval"''',
@@ -209,8 +213,8 @@ if __name__ == '__main__':
                             \'landmarks.txt\'] """
         assert len(args.files) == 2, (error_message)
 
-    if args.seed is not None:
-        set_reproducible(args.seed)
+    if args.resume is not None and args.task != 'train':
+        print(f"Warning: --resume is only used for --task train, ignoring --resume.")
 
     logger = Logger(args.log_dir, args.write, args.save_freq, comment=args.log_comment)
 
@@ -235,6 +239,11 @@ if __name__ == '__main__':
                               args.steps_per_episode)
         evaluator.play_n_episodes(fixed_spawn=args.fixed_spawn)
     else:  # train model
+        checkpoint = None
+        if args.resume is not None:
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            checkpoint = torch.load(args.resume, map_location=device)
+            print(f"Loaded checkpoint from: {args.resume}")
         environment = get_player(task='train',
                                  files_list=args.files,
                                  file_type=args.file_type,
@@ -270,5 +279,6 @@ if __name__ == '__main__':
                           attention=args.attention,
                           lr=args.lr,
                           scheduler_gamma=args.scheduler_gamma,
-                          scheduler_step_size=args.scheduler_step_size
+                          scheduler_step_size=args.scheduler_step_size,
+                          checkpoint=checkpoint
                          ).train()
