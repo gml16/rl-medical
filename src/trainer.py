@@ -30,7 +30,8 @@ class Trainer(object):
                  attention=False,
                  lr=1e-3,
                  scheduler_gamma=0.5,
-                 scheduler_step_size=100
+                 scheduler_step_size=100,
+                 checkpoint=None
                 ):
         self.env = env
         self.eval_env = eval_env
@@ -66,19 +67,38 @@ class Trainer(object):
             scheduler_gamma=scheduler_gamma,
             scheduler_step_size=scheduler_step_size)
         self.dqn.q_network.train(True)
+        self.logger = logger
+        self.train_freq = train_freq
+        self.start_episode = 1
+        self.start_acc_steps = 0
+        self.start_eps = eps
+
+        if checkpoint is not None:
+            if self.logger:
+                self.logger.log("Restoring from checkpoint...")
+            self.dqn.q_network.load_state_dict(checkpoint['q_network_state_dict'])
+            if 'target_network_state_dict' in checkpoint:
+                self.dqn.target_network.load_state_dict(checkpoint['target_network_state_dict'])
+            if 'optimiser_state_dict' in checkpoint:
+                self.dqn.optimiser.load_state_dict(checkpoint['optimiser_state_dict'])
+            if 'scheduler_state_dict' in checkpoint:
+                self.dqn.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            self.start_episode = checkpoint.get('episode', 0) + 1
+            self.start_acc_steps = checkpoint.get('acc_steps', 0)
+            self.start_eps = checkpoint.get('eps', self.eps)
+            if self.logger:
+                self.logger.log(f"Resumed from episode {checkpoint.get('episode', 0)}, step {checkpoint.get('acc_steps', 0)}")
         self.evaluator = Evaluator(eval_env,
                                    self.dqn.q_network,
                                    logger,
                                    self.agents,
                                    steps_per_episode)
-        self.logger = logger
-        self.train_freq = train_freq
-
     def train(self):
         self.logger.log(self.dqn.q_network)
         self.init_memory()
-        episode = 1
-        acc_steps = 0
+        episode = self.start_episode
+        acc_steps = self.start_acc_steps
+        self.eps = self.start_eps
         epoch_distances = []
         while episode <= self.max_episodes:
             # Reset the environment for the start of the episode.
@@ -116,6 +136,12 @@ class Trainer(object):
                                         "train", episode)
                 self.validation_epoch(episode)
                 self.dqn.save_model(name="latest_dqn.pt", forced=True)
+                self.dqn.save_checkpoint(
+                    name="latest_checkpoint.pt",
+                    episode=episode,
+                    eps=self.eps,
+                    acc_steps=acc_steps,
+                    forced=True)
                 self.dqn.scheduler.step()
                 epoch_distances = []
             episode += 1
